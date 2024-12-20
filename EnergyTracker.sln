@@ -1,0 +1,55 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{AE381BBE-7DC0-42AC-8F5A-54CD02FE565E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyTracker.BlazorClient.Tests", "src\EnergyTracker.BlazorClient.Tests\EnergyTracker.BlazorClient.Tests.csproj", "{EFA685BB-7933-4DD1-884C-2E0F6049B55B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyTracker.WebApi.Tests", "src\EnergyTracker.WebApi.Tests\EnergyTracker.WebApi.Tests.csproj", "{4E2B9101-5586-4BD9-8BD0-C69D4CBA5ADA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyTracker.WebApi", "src\EnergyTracker.WebApi\EnergyTracker.WebApi.csproj", "{EA5DCE60-493C-499D-AA63-03D54549C5D2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyTracker.BlazorClient", "src\EnergyTracker.BlazorClient\EnergyTracker.BlazorClient.csproj", "{EA86B417-2173-4AB0-B0DA-A0F89F7D2E9C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnergyTracker.Shared", "src\EnergyTracker.Shared\EnergyTracker.Shared.csproj", "{951FCBF5-F935-4538-AA87-0BFCFCF2B095}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EFA685BB-7933-4DD1-884C-2E0F6049B55B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFA685BB-7933-4DD1-884C-2E0F6049B55B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFA685BB-7933-4DD1-884C-2E0F6049B55B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFA685BB-7933-4DD1-884C-2E0F6049B55B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4E2B9101-5586-4BD9-8BD0-C69D4CBA5ADA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4E2B9101-5586-4BD9-8BD0-C69D4CBA5ADA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4E2B9101-5586-4BD9-8BD0-C69D4CBA5ADA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4E2B9101-5586-4BD9-8BD0-C69D4CBA5ADA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA5DCE60-493C-499D-AA63-03D54549C5D2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA5DCE60-493C-499D-AA63-03D54549C5D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA5DCE60-493C-499D-AA63-03D54549C5D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA5DCE60-493C-499D-AA63-03D54549C5D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA86B417-2173-4AB0-B0DA-A0F89F7D2E9C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA86B417-2173-4AB0-B0DA-A0F89F7D2E9C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA86B417-2173-4AB0-B0DA-A0F89F7D2E9C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA86B417-2173-4AB0-B0DA-A0F89F7D2E9C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{951FCBF5-F935-4538-AA87-0BFCFCF2B095}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{951FCBF5-F935-4538-AA87-0BFCFCF2B095}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{951FCBF5-F935-4538-AA87-0BFCFCF2B095}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{951FCBF5-F935-4538-AA87-0BFCFCF2B095}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{EFA685BB-7933-4DD1-884C-2E0F6049B55B} = {AE381BBE-7DC0-42AC-8F5A-54CD02FE565E}
+		{4E2B9101-5586-4BD9-8BD0-C69D4CBA5ADA} = {AE381BBE-7DC0-42AC-8F5A-54CD02FE565E}
+		{EA5DCE60-493C-499D-AA63-03D54549C5D2} = {AE381BBE-7DC0-42AC-8F5A-54CD02FE565E}
+		{EA86B417-2173-4AB0-B0DA-A0F89F7D2E9C} = {AE381BBE-7DC0-42AC-8F5A-54CD02FE565E}
+		{951FCBF5-F935-4538-AA87-0BFCFCF2B095} = {AE381BBE-7DC0-42AC-8F5A-54CD02FE565E}
+	EndGlobalSection
+EndGlobal
