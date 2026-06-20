@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Euro Burn — Gradient States Reference</title>
+  <style>
+    /* ============================================================
+       RESET & BASE
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+      background: #f5f5f5; /* light page canvas so phone frames stand out */
+      min-height: 100vh;
+      padding: 48px 24px 72px;
+    }
+
+    .page-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #888;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    /* ============================================================
+       FRAMES LAYOUT — side by side on desktop, stacked on mobile
+       ============================================================ */
+    .frames-row {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+
+    /* ============================================================
+       PHONE WRAPPER & CHROME
+       ============================================================ */
+    .phone-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .frame-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #555;
+      text-align: center;
+    }
+
+    .phone-frame {
+      width: 320px;
+      background: #1c1c1e; /* iOS-dark bezel */
+      border-radius: 46px;
+      padding: 12px;
+      box-shadow:
+        0 0 0 1px rgba(0,0,0,0.15),
+        0 32px 64px rgba(0,0,0,0.22),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+      position: relative;
+    }
+
+    /* Dynamic island notch */
+    .phone-frame::before {
+      content: '';
+      display: block;
+      width: 100px;
+      height: 28px;
+      background: #000;
+      border-radius: 16px;
+      margin: 0 auto 8px;
+    }
+
+    .phone-screen {
+      border-radius: 34px;
+      overflow: hidden;
+      position: relative;
+      height: 640px;
+    }
+
+    /* ============================================================
+       SCREEN BACKGROUNDS — three states
+       ============================================================ */
+
+    /* Frame 1 — Low usage: cool indigo → teal */
+    .screen-low {
+      background: linear-gradient(
+        160deg,
+        #0d1240 0%,    /* deep cool indigo */
+        #0a3d4a 100%   /* teal */
+      );
+    }
+
+    /* Frame 2 — At budget: midpoint warm charcoal (flat, no gradient — this IS the midpoint) */
+    .screen-mid {
+      background: #2d2018; /* warm charcoal neutral — exact midpoint color */
+    }
+
+    /* Frame 3 — High usage: deep amber → burnt orange */
+    .screen-high {
+      background: linear-gradient(
+        160deg,
+        #3d1800 0%,    /* deep amber */
+        #5c2200 100%   /* burnt orange */
+      );
+    }
+
+    /* ============================================================
+       SCREEN CONTENT LAYOUT
+       ============================================================ */
+    .screen-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 14px 14px 0;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0 14px;
+    }
+
+    .header-name {
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.01em;
+    }
+
+    .header-timestamp {
+      font-size: 10px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+    }
+
+    /* ============================================================
+       SCROLLABLE AREA
+       ============================================================ */
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 76px; /* room for tab bar */
+      scrollbar-width: none;
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+    /* ============================================================
+       GLASS CARD
+       ============================================================ */
+    .glass-card {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 16px;
+      padding: 13px 15px;
+    }
+
+    /* ============================================================
+       KPI GRID — 2×2
+       ============================================================ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .kpi-headline {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+
+    .kpi-subline {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.6);
+      margin-top: 2px;
+    }
+
+    .kpi-delta {
+      font-size: 10px;
+      font-weight: 500;
+      margin-top: 4px;
+    }
+
+    /* Delta color variants */
+    .delta-cool  { color: #4ade80; } /* cool green — under budget */
+    .delta-neut  { color: rgba(255,255,255,0.75); } /* neutral white — at budget */
+    .delta-warm  { color: #f59e0b; } /* warm amber #f59e0b — over budget */
+
+    .kpi-tertiary {
+      font-size: 9px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.3);
+      margin-top: 3px;
+    }
+
+    /* ============================================================
+       ENTER READING CTA BUTTON — label only
+       ============================================================ */
+    .cta-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 13px 20px;
+      border-radius: 50px;
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1.5px solid rgba(255,255,255,0.38);
+      cursor: pointer;
+      margin-bottom: 10px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 4px 20px rgba(255,255,255,0.05),
+        inset 0 1px 0 rgba(255,255,255,0.14);
+    }
+
+    .cta-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: 0.01em;
+    }
+
+    /* ============================================================
+       7-DAY TREND CHART CARD
+       ============================================================ */
+    .trend-card {
+      padding: 13px 13px 10px;
+      margin-bottom: 10px;
+    }
+
+    .trend-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 12px;
+    }
+
+    .chart-area {
+      position: relative;
+      height: 80px;
+      display: flex;
+      align-items: flex-end;
+      gap: 5px;
+    }
+
+    /* Budget reference line — 15.5/max kWh from bottom */
+    .budget-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(255,255,255,0.28);
+    }
+
+    .bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      gap: 3px;
+    }
+
+    .bar {
+      width: 100%;
+      border-radius: 3px 3px 2px 2px;
+      min-height: 3px;
+    }
+
+    /* Bar color variants per state */
+    /* Low: cool blue tint */
+    .bar-low  { background: rgba(100,190,230,0.55); }
+    /* Mid: warm neutral tint */
+    .bar-mid  { background: rgba(200,170,130,0.55); }
+    /* High: amber-orange tint */
+    .bar-high { background: rgba(220,130,50,0.6); }
+    /* Spike bars are brighter */
+    .bar-high-spike { background: #f59e0b; opacity: 0.9; }
+
+    .bar-label {
+      font-size: 8px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.3);
+      text-align: center;
+    }
+
+    /* ============================================================
+       BOTTOM TAB BAR
+       ============================================================ */
+    .tab-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: rgba(10,15,25,0.75);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-top: 1px solid rgba(255,255,255,0.09);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding: 9px 0 0;
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      flex: 1;
+    }
+
+    .tab-label {
+      font-size: 8px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.02em;
+    }
+
+    .tab-label.active {
+      color: rgba(255,255,255,0.95);
+    }
+
+    .icon-svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: white;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="page-title">Euro Burn — Gradient States Reference · Daily Budget: 15.5 kWh/day</div>
+
+  <div class="frames-row">
+
+    <!-- ============================================================
+         FRAME 1 — LOW USAGE: 5.8 kWh (37% of budget)
+         Background: deep cool indigo #0d1240 → teal #0a3d4a
+         ============================================================ -->
+    <div class="phone-wrapper">
+      <div class="frame-label">Low — 5.8 kWh (37% of budget)</div>
+      <div class="phone-frame">
+        <div class="phone-screen screen-low">
+
+          <div class="screen-content">
+
+            <!-- HEADER -->
+            <div class="header">
+              <span class="header-name">Wohnung 3B</span>
+              <span class="header-timestamp">Last read: 20 Jun, 09:14</span>
+            </div>
+
+            <div class="scroll-area">
+
+              <!-- KPI GRID 2×2 -->
+              <div class="kpi-grid">
+
+                <!-- Today KPI -->
+                <div class="glass-card">
+                  <div class="kpi-headline">5.8 kWh</div>
+                  <div class="kpi-subline">€1.34</div>
+                  <div class="kpi-delta delta-cool">↓ 9.7 kWh under budget</div>
+                </div>
+
+                <!-- Weekly -->
+                <div class="glass-card">
+                  <div class="kpi-headline">72.3 kWh</div>
+                  <div class="kpi-subline">€16.74</div>
+                </div>
+
+                <!-- Projected month -->
+                <div class="glass-card">
+                  <div class="kpi-headline">~174 kWh</div>
+                  <div class="kpi-subline">~€40.29</div>
+                  <div class="kpi-delta delta-cool">significantly under</div>
+                </div>
+
+                <!-- Daily budget -->
+                <div class="glass-card">
+                  <div class="kpi-headline">15.5 kWh</div>
+                  <div class="kpi-subline">€3.59/day</div>
+                  <div class="kpi-tertiary">based on 5,657 kWh/yr</div>
+                </div>
+
+              </div><!-- /kpi-grid -->
+
+              <!-- ENTER READING CTA -->
+              <div class="cta-button">
+                <span class="cta-label">Enter Reading</span>
+              </div>
+
+              <!-- 7-DAY TREND CHART -->
+              <!-- All bars: short, cool-blue tinted, none spike above budget line -->
+              <!-- Max bar ~8 kWh → scale max = 10 kWh, budget line at 15.5 = above chart top -->
+              <!-- Budget line placed near top since all values are well under budget -->
+              <!-- Using absolute bottom positioning: budget 15.5/16 = 96.9% — so line near top -->
+              <div class="glass-card trend-card">
+                <div class="trend-title">7-Day Trend · Jun 14–20</div>
+                <div class="chart-area">
+                  <!-- Budget reference line: 15.5 kWh is off the top of chart (all bars under budget) -->
+                  <!-- Position it above bars to signal "budget is way up here" -->
+                  <!-- chart height 80px, label area 12px, bar area 68px -->
+                  <!-- 15.5 kWh / 16 kWh max = 96.9% → bottom: 12px + 68px*0.969 ≈ 78px from bottom -->
+                  <div class="budget-line" style="bottom: 78px;"></div>
+
+                  <!-- Bar heights: val/16 * 68px -->
+                  <!-- 4.2→18 | 5.1→22 | 6.3→27 | 7.8→33 | 5.5→23 | 6.0→26 | 5.8→25 -->
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 18px;"></div>
+                    <div class="bar-label">F</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 22px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 27px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 33px;"></div>
+                    <div class="bar-label">M</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 23px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 26px;"></div>
+                    <div class="bar-label">W</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-low" style="height: 25px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                </div>
+              </div><!-- /trend-card -->
+
+            </div><!-- /scroll-area -->
+
+          </div><!-- /screen-content -->
+
+          <!-- BOTTOM TAB BAR -->
+          <div class="tab-bar">
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+              </svg>
+              <span class="tab-label active">Dashboard</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <polyline points="3 17 9 11 13 15 21 7"/>
+                <polyline points="17 7 21 7 21 11"/>
+              </svg>
+              <span class="tab-label">Trends</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 3 L12 12 L19.5 7.5"/>
+                <path d="M12 12 L5 17"/>
+              </svg>
+              <span class="tab-label">Decomp.</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span class="tab-label">Settings</span>
+            </div>
+          </div><!-- /tab-bar -->
+
+        </div><!-- /phone-screen low -->
+      </div><!-- /phone-frame -->
+    </div><!-- /phone-wrapper low -->
+
+
+    <!-- ============================================================
+         FRAME 2 — AT BUDGET: 15.5 kWh (100% of budget)
+         Background: warm charcoal neutral #2d2018 (the midpoint color)
+         Reference frame for judging midpoint hairline subtlety
+         ============================================================ -->
+    <div class="phone-wrapper">
+      <div class="frame-label">At budget — 15.5 kWh (100%)</div>
+      <div class="phone-frame">
+        <div class="phone-screen screen-mid">
+
+          <div class="screen-content">
+
+            <!-- HEADER -->
+            <div class="header">
+              <span class="header-name">Wohnung 3B</span>
+              <span class="header-timestamp">Last read: 20 Jun, 09:14</span>
+            </div>
+
+            <div class="scroll-area">
+
+              <!-- KPI GRID 2×2 -->
+              <div class="kpi-grid">
+
+                <!-- Today KPI -->
+                <div class="glass-card">
+                  <div class="kpi-headline">15.5 kWh</div>
+                  <div class="kpi-subline">€3.59</div>
+                  <div class="kpi-delta delta-neut">— at daily budget</div>
+                </div>
+
+                <!-- Weekly -->
+                <div class="glass-card">
+                  <div class="kpi-headline">108.5 kWh</div>
+                  <div class="kpi-subline">€25.13</div>
+                </div>
+
+                <!-- Projected month -->
+                <div class="glass-card">
+                  <div class="kpi-headline">~465 kWh</div>
+                  <div class="kpi-subline">~€107.70</div>
+                  <div class="kpi-delta delta-neut">on track</div>
+                </div>
+
+                <!-- Daily budget -->
+                <div class="glass-card">
+                  <div class="kpi-headline">15.5 kWh</div>
+                  <div class="kpi-subline">€3.59/day</div>
+                  <div class="kpi-tertiary">based on 5,657 kWh/yr</div>
+                </div>
+
+              </div><!-- /kpi-grid -->
+
+              <!-- ENTER READING CTA -->
+              <div class="cta-button">
+                <span class="cta-label">Enter Reading</span>
+              </div>
+
+              <!-- 7-DAY TREND CHART -->
+              <!-- Medium height bars, warm-neutral tinted, budget line cuts through mid-range -->
+              <!-- Values cluster around 15.5, max ~18 kWh; scale max = 20 kWh -->
+              <!-- Budget line: 15.5/20 = 77.5% → bottom: 12px + 68px*0.775 ≈ 65px -->
+              <div class="glass-card trend-card">
+                <div class="trend-title">7-Day Trend · Jun 14–20</div>
+                <div class="chart-area">
+                  <div class="budget-line" style="bottom: 65px;"></div>
+
+                  <!-- Bar heights: val/20 * 68px -->
+                  <!-- 14.8→50 | 16.2→55 | 13.9→47 | 15.5→53 | 17.1→58 | 14.3→49 | 15.5→53 -->
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 50px;"></div>
+                    <div class="bar-label">F</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 55px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 47px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 53px;"></div>
+                    <div class="bar-label">M</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 58px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 49px;"></div>
+                    <div class="bar-label">W</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-mid" style="height: 53px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                </div>
+              </div><!-- /trend-card -->
+
+            </div><!-- /scroll-area -->
+
+          </div><!-- /screen-content -->
+
+          <!-- BOTTOM TAB BAR -->
+          <div class="tab-bar">
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+              </svg>
+              <span class="tab-label active">Dashboard</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <polyline points="3 17 9 11 13 15 21 7"/>
+                <polyline points="17 7 21 7 21 11"/>
+              </svg>
+              <span class="tab-label">Trends</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 3 L12 12 L19.5 7.5"/>
+                <path d="M12 12 L5 17"/>
+              </svg>
+              <span class="tab-label">Decomp.</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span class="tab-label">Settings</span>
+            </div>
+          </div><!-- /tab-bar -->
+
+        </div><!-- /phone-screen mid -->
+      </div><!-- /phone-frame -->
+    </div><!-- /phone-wrapper mid -->
+
+
+    <!-- ============================================================
+         FRAME 3 — HIGH USAGE: 24.8 kWh (160% of budget)
+         Background: deep amber #3d1800 → burnt orange #5c2200
+         ============================================================ -->
+    <div class="phone-wrapper">
+      <div class="frame-label">High — 24.8 kWh (160% of budget)</div>
+      <div class="phone-frame">
+        <div class="phone-screen screen-high">
+
+          <div class="screen-content">
+
+            <!-- HEADER -->
+            <div class="header">
+              <span class="header-name">Wohnung 3B</span>
+              <span class="header-timestamp">Last read: 20 Jun, 09:14</span>
+            </div>
+
+            <div class="scroll-area">
+
+              <!-- KPI GRID 2×2 -->
+              <div class="kpi-grid">
+
+                <!-- Today KPI -->
+                <div class="glass-card">
+                  <div class="kpi-headline">24.8 kWh</div>
+                  <div class="kpi-subline">€5.74</div>
+                  <div class="kpi-delta delta-warm">↑ 9.3 kWh over budget</div>
+                </div>
+
+                <!-- Weekly -->
+                <div class="glass-card">
+                  <div class="kpi-headline">142.6 kWh</div>
+                  <div class="kpi-subline">€33.03</div>
+                </div>
+
+                <!-- Projected month -->
+                <div class="glass-card">
+                  <div class="kpi-headline">~744 kWh</div>
+                  <div class="kpi-subline">~€172.27</div>
+                  <div class="kpi-delta delta-warm">significantly over</div>
+                </div>
+
+                <!-- Daily budget -->
+                <div class="glass-card">
+                  <div class="kpi-headline">15.5 kWh</div>
+                  <div class="kpi-subline">€3.59/day</div>
+                  <div class="kpi-tertiary">based on 5,657 kWh/yr</div>
+                </div>
+
+              </div><!-- /kpi-grid -->
+
+              <!-- ENTER READING CTA -->
+              <div class="cta-button">
+                <span class="cta-label">Enter Reading</span>
+              </div>
+
+              <!-- 7-DAY TREND CHART -->
+              <!-- Tall bars, amber-orange tinted; today is a spike day -->
+              <!-- Max bar = 24.8 kWh; scale max = 26 kWh -->
+              <!-- Budget line: 15.5/26 = 59.6% → bottom: 12px + 68px*0.596 ≈ 53px -->
+              <div class="glass-card trend-card">
+                <div class="trend-title">7-Day Trend · Jun 14–20</div>
+                <div class="chart-area">
+                  <div class="budget-line" style="bottom: 53px;"></div>
+
+                  <!-- Bar heights: val/26 * 68px -->
+                  <!-- 19.2→50 | 21.8→57 | 17.4→46 | 20.5→54 | 22.9→60 | 18.7→49 | 24.8→65 (spike) -->
+                  <div class="bar-col">
+                    <div class="bar bar-high" style="height: 50px;"></div>
+                    <div class="bar-label">F</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-high" style="height: 57px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-high" style="height: 46px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-high" style="height: 54px;"></div>
+                    <div class="bar-label">M</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-high" style="height: 60px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-high" style="height: 49px;"></div>
+                    <div class="bar-label">W</div>
+                  </div>
+                  <!-- Today: spike bar at 24.8 kWh — amber accent -->
+                  <div class="bar-col">
+                    <div class="bar bar-high-spike" style="height: 65px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                </div>
+              </div><!-- /trend-card -->
+
+            </div><!-- /scroll-area -->
+
+          </div><!-- /screen-content -->
+
+          <!-- BOTTOM TAB BAR -->
+          <div class="tab-bar">
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+              </svg>
+              <span class="tab-label active">Dashboard</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <polyline points="3 17 9 11 13 15 21 7"/>
+                <polyline points="17 7 21 7 21 11"/>
+              </svg>
+              <span class="tab-label">Trends</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <circle cx="12" cy="12" r="9"/>
+                <path d="M12 3 L12 12 L19.5 7.5"/>
+                <path d="M12 12 L5 17"/>
+              </svg>
+              <span class="tab-label">Decomp.</span>
+            </div>
+            <div class="tab-item">
+              <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.35;">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span class="tab-label">Settings</span>
+            </div>
+          </div><!-- /tab-bar -->
+
+        </div><!-- /phone-screen high -->
+      </div><!-- /phone-frame -->
+    </div><!-- /phone-wrapper high -->
+
+  </div><!-- /frames-row -->
+
+</body>
+</html>

@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>energy-tracker — Onboarding Flow</title>
+  <style>
+    /* ============================================================
+       DESIGN TOKENS
+       --page-bg:        #080810  — near-black page chrome
+       --screen-bg:      #0f1235  — deep indigo-navy, calm onboarding state
+       --glass-bg:       rgba(255,255,255,0.08)
+       --glass-border:   rgba(255,255,255,0.15)
+       --glass-border-focus: rgba(255,255,255,0.60)
+       --text-primary:   #ffffff
+       --text-dim:       rgba(255,255,255,0.45)
+       --text-mid:       rgba(255,255,255,0.70)
+       --chip-selected-bg: #ffffff
+       --chip-selected-text: #0f1235
+       --budget-card-tint: rgba(251,191,36,0.08)  — warm amber tint
+       --budget-value:   #ffffff
+       ============================================================ */
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      /* page background: #080810 */
+      background: #080810;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 48px 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Page wrapper ── */
+    .flow-row {
+      display: flex;
+      flex-direction: row;
+      gap: 24px;
+      align-items: flex-start;
+    }
+
+    /* ── Phone frame ── */
+    .phone-frame {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .frame-label {
+      color: rgba(255,255,255,0.35); /* very dimmed label */
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .phone-chrome {
+      /* phone chrome: subtle dark bezel */
+      width: 397px;   /* 375 content + 11px bezel each side */
+      height: 796px;  /* 750 content + 23px bezel each side */
+      background: #1a1a2e; /* dark phone bezel: #1a1a2e */
+      border-radius: 52px;
+      padding: 23px 11px;
+      position: relative;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.12),
+        0 32px 80px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+
+    /* Dynamic island notch */
+    .phone-chrome::before {
+      content: "";
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 34px;
+      background: #080810; /* matches page bg for cutout effect: #080810 */
+      border-radius: 20px;
+      z-index: 10;
+    }
+
+    .phone-screen {
+      width: 375px;
+      height: 750px;
+      /* screen background: deep indigo-navy #0f1235 */
+      background: #0f1235;
+      border-radius: 42px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* subtle radial gradient on screen to add depth */
+    .phone-screen::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        ellipse 60% 50% at 50% 0%,
+        rgba(99,102,241,0.18) 0%,   /* indigo glow at top: rgba(99,102,241,0.18) */
+        transparent 70%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Screen inner scroll area ── */
+    .screen-content {
+      position: relative;
+      z-index: 1;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    /* Status bar placeholder */
+    .status-bar {
+      height: 44px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      padding-top: 8px;
+    }
+
+    .status-time {
+      font-size: 15px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.01em;
+    }
+
+    .status-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .status-icons svg {
+      opacity: 0.85;
+    }
+
+    /* ── Glass utility ── */
+    .glass {
+      /* glass background: rgba(255,255,255,0.08) */
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      /* glass border: rgba(255,255,255,0.15) */
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px;
+    }
+
+    .glass-pill {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 100px;
+    }
+
+    /* ── CTA button ── */
+    .cta-btn {
+      width: 100%;
+      height: 56px;
+      border-radius: 100px;
+      /* cta glass background */
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      /* prominent border glow */
+      border: 1px solid rgba(255,255,255,0.40);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08) inset,
+        0 4px 24px rgba(99,102,241,0.25);
+      color: #ffffff;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* ── Progress dots ── */
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .dot-filled {
+      /* filled dot: white */
+      background: #ffffff;
+    }
+
+    .dot-dim {
+      /* dim dot: rgba(255,255,255,0.25) */
+      background: rgba(255,255,255,0.25);
+    }
+
+    .progress-label {
+      font-size: 12px;
+      /* dim text: rgba(255,255,255,0.45) */
+      color: rgba(255,255,255,0.45);
+      margin-left: 4px;
+    }
+
+    /* ── Input fields ── */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      /* dim label: rgba(255,255,255,0.45) */
+      color: rgba(255,255,255,0.45);
+    }
+
+    .glass-input {
+      width: 100%;
+      height: 52px;
+      /* glass input background */
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      padding: 0 16px;
+      font-family: inherit;
+      font-size: 16px;
+      font-weight: 400;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      position: relative;
+    }
+
+    .glass-input-focused {
+      /* focused border: rgba(255,255,255,0.60) */
+      border-color: rgba(255,255,255,0.60);
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+    }
+
+    .input-placeholder {
+      /* placeholder: rgba(255,255,255,0.30) */
+      color: rgba(255,255,255,0.30);
+    }
+
+    .input-value {
+      color: #ffffff;
+    }
+
+    .input-suffix {
+      margin-left: auto;
+      font-size: 14px;
+      /* suffix: rgba(255,255,255,0.40) */
+      color: rgba(255,255,255,0.40);
+    }
+
+    /* ── Preset chips ── */
+    .chips-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .chip {
+      height: 44px;
+      border-radius: 100px;
+      border: 1px solid rgba(255,255,255,0.20);
+      background: rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 500;
+      /* dim chip text */
+      color: rgba(255,255,255,0.70);
+      cursor: pointer;
+      letter-spacing: -0.01em;
+      padding: 0 12px;
+      text-align: center;
+    }
+
+    .chip-selected {
+      /* selected chip: white fill, dark text matching screen bg */
+      background: #ffffff;
+      border-color: #ffffff;
+      color: #0f1235;
+      font-weight: 600;
+    }
+
+    /* ── Budget card ── */
+    .budget-card {
+      /* warm amber tint: rgba(251,191,36,0.08) */
+      background: rgba(251,191,36,0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      /* amber border: rgba(251,191,36,0.20) */
+      border: 1px solid rgba(251,191,36,0.20);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* ── Scrollable inner content ── */
+    .screen-scroll {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0 24px 24px 24px;
+      scrollbar-width: none;
+    }
+
+    .screen-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* ============================================================
+       SCREEN 1 — INTRO
+       ============================================================ */
+
+    .s1-content {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 24px 40px 24px;
+    }
+
+    .s1-icon-area {
+      margin-top: 80px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .icon-circle {
+      /* glass circle: 80×80 */
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.10);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 32px rgba(99,102,241,0.30);
+    }
+
+    .app-name {
+      font-size: 28px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+
+    .app-tagline {
+      font-size: 18px;
+      font-weight: 400;
+      /* mid text: rgba(255,255,255,0.70) */
+      color: rgba(255,255,255,0.70);
+      text-align: center;
+      max-width: 280px;
+      line-height: 1.45;
+      letter-spacing: -0.01em;
+    }
+
+    .s1-spacer {
+      flex: 1;
+    }
+
+    .info-note {
+      width: 100%;
+      padding: 14px 16px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 24px;
+    }
+
+    .info-note-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .info-note-text {
+      font-size: 13px;
+      line-height: 1.5;
+      /* dim note text: rgba(255,255,255,0.50) */
+      color: rgba(255,255,255,0.50);
+    }
+
+    .s1-bottom {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .s1-subtext {
+      font-size: 12px;
+      /* very dim: rgba(255,255,255,0.30) */
+      color: rgba(255,255,255,0.30);
+    }
+
+    /* ============================================================
+       SCREEN 2 — STEP 1: NAME YOUR FLAT
+       ============================================================ */
+
+    .s2-inner {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 0 24px 40px 24px;
+    }
+
+    .s2-header {
+      padding-top: 20px;
+      margin-bottom: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .screen-title {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.02em;
+    }
+
+    .screen-subtitle {
+      font-size: 14px;
+      font-weight: 400;
+      /* dim subtitle */
+      color: rgba(255,255,255,0.50);
+      line-height: 1.45;
+    }
+
+    .s2-spacer {
+      flex: 1;
+    }
+
+    /* ============================================================
+       SCREEN 3 — STEP 2: ENERGY CONTRACT
+       ============================================================ */
+
+    .s3-scroll-inner {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding-bottom: 8px;
+    }
+
+    .s3-header {
+      padding-top: 20px;
+      margin-bottom: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      /* section label dim: rgba(255,255,255,0.45) */
+      color: rgba(255,255,255,0.45);
+    }
+
+    .optional-link {
+      font-size: 13px;
+      /* optional link: rgba(255,255,255,0.40) */
+      color: rgba(255,255,255,0.40);
+      margin-top: 4px;
+      cursor: pointer;
+    }
+
+    .s3-bottom {
+      padding: 0 24px 40px 24px;
+      flex-shrink: 0;
+    }
+
+    .tariff-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="flow-row">
+
+    <!-- ============================================================
+         PHONE 1 — INTRO
+         ============================================================ -->
+    <div class="phone-frame">
+      <div class="phone-chrome">
+        <div class="phone-screen">
+          <div class="screen-content">
+
+            <!-- Status bar -->
+            <div class="status-bar">
+              <span class="status-time">9:41</span>
+              <div class="status-icons">
+                <!-- Signal -->
+                <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="0" y="7" width="3" height="5" rx="1" fill="white"/>
+                  <rect x="4.5" y="5" width="3" height="7" rx="1" fill="white"/>
+                  <rect x="9" y="2.5" width="3" height="9.5" rx="1" fill="white"/>
+                  <rect x="13.5" y="0" width="3" height="12" rx="1" fill="white"/>
+                </svg>
+                <!-- WiFi -->
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 9.5a1.2 1.2 0 110 2.4A1.2 1.2 0 018 9.5z" fill="white"/>
+                  <path d="M4.8 7.1a4.5 4.5 0 016.4 0" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M2 4.4A8 8 0 0114 4.4" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M0 1.8A11.3 11.3 0 0116 1.8" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.5"/>
+                </svg>
+                <!-- Battery -->
+                <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.35"/>
+                  <rect x="2" y="2" width="16" height="8" rx="2" fill="white"/>
+                  <path d="M23 4v4a2 2 0 000-4z" fill="white" opacity="0.4"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Locale dropdown pill — Screen 1 (full opacity) -->
+            <button style="
+              position: absolute;
+              top: 16px;
+              right: 16px;
+              background: rgba(255,255,255,0.1);
+              border: 1px solid rgba(255,255,255,0.2);
+              border-radius: 20px;
+              padding: 6px 12px;
+              font-size: 13px;
+              color: rgba(255,255,255,0.8);
+              cursor: pointer;
+              z-index: 20;
+              font-family: inherit;
+            ">EN ▾</button>
+
+            <!-- Screen 1 body -->
+            <div class="s1-content">
+              <div class="s1-icon-area">
+                <!-- App icon: glass circle with lightning bolt -->
+                <div class="icon-circle">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+                       fill="none" stroke="white" stroke-width="2"
+                       stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                </div>
+
+                <div style="display:flex; flex-direction:column; align-items:center; gap:12px;">
+                  <span class="app-name">energy-tracker</span>
+                  <p class="app-tagline">Know what your energy costs, every day.</p>
+                </div>
+              </div>
+
+              <div class="s1-spacer"></div>
+
+              <!-- Info note card -->
+              <div class="glass info-note" style="margin-bottom:28px;">
+                <span class="info-note-icon">⚡</span>
+                <span class="info-note-text">You need your current tariff information to complete setup.</span>
+              </div>
+
+              <!-- Bottom CTA -->
+              <div class="s1-bottom">
+                <div class="cta-btn">Get Started</div>
+                <span class="s1-subtext">Takes about 2 minutes</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <span class="frame-label">Intro</span>
+    </div>
+
+
+    <!-- ============================================================
+         PHONE 2 — STEP 1: NAME YOUR FLAT
+         ============================================================ -->
+    <div class="phone-frame">
+      <div class="phone-chrome">
+        <div class="phone-screen">
+          <div class="screen-content">
+
+            <!-- Status bar -->
+            <div class="status-bar">
+              <span class="status-time">9:41</span>
+              <div class="status-icons">
+                <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="0" y="7" width="3" height="5" rx="1" fill="white"/>
+                  <rect x="4.5" y="5" width="3" height="7" rx="1" fill="white"/>
+                  <rect x="9" y="2.5" width="3" height="9.5" rx="1" fill="white"/>
+                  <rect x="13.5" y="0" width="3" height="12" rx="1" fill="white"/>
+                </svg>
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 9.5a1.2 1.2 0 110 2.4A1.2 1.2 0 018 9.5z" fill="white"/>
+                  <path d="M4.8 7.1a4.5 4.5 0 016.4 0" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M2 4.4A8 8 0 0114 4.4" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M0 1.8A11.3 11.3 0 0116 1.8" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.5"/>
+                </svg>
+                <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.35"/>
+                  <rect x="2" y="2" width="16" height="8" rx="2" fill="white"/>
+                  <path d="M23 4v4a2 2 0 000-4z" fill="white" opacity="0.4"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Locale dropdown pill — Screen 2 (reduced opacity) -->
+            <button style="
+              position: absolute;
+              top: 16px;
+              right: 16px;
+              background: rgba(255,255,255,0.1);
+              border: 1px solid rgba(255,255,255,0.2);
+              border-radius: 20px;
+              padding: 6px 12px;
+              font-size: 13px;
+              color: rgba(255,255,255,0.8);
+              cursor: pointer;
+              z-index: 20;
+              font-family: inherit;
+              opacity: 0.7;
+            ">EN ▾</button>
+
+            <!-- Step 1 body -->
+            <div class="s2-inner">
+
+              <!-- Progress indicator -->
+              <div class="progress-row" style="margin-bottom:28px;">
+                <div class="dot dot-filled"></div>
+                <div class="dot dot-dim"></div>
+                <span class="progress-label">Step 1 of 2</span>
+              </div>
+
+              <!-- Header -->
+              <div style="margin-bottom:32px;">
+                <div class="screen-title" style="margin-bottom:6px;">Name your flat</div>
+                <div class="screen-subtitle">You can manage multiple flats later.</div>
+              </div>
+
+              <!-- Input field -->
+              <div class="field-group">
+                <span class="field-label">Flat Name</span>
+                <!-- Focused input state -->
+                <div class="glass-input glass-input-focused">
+                  <span class="input-placeholder">e.g. Wohnung 3B</span>
+                  <!-- Cursor indicator for focused state -->
+                  <span style="
+                    position: absolute;
+                    left: 16px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 2px;
+                    height: 20px;
+                    background: rgba(255,255,255,0.85);
+                    border-radius: 1px;
+                    /* blinking cursor placeholder — static in HTML render */
+                  "></span>
+                </div>
+              </div>
+
+              <div class="s2-spacer"></div>
+
+              <!-- CTA -->
+              <div class="cta-btn">Continue →</div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="frame-label">Step 1 — Name your flat</span>
+    </div>
+
+
+    <!-- ============================================================
+         PHONE 3 — STEP 2: ENERGY CONTRACT
+         ============================================================ -->
+    <div class="phone-frame">
+      <div class="phone-chrome">
+        <div class="phone-screen">
+          <div class="screen-content">
+
+            <!-- Status bar -->
+            <div class="status-bar">
+              <span class="status-time">9:41</span>
+              <div class="status-icons">
+                <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="0" y="7" width="3" height="5" rx="1" fill="white"/>
+                  <rect x="4.5" y="5" width="3" height="7" rx="1" fill="white"/>
+                  <rect x="9" y="2.5" width="3" height="9.5" rx="1" fill="white"/>
+                  <rect x="13.5" y="0" width="3" height="12" rx="1" fill="white"/>
+                </svg>
+                <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M8 9.5a1.2 1.2 0 110 2.4A1.2 1.2 0 018 9.5z" fill="white"/>
+                  <path d="M4.8 7.1a4.5 4.5 0 016.4 0" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M2 4.4A8 8 0 0114 4.4" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+                  <path d="M0 1.8A11.3 11.3 0 0116 1.8" stroke="white" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.5"/>
+                </svg>
+                <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="0.5" y="0.5" width="21" height="11" rx="3.5" stroke="white" stroke-opacity="0.35"/>
+                  <rect x="2" y="2" width="16" height="8" rx="2" fill="white"/>
+                  <path d="M23 4v4a2 2 0 000-4z" fill="white" opacity="0.4"/>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Locale dropdown pill — Screen 3 (reduced opacity) -->
+            <button style="
+              position: absolute;
+              top: 16px;
+              right: 16px;
+              background: rgba(255,255,255,0.1);
+              border: 1px solid rgba(255,255,255,0.2);
+              border-radius: 20px;
+              padding: 6px 12px;
+              font-size: 13px;
+              color: rgba(255,255,255,0.8);
+              cursor: pointer;
+              z-index: 20;
+              font-family: inherit;
+              opacity: 0.7;
+            ">EN ▾</button>
+
+            <!-- Step 2 scrollable body -->
+            <div class="screen-scroll" style="padding-top:0;">
+              <div class="s3-scroll-inner">
+
+                <!-- Header + progress -->
+                <div style="display:flex; flex-direction:column; gap:0;">
+                  <div class="progress-row" style="margin-bottom:20px;">
+                    <div class="dot dot-filled"></div>
+                    <div class="dot dot-filled"></div>
+                    <span class="progress-label">Step 2 of 2</span>
+                  </div>
+                  <div class="screen-title" style="margin-bottom:6px;">Your energy contract</div>
+                  <div class="screen-subtitle" style="margin-bottom:8px;">This lets us calculate your costs accurately.</div>
+                </div>
+
+                <!-- ── Section A: Annual usage ── -->
+                <div class="section-block">
+                  <span class="section-label">Annual Usage</span>
+
+                  <!-- 2×2 chip grid -->
+                  <div class="chips-grid">
+                    <div class="chip">1 person · ~1,500 kWh</div>
+                    <div class="chip chip-selected">2 persons · ~2,500 kWh</div>
+                    <div class="chip">3 persons · ~3,500 kWh</div>
+                    <div class="chip">4 persons · ~4,250 kWh</div>
+                  </div>
+
+                  <!-- Exact value input -->
+                  <div class="field-group" style="margin-top:4px;">
+                    <span class="field-label">Or enter exact value</span>
+                    <div class="glass-input">
+                      <span class="input-placeholder">2 500</span>
+                      <span class="input-suffix">kWh/year</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Section B: Tariff ── -->
+                <div class="section-block">
+                  <span class="section-label">Tariff</span>
+
+                  <div class="tariff-stack">
+                    <!-- Base fee -->
+                    <div class="field-group">
+                      <span class="field-label">Base Fee</span>
+                      <div class="glass-input">
+                        <span class="input-value">€ 12.00</span>
+                        <span class="input-suffix">/ month</span>
+                      </div>
+                    </div>
+
+                    <!-- Price per kWh -->
+                    <div class="field-group">
+                      <span class="field-label">Price per kWh</span>
+                      <div class="glass-input">
+                        <span class="input-value">€ 0.2285</span>
+                      </div>
+                    </div>
+
+                    <!-- Provider (optional) -->
+                    <div class="field-group">
+                      <span class="field-label" style="display:flex; align-items:center; gap:6px;">
+                        Provider
+                        <span style="
+                          font-size:10px;
+                          font-weight:500;
+                          letter-spacing:0.04em;
+                          color:rgba(255,255,255,0.30);
+                          text-transform:none;
+                          border:1px solid rgba(255,255,255,0.20);
+                          border-radius:4px;
+                          padding:1px 5px;
+                        ">optional</span>
+                      </span>
+                      <div class="glass-input">
+                        <span class="input-placeholder">e.g. Stadtwerke München</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Contract date fields (always visible, optional) -->
+                  <div class="tariff-stack" style="margin-top:2px;">
+                    <div class="field-group">
+                      <span class="field-label">Contract Start (optional)</span>
+                      <div class="glass-input" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 16px;height:auto;">
+                        <span class="input-placeholder">e.g. 01 Jan 2025</span>
+                      </div>
+                    </div>
+                    <div class="field-group">
+                      <span class="field-label">Contract End (optional)</span>
+                      <div class="glass-input" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:12px 16px;height:auto;">
+                        <span class="input-placeholder">e.g. 31 Dec 2026</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- ── Section C: Derived budget ── -->
+                <div class="section-block">
+                  <span class="section-label">Annual Budget (Calculated)</span>
+
+                  <div class="budget-card">
+                    <!-- Large derived value -->
+                    <div style="
+                      font-size: 28px;
+                      font-weight: 600;
+                      color: #ffffff;
+                      letter-spacing: -0.02em;
+                      margin-bottom: 4px;
+                    ">€ 1,473</div>
+
+                    <!-- Calculation breakdown -->
+                    <div style="
+                      font-size: 12px;
+                      /* dim calc text: rgba(255,255,255,0.50) */
+                      color: rgba(255,255,255,0.50);
+                      line-height: 1.5;
+                      font-feature-settings: 'tnum';
+                    ">2,500 kWh × €0.2285 + €12 × 12 = €1,473/year</div>
+
+                    <!-- Settings note -->
+                    <div style="
+                      font-size: 11px;
+                      /* very dim: rgba(255,255,255,0.30) */
+                      color: rgba(255,255,255,0.30);
+                      margin-top: 6px;
+                    ">You can adjust this anytime in Settings.</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Sticky bottom CTA -->
+            <div class="s3-bottom">
+              <div class="cta-btn">Complete Setup</div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <span class="frame-label">Step 2 — Energy contract</span>
+    </div>
+
+  </div><!-- end .flow-row -->
+
+</body>
+</html>

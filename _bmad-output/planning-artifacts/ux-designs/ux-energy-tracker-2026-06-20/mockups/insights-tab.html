@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Insights Tab — Energy Tracker</title>
+  <style>
+    /* ─── Reset ─────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Design tokens ─────────────────────────────────────────── */
+    /* Page bg:           #080810  (near-black, deep space)          */
+    /* Screen bg:         #111827  (deep charcoal, reading mode)     */
+    /* Glass bg:          rgba(255,255,255,0.07)                     */
+    /* Glass border:      rgba(255,255,255,0.12)                     */
+    /* Accent amber:      #f59e0b                                    */
+    /* Accent red:        #ef4444                                    */
+    /* Accent blue:       #60a5fa                                    */
+    /* Accent green:      #4ade80                                    */
+    /* Bar normal:        rgba(255,255,255,0.35)                     */
+    /* Budget line:       rgba(255,255,255,0.25) dashed              */
+    /* Label dim:         rgba(255,255,255,0.40)                     */
+    /* Text primary:      rgba(255,255,255,0.92)                     */
+    /* Text secondary:    rgba(255,255,255,0.60)                     */
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: #080810; /* page background */
+      color: rgba(255,255,255,0.92);
+      min-height: 100vh;
+      padding: 48px 24px 80px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Section labels ─────────────────────────────────────────── */
+    .section-title {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.10em;
+      color: rgba(255,255,255,0.40); /* dimmed label */
+      text-transform: uppercase;
+    }
+
+    /* ─── Glass utility ──────────────────────────────────────────── */
+    .glass {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+    }
+
+    .glass-pill {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      padding: 4px 12px;
+      font-size: 12px;
+      color: rgba(255,255,255,0.70);
+      white-space: nowrap;
+    }
+
+    /* ─── Insight tag pills ──────────────────────────────────────── */
+    .tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      padding: 3px 9px;
+      border-radius: 100px;
+      margin-top: 8px;
+    }
+    .tag-amber { background: rgba(245,158,11,0.18); color: #f59e0b; }  /* #f59e0b amber */
+    .tag-red   { background: rgba(239,68,68,0.18);  color: #ef4444; }  /* #ef4444 red   */
+    .tag-blue  { background: rgba(96,165,250,0.18); color: #60a5fa; }  /* #60a5fa blue  */
+    .tag-green { background: rgba(74,222,128,0.18); color: #4ade80; }  /* #4ade80 green */
+
+    /* ─── Accent icon circles ────────────────────────────────────── */
+    .icon-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .ic-amber { background: rgba(245,158,11,0.22); }
+    .ic-red   { background: rgba(239,68,68,0.22);  }
+    .ic-blue  { background: rgba(96,165,250,0.22); }
+    .ic-green { background: rgba(74,222,128,0.22); }
+
+    /* ─── Insight card ───────────────────────────────────────────── */
+    .insight-card {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 14px 14px 14px 16px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      border-left-width: 3px;
+    }
+    .ic-border-amber { border-left-color: #f59e0b; }
+    .ic-border-red   { border-left-color: #ef4444; }
+    .ic-border-blue  { border-left-color: #60a5fa; }
+    .ic-border-green { border-left-color: #4ade80; }
+
+    .insight-body { flex: 1; min-width: 0; }
+    .insight-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.92);
+      margin-bottom: 4px;
+      line-height: 1.35;
+    }
+    .insight-text {
+      font-size: 12px;
+      color: rgba(255,255,255,0.60);
+      line-height: 1.5;
+    }
+
+    /* ─── Stat pills row ─────────────────────────────────────────── */
+    .stat-pills {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .stat-pill {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      padding: 5px 13px;
+      font-size: 11.5px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.75);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       BAR CHART
+    ═══════════════════════════════════════════════════════════════ */
+    .bar-chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 80px; /* chart area height */
+      margin-top: 12px;
+    }
+
+    /* Budget reference line — dashed, at 60% from bottom */
+    .budget-line {
+      position: absolute;
+      left: 0; right: 0;
+      bottom: calc(80px * 0.60); /* 60% of chart height */
+      border-top: 1px dashed rgba(255,255,255,0.25);
+      pointer-events: none;
+    }
+
+    .bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 2px;
+      height: 100%;
+      width: 100%;
+    }
+
+    .bar {
+      flex: 1;
+      border-radius: 2px 2px 0 0;
+      background: rgba(255,255,255,0.35); /* normal bar color */
+      min-height: 3px;
+    }
+    .bar.spike {
+      background: #f59e0b; /* #f59e0b amber spike */
+    }
+
+    /* X-axis anchor labels */
+    .x-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 5px;
+      padding: 0 1px;
+    }
+    .x-label {
+      font-size: 10px;
+      color: rgba(255,255,255,0.40);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       MOBILE PHONE FRAME
+    ═══════════════════════════════════════════════════════════════ */
+    .device-label {
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 12px;
+    }
+
+    .phone-frame {
+      width: 375px;
+      margin: 0 auto;
+      background: #111827; /* deep charcoal screen bg */
+      border-radius: 44px;
+      box-shadow:
+        0 0 0 8px #1a1a2e,
+        0 0 0 10px rgba(255,255,255,0.08),
+        0 40px 80px rgba(0,0,0,0.70);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Notch */
+    .phone-notch {
+      width: 120px;
+      height: 28px;
+      background: #1a1a2e;
+      border-radius: 0 0 20px 20px;
+      margin: 0 auto;
+    }
+
+    .phone-screen {
+      padding: 12px 16px 32px;
+      background: #111827;
+      height: 800px;
+      overflow: hidden;
+    }
+
+    /* ─── Mobile header ───────────────────────────────────────────── */
+    .screen-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .screen-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.95);
+      letter-spacing: -0.02em;
+    }
+
+    /* ─── Usage trend card ────────────────────────────────────────── */
+    .trend-card {
+      padding: 14px 14px 14px;
+    }
+    .trend-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2px;
+    }
+    .period-pill {
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 100px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.65);
+      cursor: pointer;
+    }
+
+    /* ─── Insights section ────────────────────────────────────────── */
+    .insights-section {
+      margin-top: 20px;
+    }
+    .insights-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       SEPARATOR
+    ═══════════════════════════════════════════════════════════════ */
+    .separator {
+      width: 100%;
+      max-width: 960px;
+      margin: 56px auto;
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.10);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       DESKTOP VIEW
+    ═══════════════════════════════════════════════════════════════ */
+    .desktop-wrap {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    /* Browser chrome hint */
+    .browser-chrome {
+      background: #1c1c2e;
+      border-radius: 14px 14px 0 0;
+      border: 1px solid rgba(255,255,255,0.10);
+      border-bottom: none;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .browser-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+    .bd-red   { background: #ef4444; opacity: 0.7; }
+    .bd-amber { background: #f59e0b; opacity: 0.7; }
+    .bd-green { background: #4ade80; opacity: 0.7; }
+    .browser-url {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.35);
+      margin-left: 8px;
+    }
+
+    .desktop-screen {
+      background: #111827; /* deep charcoal */
+      border: 1px solid rgba(255,255,255,0.10);
+      border-top: none;
+      border-radius: 0 0 14px 14px;
+      padding: 24px 24px 32px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.60);
+    }
+
+    /* Desktop header spans full width */
+    .desktop-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    /* Two-row stacked layout */
+    .desktop-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Taller chart for desktop — full width, slightly shorter than before */
+    .bar-chart-wrap-desktop {
+      position: relative;
+      width: 100%;
+      height: auto;
+      min-height: 120px;
+      margin-top: 14px;
+    }
+    /* We need a fixed pixel reference for the budget line; use 120px */
+    .bar-chart-wrap-desktop .bars-desktop {
+      height: 120px;
+    }
+    .budget-line-desktop {
+      position: absolute;
+      left: 0; right: 0;
+      bottom: calc(120px * 0.60);
+      border-top: 1px dashed rgba(255,255,255,0.25);
+      pointer-events: none;
+    }
+    .bars-desktop {
+      display: flex;
+      align-items: flex-end;
+      gap: 3px;
+      width: 100%;
+    }
+
+    /* Desktop insight cards — auto-fill grid */
+    .desktop-insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ================================================================
+     MOBILE PHONE FRAME
+================================================================ -->
+<p class="device-label">Mobile — 375 px</p>
+
+<div class="phone-frame">
+  <div class="phone-notch"></div>
+  <div class="phone-screen">
+
+    <!-- Header -->
+    <div class="screen-header">
+      <span class="screen-title">Insights</span>
+      <span class="glass-pill">May 21 – Jun 20</span>
+    </div>
+
+    <!-- ── Section 1: Usage Trend ── -->
+    <div class="glass trend-card">
+      <div class="trend-header">
+        <span class="section-title">Usage Trend</span>
+        <span class="period-pill">30 days ▾</span>
+      </div>
+
+      <!-- Bar chart -->
+      <div class="bar-chart-wrap">
+        <!-- Budget reference line at 60% height -->
+        <div class="budget-line"></div>
+
+        <div class="bars">
+          <!-- 30 bars: heights as % of 80px chart area.
+               Max kWh ~18.2 → 100%, budget 15.5 kWh → ~85% of max → 60% line.
+               Heights scaled: value / 18.2 * 100% of 80px.
+               Day 5 (idx 4) = 18.2 kWh spike (amber).
+               Day 22 (idx 21) = 17.8 kWh spike (amber).
+               Normal bars vary 5–14 kWh.
+          -->
+          <!-- Day 1 -->   <div class="bar" style="height:44%;"></div>
+          <!-- Day 2 -->   <div class="bar" style="height:55%;"></div>
+          <!-- Day 3 -->   <div class="bar" style="height:38%;"></div>
+          <!-- Day 4 -->   <div class="bar" style="height:61%;"></div>
+          <!-- Day 5 spike #f59e0b --> <div class="bar spike" style="height:100%;"></div>
+          <!-- Day 6 -->   <div class="bar" style="height:57%;"></div>
+          <!-- Day 7 -->   <div class="bar" style="height:48%;"></div>
+          <!-- Day 8 -->   <div class="bar" style="height:42%;"></div>
+          <!-- Day 9 -->   <div class="bar" style="height:50%;"></div>
+          <!-- Day 10 -->  <div class="bar" style="height:65%;"></div>
+          <!-- Day 11 -->  <div class="bar" style="height:40%;"></div>
+          <!-- Day 12 -->  <div class="bar" style="height:53%;"></div>
+          <!-- Day 13 -->  <div class="bar" style="height:47%;"></div>
+          <!-- Day 14 -->  <div class="bar" style="height:60%;"></div>
+          <!-- Day 15 -->  <div class="bar" style="height:35%;"></div>
+          <!-- Day 16 -->  <div class="bar" style="height:52%;"></div>
+          <!-- Day 17 -->  <div class="bar" style="height:45%;"></div>
+          <!-- Day 18 -->  <div class="bar" style="height:59%;"></div>
+          <!-- Day 19 -->  <div class="bar" style="height:43%;"></div>
+          <!-- Day 20 -->  <div class="bar" style="height:67%;"></div>
+          <!-- Day 21 -->  <div class="bar" style="height:50%;"></div>
+          <!-- Day 22 spike #f59e0b --> <div class="bar spike" style="height:98%;"></div>
+          <!-- Day 23 -->  <div class="bar" style="height:55%;"></div>
+          <!-- Day 24 -->  <div class="bar" style="height:41%;"></div>
+          <!-- Day 25 -->  <div class="bar" style="height:63%;"></div>
+          <!-- Day 26 -->  <div class="bar" style="height:48%;"></div>
+          <!-- Day 27 -->  <div class="bar" style="height:56%;"></div>
+          <!-- Day 28 -->  <div class="bar" style="height:39%;"></div>
+          <!-- Day 29 -->  <div class="bar" style="height:46%;"></div>
+          <!-- Day 30 -->  <div class="bar" style="height:51%;"></div>
+        </div>
+      </div>
+
+      <!-- X-axis anchors -->
+      <div class="x-labels">
+        <span class="x-label">May 21</span>
+        <span class="x-label">Jun 1</span>
+        <span class="x-label">Jun 20</span>
+      </div>
+
+      <!-- Stat pills -->
+      <div class="stat-pills">
+        <span class="stat-pill">Avg 12.4 kWh/day</span>
+        <span class="stat-pill">2 spikes detected</span>
+      </div>
+    </div>
+
+    <!-- ── Section 2: Insights ── -->
+    <div class="insights-section">
+      <span class="section-title">Insights</span>
+
+      <div class="insights-list">
+
+        <!-- Card 1 — Standby offender (amber #f59e0b) -->
+        <div class="insight-card ic-border-amber">
+          <div class="icon-circle ic-amber">⚡</div>
+          <div class="insight-body">
+            <div class="insight-title">Washing Machine — high standby</div>
+            <div class="insight-text">Drawing ~3.2 W outside use hours. Costs approx. €0.87/month.</div>
+            <span class="tag tag-amber">Standby</span>
+          </div>
+        </div>
+
+        <!-- Card 2 — Budget alert (red #ef4444) -->
+        <div class="insight-card ic-border-red">
+          <div class="icon-circle ic-red" style="font-size:18px; font-weight:700; color:#ef4444;">↑</div>
+          <div class="insight-body">
+            <div class="insight-title">Monthly spend trending over budget</div>
+            <div class="insight-text">Projected €94.20 this month vs €87.20 target. +8% above budget.</div>
+            <span class="tag tag-red">Budget</span>
+          </div>
+        </div>
+
+        <!-- Card 3 — Annual target (blue #60a5fa) -->
+        <div class="insight-card ic-border-blue">
+          <div class="icon-circle ic-blue">📋</div>
+          <div class="insight-body">
+            <div class="insight-title">On track for annual target</div>
+            <div class="insight-text">Rolling annual: 4,820 kWh vs 5,657 kWh baseline. You're 15% under.</div>
+            <span class="tag tag-blue">Annual</span>
+          </div>
+        </div>
+
+        <!-- Card 4 — Savings (green #4ade80) -->
+        <div class="insight-card ic-border-green">
+          <div class="icon-circle ic-green">💡</div>
+          <div class="insight-body">
+            <div class="insight-title">Old fridge — replacement saves ~€42/year</div>
+            <div class="insight-text">Current estimated draw: 1.8 kWh/day. A+ model uses ~0.5 kWh/day.</div>
+            <span class="tag tag-green">Savings</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /phone-screen -->
+</div><!-- /phone-frame -->
+
+<!-- ================================================================
+     SEPARATOR
+================================================================ -->
+<hr class="separator" />
+
+<!-- ================================================================
+     TABLET / DESKTOP VIEW
+================================================================ -->
+<div class="desktop-wrap">
+  <p class="device-label">Tablet / Desktop</p>
+
+  <!-- Browser chrome hint -->
+  <div class="browser-chrome">
+    <div class="browser-dot bd-red"></div>
+    <div class="browser-dot bd-amber"></div>
+    <div class="browser-dot bd-green"></div>
+    <span class="browser-url">energy-tracker.app / insights</span>
+  </div>
+
+  <div class="desktop-screen">
+
+    <!-- Desktop full-width header -->
+    <div class="desktop-header">
+      <span style="font-size:26px; font-weight:700; letter-spacing:-0.02em; color:rgba(255,255,255,0.95);">Insights</span>
+      <span class="glass-pill">May 21 – Jun 20</span>
+    </div>
+
+    <!-- Two-row stacked layout -->
+    <div class="desktop-rows">
+
+      <!-- Row 1: Usage Trend — full width -->
+      <div>
+        <div class="glass trend-card">
+          <div class="trend-header">
+            <span class="section-title">Usage Trend</span>
+            <span class="period-pill">30 days ▾</span>
+          </div>
+
+          <!-- Taller bar chart for desktop -->
+          <div class="bar-chart-wrap-desktop">
+            <div class="budget-line-desktop"></div>
+
+            <div class="bars-desktop">
+              <!-- Same 30 bars, taller canvas shows more detail -->
+              <div class="bar" style="height:44%;"></div>
+              <div class="bar" style="height:55%;"></div>
+              <div class="bar" style="height:38%;"></div>
+              <div class="bar" style="height:61%;"></div>
+              <div class="bar spike" style="height:100%;"></div>
+              <div class="bar" style="height:57%;"></div>
+              <div class="bar" style="height:48%;"></div>
+              <div class="bar" style="height:42%;"></div>
+              <div class="bar" style="height:50%;"></div>
+              <div class="bar" style="height:65%;"></div>
+              <div class="bar" style="height:40%;"></div>
+              <div class="bar" style="height:53%;"></div>
+              <div class="bar" style="height:47%;"></div>
+              <div class="bar" style="height:60%;"></div>
+              <div class="bar" style="height:35%;"></div>
+              <div class="bar" style="height:52%;"></div>
+              <div class="bar" style="height:45%;"></div>
+              <div class="bar" style="height:59%;"></div>
+              <div class="bar" style="height:43%;"></div>
+              <div class="bar" style="height:67%;"></div>
+              <div class="bar" style="height:50%;"></div>
+              <div class="bar spike" style="height:98%;"></div>
+              <div class="bar" style="height:55%;"></div>
+              <div class="bar" style="height:41%;"></div>
+              <div class="bar" style="height:63%;"></div>
+              <div class="bar" style="height:48%;"></div>
+              <div class="bar" style="height:56%;"></div>
+              <div class="bar" style="height:39%;"></div>
+              <div class="bar" style="height:46%;"></div>
+              <div class="bar" style="height:51%;"></div>
+            </div>
+          </div>
+
+          <div class="x-labels">
+            <span class="x-label">May 21</span>
+            <span class="x-label">Jun 1</span>
+            <span class="x-label">Jun 20</span>
+          </div>
+
+          <div class="stat-pills">
+            <span class="stat-pill">Avg 12.4 kWh/day</span>
+            <span class="stat-pill">2 spikes detected</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 2: Insights grid -->
+      <div>
+        <span class="section-title">Insights</span>
+
+        <div class="desktop-insights-grid">
+
+          <div class="insight-card ic-border-amber">
+            <div class="icon-circle ic-amber">⚡</div>
+            <div class="insight-body">
+              <div class="insight-title">Washing Machine — high standby</div>
+              <div class="insight-text">Drawing ~3.2 W outside use hours. Costs approx. €0.87/month.</div>
+              <span class="tag tag-amber">Standby</span>
+            </div>
+          </div>
+
+          <div class="insight-card ic-border-red">
+            <div class="icon-circle ic-red" style="font-size:18px; font-weight:700; color:#ef4444;">↑</div>
+            <div class="insight-body">
+              <div class="insight-title">Monthly spend trending over budget</div>
+              <div class="insight-text">Projected €94.20 this month vs €87.20 target. +8% above budget.</div>
+              <span class="tag tag-red">Budget</span>
+            </div>
+          </div>
+
+          <div class="insight-card ic-border-blue">
+            <div class="icon-circle ic-blue">📋</div>
+            <div class="insight-body">
+              <div class="insight-title">On track for annual target</div>
+              <div class="insight-text">Rolling annual: 4,820 kWh vs 5,657 kWh baseline. You're 15% under.</div>
+              <span class="tag tag-blue">Annual</span>
+            </div>
+          </div>
+
+          <div class="insight-card ic-border-green">
+            <div class="icon-circle ic-green">💡</div>
+            <div class="insight-body">
+              <div class="insight-title">Old fridge — replacement saves ~€42/year</div>
+              <div class="insight-text">Current estimated draw: 1.8 kWh/day. A+ model uses ~0.5 kWh/day.</div>
+              <span class="tag tag-green">Savings</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /desktop-rows -->
+  </div><!-- /desktop-screen -->
+</div><!-- /desktop-wrap -->
+
+</body>
+</html>

@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decomposition Tab — Energy Tracker UX</title>
+<style>
+  /* ============================================================
+     DESIGN TOKENS
+     ============================================================
+     Page background:        #080810  — near-black blue-tinted dark
+     Charcoal base:          #111827  — phone frame background
+     Glass card bg:          rgba(255,255,255,0.07)
+     Glass card border:      rgba(255,255,255,0.12)
+     Residual amber bg:      rgba(251,191,36,0.08)   (#fbbf24 at 8%)
+     Residual amber border:  rgba(251,191,36,0.2)    (#fbbf24 at 20%)
+     Interpolation blue bg:  rgba(96,165,250,0.08)   (#60a5fa at 8%)
+     Interpolation blue bdr: rgba(96,165,250,0.2)    (#60a5fa at 20%)
+     Amber accent:           #fbbf24
+     Blue accent:            #60a5fa
+     Smart plug badge bg:    rgba(96,165,250,0.15)   (#60a5fa at 15%)
+     Smart plug badge text:  #93c5fd
+     Estimated badge bg:     rgba(255,255,255,0.08)
+     Estimated badge text:   rgba(255,255,255,0.45)
+     White primary:          #ffffff
+     White dimmed:           rgba(255,255,255,0.55)
+     White muted:            rgba(255,255,255,0.35)
+     Sparkline bar:          rgba(147,197,253,0.6)   (#93c5fd at 60%)
+     Sparkline spike:        #fbbf24
+     Device sub-card bg:     rgba(255,255,255,0.04)
+     Device sub-card border: rgba(255,255,255,0.07)
+  ============================================================ */
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background: #080810; /* near-black blue-tinted dark */
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    min-height: 100vh;
+    padding: 48px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* ── Page heading ── */
+  .page-heading {
+    color: rgba(255,255,255,0.35);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    align-self: flex-start;
+    margin-left: 4px;
+  }
+
+  /* ── Three-frame layout ── */
+  .frames-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 32px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* ── Frame wrapper ── */
+  .frame-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .frame-label {
+    color: rgba(255,255,255,0.4);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-align: center;
+    max-width: 375px;
+  }
+
+  /* ── Phone frame ── */
+  .phone {
+    width: 375px;
+    min-height: 900px;
+    background: #111827; /* charcoal base */
+    border-radius: 44px;
+    border: 1.5px solid rgba(255,255,255,0.10);
+    overflow: hidden;
+    position: relative;
+    box-shadow:
+      0 0 0 6px rgba(255,255,255,0.03),
+      0 32px 64px rgba(0,0,0,0.7),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Status bar notch area */
+  .status-bar {
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 28px;
+    flex-shrink: 0;
+  }
+
+  .status-time {
+    color: rgba(255,255,255,0.85);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .status-icons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* ── Scrollable content area ── */
+  .phone-content {
+    flex: 1;
+    padding: 0 16px 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow: visible;
+  }
+
+  /* ── Header bar ── */
+  .header-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 4px;
+  }
+
+  .header-title {
+    color: #ffffff;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  /* Upload icon button — glass pill */
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(20px) saturate(180%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* ── Period dropdown ── */
+  .period-dropdown {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 12px;
+    backdrop-filter: blur(20px) saturate(180%);
+    padding: 12px 16px;
+    color: rgba(255,255,255,0.85);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .period-dropdown-chevron {
+    color: rgba(255,255,255,0.45);
+    font-size: 12px;
+    margin-left: 4px;
+  }
+
+  /* ── Glass card base ── */
+  .glass-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    backdrop-filter: blur(20px) saturate(180%);
+    overflow: hidden;
+  }
+
+  /* ── Residual / Unattributed card ── */
+  .residual-card {
+    background: rgba(251,191,36,0.08); /* amber #fbbf24 at 8% */
+    border: 1px solid rgba(251,191,36,0.2); /* amber at 20% */
+    border-radius: 16px;
+    backdrop-filter: blur(20px) saturate(180%);
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .residual-icon-wrap {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(251,191,36,0.18); /* amber circle */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .residual-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .residual-title {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .residual-value {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-top: 2px;
+  }
+
+  .residual-sub {
+    color: rgba(255,255,255,0.55); /* dimmed */
+    font-size: 13px;
+    margin-top: 2px;
+  }
+
+  .residual-note {
+    color: rgba(255,255,255,0.35); /* muted */
+    font-size: 11px;
+    margin-top: 5px;
+    font-style: italic;
+  }
+
+  /* ── Room card ── */
+  .room-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    backdrop-filter: blur(20px) saturate(180%);
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .room-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 16px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .room-name {
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  .room-summary {
+    color: rgba(255,255,255,0.45); /* dimmed */
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  /* ── Device cards container ── */
+  .device-list {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* ── Large device card (smart plug, has sparkline) ── */
+  .device-card-large {
+    background: rgba(255,255,255,0.04); /* device sub-card bg */
+    border: 1px solid rgba(255,255,255,0.07); /* device sub-card border */
+    border-radius: 12px;
+    padding: 12px 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .device-top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .device-name-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .device-name {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* Smart plug badge — cool blue */
+  .badge-smart {
+    background: rgba(96,165,250,0.15); /* #60a5fa at 15% */
+    border: 1px solid rgba(96,165,250,0.25);
+    border-radius: 6px;
+    padding: 2px 7px;
+    color: #93c5fd;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* Estimated badge — dimmed */
+  .badge-estimated {
+    background: rgba(255,255,255,0.08); /* estimated badge bg */
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 6px;
+    padding: 2px 7px;
+    color: rgba(255,255,255,0.45); /* estimated badge text */
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .device-kwh {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .device-eur {
+    color: rgba(255,255,255,0.55); /* dimmed */
+    font-size: 12px;
+    margin-top: 1px;
+  }
+
+  /* Mini sparkline */
+  .sparkline {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 24px;
+    margin-top: 4px;
+  }
+
+  .spark-bar {
+    flex: 1;
+    border-radius: 2px;
+    background: rgba(147,197,253,0.6); /* #93c5fd at 60% — cool white-blue */
+    min-width: 0;
+  }
+
+  .spark-bar-spike {
+    flex: 1;
+    border-radius: 2px;
+    background: #fbbf24; /* amber spike */
+    min-width: 0;
+  }
+
+  /* ── Small device card (estimated / EU label) ── */
+  .device-card-small {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .device-card-small .device-name-group {
+    flex-wrap: nowrap;
+  }
+
+  .device-small-right {
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .device-small-val {
+    color: rgba(255,255,255,0.75);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* ── Empty state card ── */
+  .empty-state-card {
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    backdrop-filter: blur(20px) saturate(180%);
+    padding: 36px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+  }
+
+  .empty-icon {
+    color: rgba(255,255,255,0.35); /* muted icon */
+  }
+
+  .empty-title {
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.3;
+  }
+
+  .empty-body {
+    color: rgba(255,255,255,0.55); /* dimmed */
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .empty-cta {
+    width: 100%;
+    background: rgba(255,255,255,0.10);
+    border: 1px solid rgba(255,255,255,0.18);
+    border-radius: 12px;
+    backdrop-filter: blur(20px) saturate(180%);
+    padding: 14px 16px;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    margin-top: 4px;
+  }
+
+  .empty-supported {
+    color: rgba(255,255,255,0.35); /* muted */
+    font-size: 12px;
+  }
+
+  /* ── Interpolation info banner ── */
+  .info-banner {
+    background: rgba(96,165,250,0.08); /* #60a5fa at 8% */
+    border: 1px solid rgba(96,165,250,0.2); /* #60a5fa at 20% */
+    border-radius: 12px;
+    padding: 11px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .info-icon {
+    color: #60a5fa; /* blue accent */
+    font-size: 15px;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+  }
+
+  .info-text {
+    flex: 1;
+    color: rgba(255,255,255,0.55); /* dimmed */
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .info-link {
+    color: #60a5fa; /* blue accent */
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Bedroom room card — slightly dimmer to suggest less data */
+  .room-card-dim .room-header {
+    opacity: 0.80;
+  }
+
+  .room-card-dim .device-list {
+    opacity: 0.80;
+  }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     THREE PHONE FRAMES
+============================================================ -->
+<div class="frames-row">
+
+  <!-- ══════════════════════════════════════════
+       FRAME 1 — Main view: data available
+  ══════════════════════════════════════════ -->
+  <div class="frame-wrapper">
+    <div class="frame-label">Decomposition — This Month</div>
+    <div class="phone">
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-icons">
+          <!-- Signal bars SVG -->
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="7" width="3" height="5" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="4.5" y="4.5" width="3" height="7.5" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="9" y="2" width="3" height="10" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="13.5" y="0" width="3" height="12" rx="1" fill="rgba(255,255,255,0.35)"/>
+          </svg>
+          <!-- WiFi SVG -->
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z" fill="rgba(255,255,255,0.85)"/>
+            <path d="M3.5 6.3A6.5 6.5 0 0 1 12.5 6.3" stroke="rgba(255,255,255,0.85)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+            <path d="M1 3.6A10.2 10.2 0 0 1 15 3.6" stroke="rgba(255,255,255,0.45)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+          </svg>
+          <!-- Battery SVG -->
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0.5" y="0.5" width="21" height="11" rx="2.5" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
+            <rect x="2" y="2" width="15" height="8" rx="1.5" fill="rgba(255,255,255,0.85)"/>
+            <path d="M22.5 4v4" stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="phone-content">
+
+        <!-- Header bar -->
+        <div class="header-bar">
+          <span class="header-title">Decomposition</span>
+          <div class="icon-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+        </div>
+
+        <!-- Period dropdown -->
+        <div class="period-dropdown">
+          <span>This month — Jun 2026</span>
+          <span class="period-dropdown-chevron">▾</span>
+        </div>
+
+        <!-- Residual card -->
+        <div class="residual-card">
+          <div class="residual-icon-wrap">
+            <!-- Lightning bolt SVG -->
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div class="residual-body">
+            <span class="residual-title">Unattributed</span>
+            <span class="residual-value">18.4 kWh</span>
+            <span class="residual-sub">€4.26 · 15% of total</span>
+            <span class="residual-note">Shrinks as more smart plugs are added</span>
+          </div>
+        </div>
+
+        <!-- Room card 1 — Living Room -->
+        <div class="room-card">
+          <div class="room-header">
+            <span class="room-name">Living Room</span>
+            <span class="room-summary">62.3 kWh · €14.43</span>
+          </div>
+          <div class="device-list">
+
+            <!-- TV — large device card, smart plug -->
+            <div class="device-card-large">
+              <div class="device-top-row">
+                <div class="device-name-group">
+                  <span class="device-name">TV</span>
+                  <span class="badge-smart">Smart plug</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px;">
+                <div>
+                  <div class="device-kwh">38.1 kWh</div>
+                  <div class="device-eur">€8.83</div>
+                </div>
+                <!-- Mini sparkline: 7 bars, one amber spike -->
+                <div class="sparkline" style="width:90px;">
+                  <div class="spark-bar" style="height:40%;"></div>
+                  <div class="spark-bar" style="height:55%;"></div>
+                  <div class="spark-bar" style="height:45%;"></div>
+                  <div class="spark-bar-spike" style="height:100%;"></div>
+                  <div class="spark-bar" style="height:60%;"></div>
+                  <div class="spark-bar" style="height:50%;"></div>
+                  <div class="spark-bar" style="height:65%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floor Lamp — small device card, estimated -->
+            <div class="device-card-small">
+              <div class="device-name-group">
+                <span class="device-name" style="font-size:13px; font-weight:600;">Floor Lamp</span>
+                <span class="badge-estimated">Estimated</span>
+              </div>
+              <div class="device-small-right">
+                <span class="device-small-val">24.2 kWh · €5.61</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Room card 2 — Kitchen -->
+        <div class="room-card">
+          <div class="room-header">
+            <span class="room-name">Kitchen</span>
+            <span class="room-summary">31.8 kWh · €7.37</span>
+          </div>
+          <div class="device-list">
+
+            <!-- Fridge — large device card, smart plug, consistent sparkline -->
+            <div class="device-card-large">
+              <div class="device-top-row">
+                <div class="device-name-group">
+                  <span class="device-name">Fridge</span>
+                  <span class="badge-smart">Smart plug</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px;">
+                <div>
+                  <div class="device-kwh">28.4 kWh</div>
+                  <div class="device-eur">€6.58</div>
+                </div>
+                <!-- Mini sparkline: consistent bars, no spike (fridge) -->
+                <div class="sparkline" style="width:90px;">
+                  <div class="spark-bar" style="height:72%;"></div>
+                  <div class="spark-bar" style="height:68%;"></div>
+                  <div class="spark-bar" style="height:75%;"></div>
+                  <div class="spark-bar" style="height:70%;"></div>
+                  <div class="spark-bar" style="height:73%;"></div>
+                  <div class="spark-bar" style="height:69%;"></div>
+                  <div class="spark-bar" style="height:71%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Microwave — small device card, estimated -->
+            <div class="device-card-small">
+              <div class="device-name-group">
+                <span class="device-name" style="font-size:13px; font-weight:600;">Microwave</span>
+                <span class="badge-estimated">Estimated</span>
+              </div>
+              <div class="device-small-right">
+                <span class="device-small-val">3.4 kWh · €0.79</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Room card 3 — Bedroom (dimmer) -->
+        <div class="room-card room-card-dim">
+          <div class="room-header">
+            <span class="room-name">Bedroom</span>
+            <span class="room-summary">12.1 kWh · €2.80</span>
+          </div>
+          <div class="device-list">
+
+            <!-- Desk Lamp — small device card, estimated -->
+            <div class="device-card-small">
+              <div class="device-name-group">
+                <span class="device-name" style="font-size:13px; font-weight:600;">Desk Lamp</span>
+                <span class="badge-estimated">Estimated</span>
+              </div>
+              <div class="device-small-right">
+                <span class="device-small-val">12.1 kWh · €2.80</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /phone-content -->
+    </div><!-- /phone -->
+  </div><!-- /frame-wrapper -->
+
+
+  <!-- ══════════════════════════════════════════
+       FRAME 2 — Empty state: no smart plug data
+  ══════════════════════════════════════════ -->
+  <div class="frame-wrapper">
+    <div class="frame-label">No data — empty state</div>
+    <div class="phone">
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-icons">
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="7" width="3" height="5" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="4.5" y="4.5" width="3" height="7.5" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="9" y="2" width="3" height="10" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="13.5" y="0" width="3" height="12" rx="1" fill="rgba(255,255,255,0.35)"/>
+          </svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z" fill="rgba(255,255,255,0.85)"/>
+            <path d="M3.5 6.3A6.5 6.5 0 0 1 12.5 6.3" stroke="rgba(255,255,255,0.85)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+            <path d="M1 3.6A10.2 10.2 0 0 1 15 3.6" stroke="rgba(255,255,255,0.45)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+          </svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0.5" y="0.5" width="21" height="11" rx="2.5" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
+            <rect x="2" y="2" width="15" height="8" rx="1.5" fill="rgba(255,255,255,0.85)"/>
+            <path d="M22.5 4v4" stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="phone-content">
+
+        <!-- Header bar -->
+        <div class="header-bar">
+          <span class="header-title">Decomposition</span>
+          <div class="icon-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+        </div>
+
+        <!-- Period dropdown -->
+        <div class="period-dropdown">
+          <span>This month — Jun 2026</span>
+          <span class="period-dropdown-chevron">▾</span>
+        </div>
+
+        <!-- Empty state card -->
+        <div class="empty-state-card" style="margin-top:8px;">
+
+          <!-- Large upload icon, 48px -->
+          <div class="empty-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+
+          <span class="empty-title">No smart plug data for Jun 2026</span>
+
+          <span class="empty-body">Import smart plug exports to see a breakdown by room and device.</span>
+
+          <button class="empty-cta">Import Smart Plug Data</button>
+
+          <span class="empty-supported">Supported: Eve Home (.xlsx) · Meross (.csv)</span>
+
+        </div>
+
+      </div><!-- /phone-content -->
+    </div><!-- /phone -->
+  </div><!-- /frame-wrapper -->
+
+
+  <!-- ══════════════════════════════════════════
+       FRAME 3 — With interpolated data hint
+  ══════════════════════════════════════════ -->
+  <div class="frame-wrapper">
+    <div class="frame-label">With interpolated data</div>
+    <div class="phone">
+
+      <!-- Status bar -->
+      <div class="status-bar">
+        <span class="status-time">9:41</span>
+        <div class="status-icons">
+          <svg width="17" height="12" viewBox="0 0 17 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0" y="7" width="3" height="5" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="4.5" y="4.5" width="3" height="7.5" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="9" y="2" width="3" height="10" rx="1" fill="rgba(255,255,255,0.85)"/>
+            <rect x="13.5" y="0" width="3" height="12" rx="1" fill="rgba(255,255,255,0.35)"/>
+          </svg>
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M8 9.5a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z" fill="rgba(255,255,255,0.85)"/>
+            <path d="M3.5 6.3A6.5 6.5 0 0 1 12.5 6.3" stroke="rgba(255,255,255,0.85)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+            <path d="M1 3.6A10.2 10.2 0 0 1 15 3.6" stroke="rgba(255,255,255,0.45)" stroke-width="1.3" stroke-linecap="round" fill="none"/>
+          </svg>
+          <svg width="25" height="12" viewBox="0 0 25 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="0.5" y="0.5" width="21" height="11" rx="2.5" stroke="rgba(255,255,255,0.45)" stroke-width="1"/>
+            <rect x="2" y="2" width="15" height="8" rx="1.5" fill="rgba(255,255,255,0.85)"/>
+            <path d="M22.5 4v4" stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="phone-content">
+
+        <!-- Header bar -->
+        <div class="header-bar">
+          <span class="header-title">Decomposition</span>
+          <div class="icon-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+        </div>
+
+        <!-- Period dropdown -->
+        <div class="period-dropdown">
+          <span>This month — Jun 2026</span>
+          <span class="period-dropdown-chevron">▾</span>
+        </div>
+
+        <!-- Interpolation info banner -->
+        <div class="info-banner">
+          <span class="info-icon">ℹ</span>
+          <span class="info-text">Some values in this period were estimated from surrounding data.</span>
+          <span class="info-link">Learn more</span>
+        </div>
+
+        <!-- Residual card -->
+        <div class="residual-card">
+          <div class="residual-icon-wrap">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <div class="residual-body">
+            <span class="residual-title">Unattributed</span>
+            <span class="residual-value">18.4 kWh</span>
+            <span class="residual-sub">€4.26 · 15% of total</span>
+            <span class="residual-note">Shrinks as more smart plugs are added</span>
+          </div>
+        </div>
+
+        <!-- Room card 1 — Living Room -->
+        <div class="room-card">
+          <div class="room-header">
+            <span class="room-name">Living Room</span>
+            <span class="room-summary">62.3 kWh · €14.43</span>
+          </div>
+          <div class="device-list">
+
+            <!-- TV — large device card, smart plug -->
+            <div class="device-card-large">
+              <div class="device-top-row">
+                <div class="device-name-group">
+                  <span class="device-name">TV</span>
+                  <span class="badge-smart">Smart plug</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px;">
+                <div>
+                  <div class="device-kwh">38.1 kWh</div>
+                  <div class="device-eur">€8.83</div>
+                </div>
+                <div class="sparkline" style="width:90px;">
+                  <div class="spark-bar" style="height:40%;"></div>
+                  <div class="spark-bar" style="height:55%;"></div>
+                  <div class="spark-bar" style="height:45%;"></div>
+                  <div class="spark-bar-spike" style="height:100%;"></div>
+                  <div class="spark-bar" style="height:60%;"></div>
+                  <div class="spark-bar" style="height:50%;"></div>
+                  <div class="spark-bar" style="height:65%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floor Lamp — small device card, estimated -->
+            <div class="device-card-small">
+              <div class="device-name-group">
+                <span class="device-name" style="font-size:13px; font-weight:600;">Floor Lamp</span>
+                <span class="badge-estimated">Estimated</span>
+              </div>
+              <div class="device-small-right">
+                <span class="device-small-val">24.2 kWh · €5.61</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Room card 2 — Kitchen -->
+        <div class="room-card">
+          <div class="room-header">
+            <span class="room-name">Kitchen</span>
+            <span class="room-summary">31.8 kWh · €7.37</span>
+          </div>
+          <div class="device-list">
+
+            <!-- Fridge — large device card, smart plug -->
+            <div class="device-card-large">
+              <div class="device-top-row">
+                <div class="device-name-group">
+                  <span class="device-name">Fridge</span>
+                  <span class="badge-smart">Smart plug</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:8px;">
+                <div>
+                  <div class="device-kwh">28.4 kWh</div>
+                  <div class="device-eur">€6.58</div>
+                </div>
+                <div class="sparkline" style="width:90px;">
+                  <div class="spark-bar" style="height:72%;"></div>
+                  <div class="spark-bar" style="height:68%;"></div>
+                  <div class="spark-bar" style="height:75%;"></div>
+                  <div class="spark-bar" style="height:70%;"></div>
+                  <div class="spark-bar" style="height:73%;"></div>
+                  <div class="spark-bar" style="height:69%;"></div>
+                  <div class="spark-bar" style="height:71%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Microwave — small device card, estimated -->
+            <div class="device-card-small">
+              <div class="device-name-group">
+                <span class="device-name" style="font-size:13px; font-weight:600;">Microwave</span>
+                <span class="badge-estimated">Estimated</span>
+              </div>
+              <div class="device-small-right">
+                <span class="device-small-val">3.4 kWh · €0.79</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Room card 3 — Bedroom (dimmer) -->
+        <div class="room-card room-card-dim">
+          <div class="room-header">
+            <span class="room-name">Bedroom</span>
+            <span class="room-summary">12.1 kWh · €2.80</span>
+          </div>
+          <div class="device-list">
+
+            <!-- Desk Lamp — small device card, estimated -->
+            <div class="device-card-small">
+              <div class="device-name-group">
+                <span class="device-name" style="font-size:13px; font-weight:600;">Desk Lamp</span>
+                <span class="badge-estimated">Estimated</span>
+              </div>
+              <div class="device-small-right">
+                <span class="device-small-val">12.1 kWh · €2.80</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /phone-content -->
+    </div><!-- /phone -->
+  </div><!-- /frame-wrapper -->
+
+</div><!-- /frames-row -->
+
+</body>
+</html>

@@ -1,0 +1,806 @@
+<!--
+  Direction: Solar Heat — Consumption as Temperature
+  Personality: The background gradient reads your energy state like a thermometer — cool
+  slate-blue for efficient days, shifting through amber toward orange-red for high consumption.
+  Today is moderate, so the palette sits in a warm amber-teal middle zone. Glass cards float
+  on the thermal gradient, making energy feel visceral and intuitive at a glance.
+  Best fit: users motivated by environmental awareness who want their consumption to feel
+  like a physical sensation, not just a number.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy Tracker · Solar Heat</title>
+<style>
+  /* ============================================================
+     SOLAR HEAT — COLOR PALETTE
+     Dark mode (moderate consumption day — warm amber):
+       --bg-dark-start:   #0f2027  (deep slate)
+       --bg-dark-mid:     #1a3a2a  (cool green-teal)
+       --bg-dark-warm:    #2d1a00  (deep amber-brown)
+       --bg-dark-end:     #3d2200  (burnt amber)
+       --glass-bg-dark:   rgba(255,255,255,0.09)
+       --glass-border:    rgba(255,220,140,0.20)
+       --accent-warm:     #f0a030  (amber)
+       --accent-cool:     #40c8a0  (teal)
+       --text-primary:    #ffffff
+       --text-secondary:  rgba(255,255,255,0.60)
+       --cta-bg:          rgba(240,160,48,0.25)
+       --cta-border:      rgba(240,160,48,0.50)
+     Light mode (pastel version):
+       --bg-light-start:  #d0e8f0  (pastel sky)
+       --bg-light-warm:   #fbe8c0  (pastel amber)
+       --bg-light-end:    #fdd9a0  (light peach)
+       --glass-bg-light:  rgba(255,255,255,0.50)
+       --text-primary-l:  #1a1200
+       --text-secondary-l: rgba(26,18,0,0.55)
+       --accent-warm-l:   #c07010
+       --accent-cool-l:   #1a8060
+     ============================================================ */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    background: #111118;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+    gap: 60px;
+  }
+
+  /* ── Section labels ──────────────────────────────────────────── */
+  .variant-label {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,200,100,0.50);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  /* ── Phone frame ─────────────────────────────────────────────── */
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .phone-frame {
+    width: 393px;
+    min-height: 852px;
+    border-radius: 54px;
+    padding: 4px;
+    position: relative;
+    box-shadow:
+      0 0 0 1px rgba(255,180,60,0.15),
+      0 30px 80px rgba(0,0,0,0.60),
+      inset 0 0 0 1px rgba(255,255,255,0.06);
+    background: #1c1c1e;
+  }
+
+  .phone-frame-light {
+    box-shadow:
+      0 0 0 1px rgba(200,140,50,0.20),
+      0 30px 80px rgba(80,40,0,0.20),
+      inset 0 0 0 1px rgba(255,255,255,0.30);
+    background: #d0c8b0;
+  }
+
+  .phone-screen {
+    width: 100%;
+    min-height: 844px;
+    border-radius: 50px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ── Dynamic Island ──────────────────────────────────────────── */
+  .dynamic-island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 20;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     DARK SCREEN — warm amber-teal thermal gradient
+  ══════════════════════════════════════════════════════════════ */
+  .screen-dark {
+    /* Moderate day: starts cool, warms toward lower-center */
+    background: linear-gradient(
+      165deg,
+      #0f2027 0%,
+      #1a3020 25%,
+      #2a2a10 55%,
+      #3a2200 80%,
+      #2d1800 100%
+    );
+    min-height: 844px;
+    padding: 58px 20px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Thermal glow orbs */
+  .screen-dark::before {
+    content: '';
+    position: absolute;
+    top: 40%;
+    right: -40px;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(240,120,30,0.22) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .screen-dark::after {
+    content: '';
+    position: absolute;
+    top: 10%;
+    left: -30px;
+    width: 180px;
+    height: 180px;
+    background: radial-gradient(circle, rgba(40,180,130,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     LIGHT SCREEN — pastel thermal gradient
+  ══════════════════════════════════════════════════════════════ */
+  .screen-light {
+    background: linear-gradient(
+      165deg,
+      #d0e8f0 0%,
+      #e8f4e0 25%,
+      #f5ecc0 55%,
+      #fdd9a0 80%,
+      #fbe8c0 100%
+    );
+    min-height: 844px;
+    padding: 58px 20px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen-light::before {
+    content: '';
+    position: absolute;
+    top: 40%;
+    right: -30px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(240,160,40,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Temperature indicator strip ────────────────────────────── */
+  .temp-strip {
+    height: 3px;
+    border-radius: 2px;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg, #40c8a0 0%, #a0c040 40%, #f0a030 75%, #e05020 100%);
+    position: relative;
+    opacity: 0.55;
+  }
+  /* Indicator dot at ~55% (moderate) */
+  .temp-strip::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 55%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #f0a030;
+    box-shadow: 0 0 6px rgba(240,160,48,0.70);
+  }
+
+  /* ── Header ──────────────────────────────────────────────────── */
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .flat-name { font-size: 13px; font-weight: 500; letter-spacing: 0.02em; }
+  .last-reading { font-size: 11px; font-weight: 400; margin-top: 2px; }
+
+  .screen-dark .flat-name { color: rgba(255,255,255,0.90); }
+  .screen-dark .last-reading { color: rgba(255,220,140,0.55); }
+  .screen-light .flat-name { color: #1a1200; }
+  .screen-light .last-reading { color: rgba(26,18,0,0.50); }
+
+  .header-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+  .screen-dark .header-icon {
+    background: rgba(240,160,48,0.18);
+    border: 1px solid rgba(240,160,48,0.30);
+  }
+  .screen-light .header-icon {
+    background: rgba(255,255,255,0.50);
+    border: 1px solid rgba(200,150,50,0.35);
+  }
+
+  /* ── KPI Grid ────────────────────────────────────────────────── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .kpi-card {
+    border-radius: 20px;
+    padding: 16px 16px 14px;
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .screen-dark .kpi-card {
+    background: rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,220,140,0.20);
+  }
+  .screen-light .kpi-card {
+    background: rgba(255,255,255,0.50);
+    border: 1px solid rgba(200,150,50,0.25);
+    box-shadow: 0 2px 12px rgba(80,40,0,0.06);
+  }
+
+  .kpi-card.wide { grid-column: 1 / -1; }
+
+  .kpi-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .screen-dark .kpi-label { color: rgba(255,220,140,0.50); }
+  .screen-light .kpi-label { color: rgba(26,18,0,0.45); }
+
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .screen-dark .kpi-value { color: #ffffff; }
+  .screen-light .kpi-value { color: #1a1200; }
+
+  .kpi-sub { font-size: 12px; font-weight: 500; margin-top: 4px; }
+  .screen-dark .kpi-sub { color: rgba(240,160,48,0.85); }
+  .screen-light .kpi-sub { color: rgba(192,112,16,0.85); }
+
+  .kpi-unit { font-size: 14px; font-weight: 400; opacity: 0.7; }
+
+  .kpi-card.wide .kpi-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kpi-card.wide .kpi-value { font-size: 34px; }
+
+  .kpi-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .screen-dark .kpi-badge {
+    background: rgba(240,160,48,0.18);
+    color: rgba(240,180,80,0.95);
+    border: 1px solid rgba(240,160,48,0.30);
+  }
+  .screen-light .kpi-badge {
+    background: rgba(192,112,16,0.12);
+    color: rgba(160,90,0,0.90);
+    border: 1px solid rgba(192,112,16,0.25);
+  }
+
+  /* ── Trend Chart Card ────────────────────────────────────────── */
+  .chart-card {
+    border-radius: 20px;
+    padding: 16px;
+    margin-bottom: 12px;
+    backdrop-filter: blur(20px) saturate(180%);
+    position: relative;
+    z-index: 2;
+  }
+  .screen-dark .chart-card {
+    background: rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,220,140,0.20);
+  }
+  .screen-light .chart-card {
+    background: rgba(255,255,255,0.50);
+    border: 1px solid rgba(200,150,50,0.25);
+    box-shadow: 0 2px 12px rgba(80,40,0,0.06);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .chart-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .screen-dark .chart-title { color: rgba(255,220,140,0.50); }
+  .screen-light .chart-title { color: rgba(26,18,0,0.45); }
+
+  .chart-range { font-size: 10px; font-weight: 500; }
+  .screen-dark .chart-range { color: rgba(255,255,255,0.30); }
+  .screen-light .chart-range { color: rgba(26,18,0,0.35); }
+
+  /* Gradient bars — cool→warm by height */
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 72px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar {
+    width: 100%;
+    border-radius: 4px 4px 2px 2px;
+  }
+
+  /* Bars colored by thermal — moderate days are amber-ish */
+  .screen-dark .bar        { background: rgba(100,190,140,0.60); }
+  .screen-dark .bar.warm   { background: rgba(220,140,30,0.70); }
+  .screen-dark .bar.spike  {
+    background: linear-gradient(180deg, #e05020 0%, #f0a030 100%);
+    box-shadow: 0 0 10px rgba(220,80,32,0.50);
+  }
+
+  .screen-light .bar        { background: rgba(40,160,100,0.45); }
+  .screen-light .bar.warm   { background: rgba(200,130,20,0.55); }
+  .screen-light .bar.spike  {
+    background: linear-gradient(180deg, #c04010 0%, #e08020 100%);
+    box-shadow: 0 0 8px rgba(200,64,16,0.30);
+  }
+
+  .bar-label { font-size: 9px; font-weight: 500; }
+  .screen-dark .bar-label  { color: rgba(255,220,140,0.40); }
+  .screen-light .bar-label { color: rgba(26,18,0,0.40); }
+
+  /* ── CTA ─────────────────────────────────────────────────────── */
+  .cta-wrap {
+    padding: 4px 0 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cta-btn {
+    width: 100%;
+    height: 60px;
+    border-radius: 30px;
+    border: none;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    backdrop-filter: blur(20px) saturate(200%);
+  }
+
+  .screen-dark .cta-btn {
+    background: rgba(240,160,48,0.25);
+    border: 1.5px solid rgba(240,160,48,0.55);
+    color: #ffd880;
+    box-shadow:
+      0 0 28px rgba(240,120,30,0.30),
+      inset 0 1px 0 rgba(255,220,140,0.25);
+  }
+
+  .screen-light .cta-btn {
+    background: rgba(255,255,255,0.55);
+    border: 1.5px solid rgba(200,130,20,0.40);
+    color: #7a3800;
+    box-shadow:
+      0 4px 24px rgba(180,90,0,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.80);
+  }
+
+  .cta-icon { font-size: 20px; line-height: 1; }
+
+  /* ── Tablet hint ─────────────────────────────────────────────── */
+  .tablet-hint {
+    width: 768px;
+    max-width: calc(100vw - 40px);
+    border-radius: 24px;
+    padding: 32px;
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+  }
+
+  .tablet-dark {
+    background: linear-gradient(135deg, #0f2027 0%, #2a1a00 60%, #3a2200 100%);
+    border: 1px solid rgba(255,200,80,0.15);
+  }
+
+  .tablet-sidebar {
+    width: 220px;
+    flex-shrink: 0;
+  }
+  .tablet-main { flex: 1; }
+
+  .tablet-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    color: rgba(255,200,80,0.40);
+  }
+
+  .nav-item {
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  .nav-item.active {
+    background: rgba(240,160,48,0.18);
+    border: 1px solid rgba(240,160,48,0.28);
+    color: #ffd880;
+    font-weight: 600;
+  }
+  .nav-item.inactive { color: rgba(255,255,255,0.45); }
+
+  .tablet-cta {
+    height: 48px;
+    border-radius: 24px;
+    border: 1.5px solid rgba(240,160,48,0.50);
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    width: 100%;
+    background: rgba(240,160,48,0.22);
+    color: #ffd880;
+    margin-top: 16px;
+    box-shadow: 0 0 18px rgba(240,120,30,0.25);
+  }
+
+  .tablet-kpi-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .tablet-kpi-chip {
+    padding: 12px 14px;
+    border-radius: 14px;
+    flex: 1;
+    min-width: 110px;
+    background: rgba(255,255,255,0.09);
+    border: 1px solid rgba(255,220,140,0.18);
+    backdrop-filter: blur(16px);
+  }
+
+  .chip-label { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,200,80,0.50); margin-bottom: 4px; }
+  .chip-value { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+  .chip-sub   { font-size: 11px; font-weight: 500; color: rgba(240,160,48,0.85); margin-top: 2px; }
+
+  .section-divider {
+    width: 100%;
+    max-width: 768px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-divider hr { flex: 1; border: none; border-top: 1px solid rgba(255,180,60,0.12); }
+  .section-divider span { font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(255,180,60,0.30); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     DARK VARIANT
+═══════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="variant-label">Solar Heat · Dark (moderate consumption day)</div>
+  <div class="phone-frame">
+    <div class="phone-screen">
+      <div class="dynamic-island"></div>
+      <div class="screen-dark">
+
+        <!-- Header -->
+        <div class="app-header">
+          <div>
+            <div class="flat-name">Wohnung 3B</div>
+            <div class="last-reading">Last reading · 42,187 kWh · Today</div>
+          </div>
+          <div class="header-icon">🌡</div>
+        </div>
+
+        <!-- Thermal strip -->
+        <div class="temp-strip"></div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Daily avg</div>
+            <div class="kpi-value">12.4 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€2.87 / day</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly avg</div>
+            <div class="kpi-value">86.8 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€20.09 / wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daily cost</div>
+            <div class="kpi-value">€2.87</div>
+            <div class="kpi-sub">↓ 8% vs last wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly cost</div>
+            <div class="kpi-value">€20.09</div>
+            <div class="kpi-sub">on track</div>
+          </div>
+          <div class="kpi-card wide">
+            <div class="kpi-inner">
+              <div>
+                <div class="kpi-label">Projected monthly</div>
+                <div class="kpi-value">€87.20</div>
+              </div>
+              <div class="kpi-badge">≈ Jun estimate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">7-Day Trend</span>
+            <span class="chart-range">Jun 13–19</span>
+          </div>
+          <div class="bar-chart">
+            <!-- Mon 11.2 — cool -->
+            <div class="bar-col">
+              <div class="bar" style="height:55%"></div>
+              <div class="bar-label">M</div>
+            </div>
+            <!-- Tue 10.8 — cool -->
+            <div class="bar-col">
+              <div class="bar" style="height:52%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <!-- Wed 12.4 — warm -->
+            <div class="bar-col">
+              <div class="bar warm" style="height:61%"></div>
+              <div class="bar-label">W</div>
+            </div>
+            <!-- Thu 11.9 — warm -->
+            <div class="bar-col">
+              <div class="bar warm" style="height:58%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <!-- Fri 18.2 — SPIKE / hot -->
+            <div class="bar-col">
+              <div class="bar spike" style="height:100%"></div>
+              <div class="bar-label">F</div>
+            </div>
+            <!-- Sat 13.1 — warm -->
+            <div class="bar-col">
+              <div class="bar warm" style="height:65%"></div>
+              <div class="bar-label">S</div>
+            </div>
+            <!-- Sun 12.4 — warm -->
+            <div class="bar-col">
+              <div class="bar warm" style="height:61%"></div>
+              <div class="bar-label">S</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <button class="cta-btn">
+            <span class="cta-icon">⊕</span>
+            Enter Reading
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     LIGHT VARIANT
+═══════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="variant-label">Solar Heat · Light (pastel thermal)</div>
+  <div class="phone-frame phone-frame-light">
+    <div class="phone-screen">
+      <div class="dynamic-island"></div>
+      <div class="screen-light">
+
+        <!-- Header -->
+        <div class="app-header">
+          <div>
+            <div class="flat-name">Wohnung 3B</div>
+            <div class="last-reading">Last reading · 42,187 kWh · Today</div>
+          </div>
+          <div class="header-icon">🌡</div>
+        </div>
+
+        <!-- Thermal strip (lighter) -->
+        <div class="temp-strip" style="opacity:0.35;"></div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Daily avg</div>
+            <div class="kpi-value">12.4 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€2.87 / day</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly avg</div>
+            <div class="kpi-value">86.8 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€20.09 / wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daily cost</div>
+            <div class="kpi-value">€2.87</div>
+            <div class="kpi-sub">↓ 8% vs last wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly cost</div>
+            <div class="kpi-value">€20.09</div>
+            <div class="kpi-sub">on track</div>
+          </div>
+          <div class="kpi-card wide">
+            <div class="kpi-inner">
+              <div>
+                <div class="kpi-label">Projected monthly</div>
+                <div class="kpi-value">€87.20</div>
+              </div>
+              <div class="kpi-badge">≈ Jun estimate</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">7-Day Trend</span>
+            <span class="chart-range">Jun 13–19</span>
+          </div>
+          <div class="bar-chart">
+            <div class="bar-col">
+              <div class="bar" style="height:55%"></div>
+              <div class="bar-label">M</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:52%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar warm" style="height:61%"></div>
+              <div class="bar-label">W</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar warm" style="height:58%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar spike" style="height:100%"></div>
+              <div class="bar-label">F</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar warm" style="height:65%"></div>
+              <div class="bar-label">S</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar warm" style="height:61%"></div>
+              <div class="bar-label">S</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <button class="cta-btn">
+            <span class="cta-icon">⊕</span>
+            Enter Reading
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     TABLET HINT
+═══════════════════════════════════════════════════ -->
+<div class="section-divider">
+  <hr><span>Tablet / Desktop hint · Dark</span><hr>
+</div>
+
+<div class="tablet-hint tablet-dark">
+  <div class="tablet-sidebar">
+    <div class="tablet-label">Navigation</div>
+    <div class="nav-item active">🌡 Dashboard</div>
+    <div class="nav-item inactive">📋 Readings</div>
+    <div class="nav-item inactive">📈 History</div>
+    <div class="nav-item inactive">⚙️ Settings</div>
+    <button class="tablet-cta">⊕ Enter Reading</button>
+  </div>
+  <div class="tablet-main">
+    <div class="tablet-label">Today — moderate consumption</div>
+    <div class="tablet-kpi-row">
+      <div class="tablet-kpi-chip">
+        <div class="chip-label">Daily avg</div>
+        <div class="chip-value">12.4 kWh</div>
+        <div class="chip-sub">€2.87</div>
+      </div>
+      <div class="tablet-kpi-chip">
+        <div class="chip-label">Weekly avg</div>
+        <div class="chip-value">86.8 kWh</div>
+        <div class="chip-sub">€20.09</div>
+      </div>
+      <div class="tablet-kpi-chip">
+        <div class="chip-label">Proj. monthly</div>
+        <div class="chip-value">€87.20</div>
+        <div class="chip-sub">Jun estimate</div>
+      </div>
+      <div class="tablet-kpi-chip">
+        <div class="chip-label">Last reading</div>
+        <div class="chip-value">42,187</div>
+        <div class="chip-sub">kWh · today</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

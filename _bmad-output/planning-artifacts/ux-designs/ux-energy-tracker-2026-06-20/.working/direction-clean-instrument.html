@@ -1,0 +1,828 @@
+<!--
+  Direction: Clean Instrument — Precision Dashboard
+  Personality: Light-mode-primary, this direction reads like Apple Health or a Swiss
+  instrument cluster — white surface, tight typography grid, and glass reserved only for
+  the CTA pill and chart card. Every number has a clear rank and the layout communicates
+  confidence through restraint. Best fit: users who want utility, clarity, and fast
+  data-reading; the app feels like a tool they trust, not a weather widget.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy Tracker · Clean Instrument</title>
+<style>
+  /* ============================================================
+     CLEAN INSTRUMENT — COLOR PALETTE
+     Light mode (primary):
+       --surface:         #f5f5f7  (Apple light system bg)
+       --card-bg:         #ffffff
+       --card-border:     #e5e5ea
+       --text-primary:    #1c1c1e
+       --text-secondary:  #6e6e73
+       --accent-blue:     #007aff  (iOS system blue)
+       --accent-green:    #34c759  (iOS system green)
+       --accent-orange:   #ff9500  (iOS system orange — spike)
+       --cta-glass-bg:    rgba(0,122,255,0.10)
+       --cta-border:      rgba(0,122,255,0.30)
+       --grid-line:       #e5e5ea
+     Dark mode:
+       --surface-dark:    #1c1c1e  (Apple dark system bg)
+       --card-dark:       #2c2c2e
+       --card-border-d:   #3a3a3c
+       --text-primary-d:  #ffffff
+       --text-secondary-d:#98989d  (Apple dark secondary)
+       --accent-blue-d:   #0a84ff  (iOS dark blue)
+       --accent-green-d:  #30d158
+       --accent-orange-d: #ff9f0a
+       --cta-glass-dark:  rgba(10,132,255,0.15)
+     ============================================================ */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    background: #e5e5ea;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+    gap: 60px;
+  }
+
+  /* ── Section labels ──────────────────────────────────────────── */
+  .variant-label {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #6e6e73;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  /* ── Phone frame ─────────────────────────────────────────────── */
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .phone-frame {
+    width: 393px;
+    min-height: 852px;
+    border-radius: 54px;
+    padding: 4px;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,0.10),
+      0 30px 80px rgba(0,0,0,0.20),
+      inset 0 0 0 1px rgba(255,255,255,0.80);
+    background: #c8c8cc;
+  }
+
+  .phone-frame-dark {
+    background: #2c2c2e;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.08),
+      0 30px 80px rgba(0,0,0,0.50),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+  }
+
+  .phone-screen {
+    width: 100%;
+    min-height: 844px;
+    border-radius: 50px;
+    overflow: hidden;
+  }
+
+  .dynamic-island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 20;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     LIGHT SCREEN
+  ══════════════════════════════════════════════════════════════ */
+  .screen-light {
+    background: #f5f5f7;
+    min-height: 844px;
+    padding: 58px 16px 32px;
+    position: relative;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     DARK SCREEN
+  ══════════════════════════════════════════════════════════════ */
+  .screen-dark {
+    background: #1c1c1e;
+    min-height: 844px;
+    padding: 58px 16px 32px;
+    position: relative;
+  }
+
+  /* ── Header ──────────────────────────────────────────────────── */
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+
+  .screen-light .app-header { border-bottom: 1px solid #e5e5ea; }
+  .screen-dark  .app-header { border-bottom: 1px solid #3a3a3c; }
+
+  .flat-name     { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .last-reading  { font-size: 12px; font-weight: 400; margin-top: 2px; }
+
+  .screen-light .flat-name    { color: #1c1c1e; }
+  .screen-light .last-reading { color: #6e6e73; }
+  .screen-dark  .flat-name    { color: #ffffff; }
+  .screen-dark  .last-reading { color: #98989d; }
+
+  .meter-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 8px;
+  }
+  .screen-light .meter-badge {
+    background: #f0f0f5;
+    color: #6e6e73;
+    border: 1px solid #e5e5ea;
+  }
+  .screen-dark .meter-badge {
+    background: #2c2c2e;
+    color: #98989d;
+    border: 1px solid #3a3a3c;
+  }
+
+  /* ── Section heading ─────────────────────────────────────────── */
+  .section-heading {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .screen-light .section-heading { color: #6e6e73; }
+  .screen-dark  .section-heading { color: #98989d; }
+
+  /* ── KPI Grid — 2×2 + wide ───────────────────────────────────── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .kpi-card {
+    border-radius: 16px;
+    padding: 14px 16px 12px;
+  }
+
+  .screen-light .kpi-card {
+    background: #ffffff;
+    border: 1px solid #e5e5ea;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .screen-dark .kpi-card {
+    background: #2c2c2e;
+    border: 1px solid #3a3a3c;
+  }
+
+  .kpi-card.wide { grid-column: 1 / -1; }
+
+  .kpi-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .screen-light .kpi-label { color: #6e6e73; }
+  .screen-dark  .kpi-label { color: #98989d; }
+
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1;
+  }
+  .screen-light .kpi-value { color: #1c1c1e; }
+  .screen-dark  .kpi-value { color: #ffffff; }
+
+  .kpi-unit { font-size: 13px; font-weight: 400; opacity: 0.55; }
+
+  .kpi-sub {
+    font-size: 11px;
+    font-weight: 500;
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .screen-light .kpi-sub { color: #6e6e73; }
+  .screen-dark  .kpi-sub { color: #98989d; }
+
+  .kpi-sub .pill {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .pill-green {
+    background: rgba(52,199,89,0.12);
+    color: #34c759;
+  }
+  .screen-dark .pill-green {
+    background: rgba(48,209,88,0.15);
+    color: #30d158;
+  }
+
+  /* Wide card row layout */
+  .kpi-card.wide .kpi-inner-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kpi-card.wide .kpi-value { font-size: 32px; }
+
+  .monthly-badge {
+    text-align: right;
+  }
+  .monthly-badge .badge-val {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+  .screen-light .badge-val {
+    background: rgba(0,122,255,0.08);
+    color: #007aff;
+    border: 1px solid rgba(0,122,255,0.18);
+  }
+  .screen-dark .badge-val {
+    background: rgba(10,132,255,0.12);
+    color: #0a84ff;
+    border: 1px solid rgba(10,132,255,0.22);
+  }
+  .monthly-badge .badge-sub {
+    font-size: 10px;
+    margin-top: 3px;
+  }
+  .screen-light .badge-sub { color: #6e6e73; }
+  .screen-dark  .badge-sub { color: #98989d; }
+
+  /* ── Chart Card ──────────────────────────────────────────────── */
+  .chart-card {
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    /* Only card that uses glass */
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .screen-light .chart-card {
+    background: rgba(255,255,255,0.80);
+    border: 1px solid rgba(0,0,0,0.07);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .screen-dark .chart-card {
+    background: rgba(44,44,46,0.85);
+    border: 1px solid #3a3a3c;
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .chart-title { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .screen-light .chart-title { color: #6e6e73; }
+  .screen-dark  .chart-title { color: #98989d; }
+
+  .chart-range { font-size: 10px; font-weight: 500; }
+  .screen-light .chart-range { color: #6e6e73; }
+  .screen-dark  .chart-range { color: #98989d; }
+
+  /* Sparkline-style bar chart */
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 5px;
+    height: 64px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar { width: 100%; border-radius: 3px 3px 2px 2px; }
+
+  .screen-light .bar       { background: rgba(0,122,255,0.30); }
+  .screen-light .bar.today { background: #007aff; }
+  .screen-light .bar.spike { background: #ff9500; box-shadow: 0 0 5px rgba(255,149,0,0.35); }
+
+  .screen-dark  .bar       { background: rgba(10,132,255,0.30); }
+  .screen-dark  .bar.today { background: #0a84ff; }
+  .screen-dark  .bar.spike { background: #ff9f0a; box-shadow: 0 0 5px rgba(255,159,10,0.40); }
+
+  .bar-label { font-size: 9px; font-weight: 500; }
+  .screen-light .bar-label { color: #6e6e73; }
+  .screen-dark  .bar-label { color: #98989d; }
+
+  /* Spike annotation */
+  .spike-note {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+  }
+  .screen-light .spike-note {
+    background: rgba(255,149,0,0.08);
+    border: 1px solid rgba(255,149,0,0.18);
+  }
+  .screen-dark .spike-note {
+    background: rgba(255,159,10,0.10);
+    border: 1px solid rgba(255,159,10,0.20);
+  }
+
+  .spike-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .screen-light .spike-dot { background: #ff9500; }
+  .screen-dark  .spike-dot { background: #ff9f0a; }
+
+  .spike-text { font-size: 10px; font-weight: 500; }
+  .screen-light .spike-text { color: #c07000; }
+  .screen-dark  .spike-text { color: #ff9f0a; }
+
+  /* ── CTA — glass pill ────────────────────────────────────────── */
+  .cta-wrap {
+    padding: 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cta-btn {
+    width: 100%;
+    height: 58px;
+    border-radius: 16px;
+    border: none;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    backdrop-filter: blur(20px) saturate(200%);
+  }
+
+  /* Light CTA — solid iOS blue, crisp */
+  .screen-light .cta-btn {
+    background: #007aff;
+    color: #ffffff;
+    box-shadow: 0 4px 20px rgba(0,122,255,0.35);
+  }
+
+  /* Dark CTA — glass blue */
+  .screen-dark .cta-btn {
+    background: rgba(10,132,255,0.18);
+    border: 1.5px solid rgba(10,132,255,0.40);
+    color: #0a84ff;
+    box-shadow:
+      0 4px 20px rgba(10,132,255,0.20),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+  .cta-icon { font-size: 19px; line-height: 1; }
+
+  /* ── Tablet hint ─────────────────────────────────────────────── */
+  .tablet-wrap {
+    width: 768px;
+    max-width: calc(100vw - 40px);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .tablet-light {
+    background: #f5f5f7;
+    border: 1px solid #d1d1d6;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.10);
+  }
+
+  .tablet-bar {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 12px;
+    border-bottom: 1px solid #e5e5ea;
+    background: rgba(255,255,255,0.80);
+    backdrop-filter: blur(20px);
+  }
+
+  .traffic-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  .tablet-content {
+    display: flex;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .tablet-nav {
+    width: 200px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .t-nav-item {
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6e6e73;
+    cursor: pointer;
+  }
+  .t-nav-item.active {
+    background: rgba(0,122,255,0.10);
+    color: #007aff;
+    font-weight: 600;
+    border: 1px solid rgba(0,122,255,0.15);
+  }
+
+  .tablet-main-content { flex: 1; }
+
+  .t-kpi-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .t-kpi-cell {
+    background: #fff;
+    border: 1px solid #e5e5ea;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .t-kpi-cell .kpi-label { font-size: 9px; color: #6e6e73; }
+  .t-kpi-cell .kpi-value { font-size: 16px; color: #1c1c1e; font-weight: 700; letter-spacing: -0.02em; }
+  .t-kpi-cell .kpi-sub   { font-size: 10px; color: #6e6e73; margin-top: 1px; }
+
+  .t-cta {
+    height: 44px;
+    background: #007aff;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    box-shadow: 0 3px 14px rgba(0,122,255,0.30);
+  }
+
+  .section-divider {
+    width: 100%;
+    max-width: 768px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-divider hr { flex: 1; border: none; border-top: 1px solid #d1d1d6; }
+  .section-divider span { font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: #98989d; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     LIGHT VARIANT (primary)
+═══════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="variant-label">Clean Instrument · Light (primary)</div>
+  <div class="phone-frame">
+    <div class="phone-screen" style="position:relative;">
+      <div class="dynamic-island"></div>
+      <div class="screen-light">
+
+        <!-- Header -->
+        <div class="app-header">
+          <div>
+            <div class="flat-name">Wohnung 3B</div>
+            <div class="last-reading">Last reading · today, 42,187 kWh</div>
+          </div>
+          <div class="meter-badge">⚡ Live</div>
+        </div>
+
+        <!-- Section heading -->
+        <div class="section-heading">Usage · Jun 2026</div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Daily avg</div>
+            <div class="kpi-value">12.4 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub"><span class="pill pill-green">↓ 8%</span> vs last wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daily cost</div>
+            <div class="kpi-value">€2.87</div>
+            <div class="kpi-sub">per day avg</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly avg</div>
+            <div class="kpi-value">86.8 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">on track</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly cost</div>
+            <div class="kpi-value">€20.09</div>
+            <div class="kpi-sub">per week avg</div>
+          </div>
+          <!-- Projected monthly — wide -->
+          <div class="kpi-card wide">
+            <div class="kpi-inner-row">
+              <div>
+                <div class="kpi-label">Projected monthly</div>
+                <div class="kpi-value">€87.20</div>
+              </div>
+              <div class="monthly-badge">
+                <div class="badge-val">Jun estimate</div>
+                <div class="badge-sub">≈ 30-day run rate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">7-Day Trend</span>
+            <span class="chart-range">Jun 13–19</span>
+          </div>
+          <div class="bar-chart">
+            <div class="bar-col">
+              <div class="bar" style="height:55%"></div>
+              <div class="bar-label">Mon</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:52%"></div>
+              <div class="bar-label">Tue</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:61%"></div>
+              <div class="bar-label">Wed</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:58%"></div>
+              <div class="bar-label">Thu</div>
+            </div>
+            <!-- Spike day -->
+            <div class="bar-col">
+              <div class="bar spike" style="height:100%"></div>
+              <div class="bar-label">Fri</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:65%"></div>
+              <div class="bar-label">Sat</div>
+            </div>
+            <!-- Today -->
+            <div class="bar-col">
+              <div class="bar today" style="height:61%"></div>
+              <div class="bar-label">Sun</div>
+            </div>
+          </div>
+          <!-- Spike annotation -->
+          <div class="spike-note">
+            <div class="spike-dot"></div>
+            <span class="spike-text">Fri Jun 16 · 18.2 kWh spike (+47% above avg)</span>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <button class="cta-btn">
+            <span class="cta-icon">⊕</span>
+            Enter Reading
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     DARK VARIANT
+═══════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="variant-label">Clean Instrument · Dark</div>
+  <div class="phone-frame phone-frame-dark">
+    <div class="phone-screen" style="position:relative;">
+      <div class="dynamic-island"></div>
+      <div class="screen-dark">
+
+        <!-- Header -->
+        <div class="app-header">
+          <div>
+            <div class="flat-name">Wohnung 3B</div>
+            <div class="last-reading">Last reading · today, 42,187 kWh</div>
+          </div>
+          <div class="meter-badge">⚡ Live</div>
+        </div>
+
+        <!-- Section heading -->
+        <div class="section-heading">Usage · Jun 2026</div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Daily avg</div>
+            <div class="kpi-value">12.4 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub"><span class="pill pill-green">↓ 8%</span> vs last wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daily cost</div>
+            <div class="kpi-value">€2.87</div>
+            <div class="kpi-sub">per day avg</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly avg</div>
+            <div class="kpi-value">86.8 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">on track</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly cost</div>
+            <div class="kpi-value">€20.09</div>
+            <div class="kpi-sub">per week avg</div>
+          </div>
+          <div class="kpi-card wide">
+            <div class="kpi-inner-row">
+              <div>
+                <div class="kpi-label">Projected monthly</div>
+                <div class="kpi-value">€87.20</div>
+              </div>
+              <div class="monthly-badge">
+                <div class="badge-val">Jun estimate</div>
+                <div class="badge-sub">≈ 30-day run rate</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">7-Day Trend</span>
+            <span class="chart-range">Jun 13–19</span>
+          </div>
+          <div class="bar-chart">
+            <div class="bar-col">
+              <div class="bar" style="height:55%"></div>
+              <div class="bar-label">Mon</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:52%"></div>
+              <div class="bar-label">Tue</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:61%"></div>
+              <div class="bar-label">Wed</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:58%"></div>
+              <div class="bar-label">Thu</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar spike" style="height:100%"></div>
+              <div class="bar-label">Fri</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:65%"></div>
+              <div class="bar-label">Sat</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar today" style="height:61%"></div>
+              <div class="bar-label">Sun</div>
+            </div>
+          </div>
+          <div class="spike-note">
+            <div class="spike-dot"></div>
+            <span class="spike-text">Fri Jun 16 · 18.2 kWh spike (+47% above avg)</span>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <button class="cta-btn">
+            <span class="cta-icon">⊕</span>
+            Enter Reading
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     TABLET HINT — LIGHT
+═══════════════════════════════════════════════════ -->
+<div class="section-divider">
+  <hr><span>Tablet / Desktop hint · Light</span><hr>
+</div>
+
+<div class="tablet-wrap tablet-light">
+  <!-- Title bar -->
+  <div class="tablet-bar">
+    <div class="traffic-dot" style="background:#ff5f57;"></div>
+    <div class="traffic-dot" style="background:#febc2e;"></div>
+    <div class="traffic-dot" style="background:#28c840;"></div>
+    <span style="font-size:13px;font-weight:600;color:#1c1c1e;margin-left:8px;">Energy Tracker — Wohnung 3B</span>
+    <span style="font-size:12px;color:#6e6e73;margin-left:auto;">42,187 kWh · today</span>
+  </div>
+  <!-- Content -->
+  <div class="tablet-content">
+    <div class="tablet-nav">
+      <div class="t-nav-item active">⚡ Dashboard</div>
+      <div class="t-nav-item">📋 Readings</div>
+      <div class="t-nav-item">📈 History</div>
+      <div class="t-nav-item">⚙️ Settings</div>
+    </div>
+    <div class="tablet-main-content">
+      <div class="t-kpi-row">
+        <div class="t-kpi-cell">
+          <div class="kpi-label screen-light">Daily avg</div>
+          <div class="kpi-value screen-light" style="font-size:16px;">12.4 kWh</div>
+          <div class="kpi-sub screen-light" style="font-size:10px;">€2.87 / day</div>
+        </div>
+        <div class="t-kpi-cell">
+          <div class="kpi-label screen-light">Daily cost</div>
+          <div class="kpi-value screen-light" style="font-size:16px;">€2.87</div>
+          <div class="kpi-sub screen-light" style="font-size:10px;">↓ 8%</div>
+        </div>
+        <div class="t-kpi-cell">
+          <div class="kpi-label screen-light">Weekly avg</div>
+          <div class="kpi-value screen-light" style="font-size:16px;">86.8 kWh</div>
+          <div class="kpi-sub screen-light" style="font-size:10px;">€20.09 / wk</div>
+        </div>
+        <div class="t-kpi-cell">
+          <div class="kpi-label screen-light">Weekly cost</div>
+          <div class="kpi-value screen-light" style="font-size:16px;">€20.09</div>
+          <div class="kpi-sub screen-light" style="font-size:10px;">on track</div>
+        </div>
+        <div class="t-kpi-cell">
+          <div class="kpi-label screen-light">Proj. monthly</div>
+          <div class="kpi-value screen-light" style="font-size:16px;">€87.20</div>
+          <div class="kpi-sub screen-light" style="font-size:10px;">Jun estimate</div>
+        </div>
+      </div>
+      <button class="t-cta">⊕ Enter Reading</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Euro Burn — Energy Tracker Dashboard</title>
+  <style>
+    /* ============================================================
+       RESET & BASE
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+      background: #0f1117; /* near-black page canvas */
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 72px;
+      gap: 64px;
+    }
+
+    /* ============================================================
+       SECTION LABELS
+       ============================================================ */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.35);
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    /* ============================================================
+       PHONE FRAME
+       ============================================================ */
+    .phone-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .phone-frame {
+      width: 375px;
+      /* phone frame shell */
+      background: #1c1c1e; /* iOS-dark bezel */
+      border-radius: 50px;
+      padding: 14px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08),
+        0 40px 80px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+      position: relative;
+    }
+
+    /* Dynamic island notch */
+    .phone-frame::before {
+      content: '';
+      display: block;
+      width: 120px;
+      height: 34px;
+      background: #000;
+      border-radius: 20px;
+      margin: 0 auto 10px;
+    }
+
+    .phone-screen {
+      border-radius: 38px;
+      overflow: hidden;
+      position: relative;
+      height: 756px; /* 375×812 ratio */
+    }
+
+    /* ============================================================
+       DARK MODE — GRADIENT BACKGROUND
+       Cool edge (−50% budget): deep indigo #1a1f4e → teal #0d4f5c
+       Midpoint (at budget): warm charcoal #2d2018
+       Warm edge (+50% budget): deep amber #4a2000 → burnt orange #6b2d00
+       ============================================================ */
+    .screen-dark {
+      background: linear-gradient(
+        160deg,
+        #1a1f4e 0%,    /* cool edge — deep indigo-blue */
+        #0d4f5c 30%,   /* teal */
+        #2d2018 60%,   /* midpoint — warm charcoal */
+        #4a2000 85%,   /* deep amber */
+        #6b2d00 100%   /* burnt orange warm edge */
+      );
+    }
+
+    /* ============================================================
+       LIGHT MODE — GRADIENT BACKGROUND
+       Cool edge (−50% budget): light sky-blue
+       Midpoint (at budget): warm sand #e8d5b0
+       Warm edge (+50% budget): warm amber tints
+       ============================================================ */
+    .screen-light {
+      background: linear-gradient(
+        160deg,
+        #e8f4fd 0%,    /* light sky-blue cool edge */
+        #daeef9 30%,   /* mid-cool */
+        #e8d5b0 60%,   /* midpoint — warm sand */
+        #f0c890 85%,   /* warm amber */
+        #e8b870 100%   /* warm amber edge */
+      );
+    }
+
+
+
+    /* ============================================================
+       SCREEN CONTENT LAYOUT
+       ============================================================ */
+    .screen-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 16px 16px 0;
+    }
+
+    /* ============================================================
+       HEADER
+       ============================================================ */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0 16px;
+    }
+
+    .header-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.01em;
+    }
+    .screen-light .header-name {
+      color: #1a1f2e; /* dark ink */
+    }
+
+    .header-timestamp {
+      font-size: 11px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.45);
+    }
+    .screen-light .header-timestamp {
+      color: rgba(26,31,46,0.5); /* dimmed dark ink */
+    }
+
+    /* ============================================================
+       GLASS CARD BASE
+       ============================================================ */
+    .glass-card {
+      background: rgba(255,255,255,0.08); /* semi-transparent dark glass */
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.14); /* thin bright border */
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+
+    .screen-light .glass-card {
+      background: rgba(255,255,255,0.55); /* light glass */
+      border: 1px solid rgba(0,0,0,0.08); /* subtle dark border */
+    }
+
+    /* ============================================================
+       KPI GRID — 2×2
+       ============================================================ */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .kpi-card {
+      /* inherits .glass-card */
+    }
+
+    .kpi-headline {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+    }
+    .screen-light .kpi-headline {
+      color: #1a1f2e; /* dark ink headline */
+    }
+
+    .kpi-subline {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.65);
+      margin-top: 3px;
+    }
+    .screen-light .kpi-subline {
+      color: #4a5568; /* medium slate */
+    }
+
+    .kpi-delta {
+      font-size: 11px;
+      font-weight: 500;
+      color: #4ade80; /* cool green accent */
+      margin-top: 5px;
+    }
+    .screen-light .kpi-delta {
+      color: #16a34a; /* darker green for light bg */
+    }
+
+    .kpi-tertiary {
+      font-size: 10px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.35);
+      margin-top: 4px;
+    }
+    .screen-light .kpi-tertiary {
+      color: rgba(26,31,46,0.4);
+    }
+
+    /* ============================================================
+       ENTER READING CTA BUTTON
+       ============================================================ */
+    .cta-button {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      padding: 16px 24px;
+      border-radius: 50px; /* pill shape */
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1.5px solid rgba(255,255,255,0.4); /* bright border glow */
+      cursor: pointer;
+      margin-bottom: 12px;
+      /* subtle glow to make it inviting */
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 4px 24px rgba(255,255,255,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.15);
+      transition: box-shadow 0.2s;
+    }
+
+    .screen-light .cta-button {
+      background: rgba(255,255,255,0.65);
+      border: 1.5px solid rgba(0,0,0,0.12);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    .cta-label {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: 0.01em;
+    }
+    .screen-light .cta-label {
+      color: #1a1f2e;
+    }
+
+    .cta-sub {
+      font-size: 10px;
+      font-weight: 400;
+      color: rgba(255,255,255,0.4);
+      margin-top: 3px;
+    }
+    .screen-light .cta-sub {
+      color: rgba(26,31,46,0.4);
+    }
+
+    /* ============================================================
+       7-DAY TREND CHART CARD
+       ============================================================ */
+    .trend-card {
+      /* inherits .glass-card */
+      padding: 16px 16px 12px;
+      margin-bottom: 12px;
+    }
+
+    .trend-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 14px;
+    }
+    .screen-light .trend-title {
+      color: rgba(26,31,46,0.45);
+    }
+
+    .chart-area {
+      position: relative;
+      height: 90px;
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      padding-bottom: 0;
+    }
+
+    /* Budget reference line inside chart */
+    .budget-line {
+      position: absolute;
+      /* 15.5 kWh out of max 18.2 kWh = 85.2% from bottom */
+      bottom: calc(18px + (90px - 18px) * 0.852);
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(255,255,255,0.3);
+    }
+    .screen-light .budget-line {
+      background: rgba(26,31,46,0.25);
+    }
+
+    .bar-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      gap: 4px;
+    }
+
+    .bar {
+      width: 100%;
+      border-radius: 4px 4px 2px 2px;
+      background: rgba(255,255,255,0.5); /* cool white-blue default */
+      min-height: 4px;
+    }
+
+    /* Spike bar: Jun 16 (18.2 kWh) — warm amber tint */
+    .bar-spike {
+      background: #f59e0b; /* warm amber */
+      opacity: 0.85;
+    }
+    .screen-light .bar {
+      background: rgba(100,160,210,0.5);
+    }
+    .screen-light .bar-spike {
+      background: #f59e0b;
+      opacity: 0.9;
+    }
+
+    .bar-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.35);
+      text-align: center;
+    }
+    .screen-light .bar-label {
+      color: rgba(26,31,46,0.4);
+    }
+
+    /* ============================================================
+       BOTTOM TAB BAR
+       ============================================================ */
+    .tab-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 72px;
+      background: rgba(10,15,25,0.75); /* dark semi-transparent */
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-around;
+      padding: 10px 0 0;
+    }
+
+    .screen-light .tab-bar {
+      background: rgba(255,255,255,0.75); /* white glass */
+      border-top: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+    }
+
+    .tab-icon {
+      width: 22px;
+      height: 22px;
+      opacity: 0.4; /* inactive */
+    }
+
+    .tab-icon.active {
+      opacity: 1.0; /* active */
+    }
+
+    .tab-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.4); /* inactive */
+      letter-spacing: 0.02em;
+    }
+
+    .tab-label.active {
+      color: rgba(255,255,255,1.0); /* active */
+    }
+
+    .screen-light .tab-label {
+      color: rgba(26,31,46,0.4);
+    }
+    .screen-light .tab-label.active {
+      color: #1a1f2e;
+    }
+
+    /* SVG tab icons — inline */
+    .icon-svg {
+      width: 22px;
+      height: 22px;
+      fill: none;
+      stroke: white;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .screen-light .icon-svg {
+      stroke: #1a1f2e;
+    }
+
+    /* ============================================================
+       TABLET LAYOUT — 768px wide
+       ============================================================ */
+    .tablet-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    .tablet-frame {
+      width: 768px;
+      height: 600px;
+      background: #1c1c1e;
+      border-radius: 20px;
+      padding: 12px;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.08),
+        0 40px 80px rgba(0,0,0,0.7),
+        inset 0 1px 0 rgba(255,255,255,0.12);
+    }
+
+    .tablet-screen {
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(
+        140deg,
+        #1a1f4e 0%,
+        #0d4f5c 35%,
+        #2d2018 65%,
+        #4a2000 85%,
+        #6b2d00 100%
+      );
+      position: relative;
+    }
+
+
+    /* Sidebar nav */
+    .tablet-sidebar {
+      width: 200px;
+      flex-shrink: 0;
+      background: rgba(0,0,0,0.25);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 28px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .sidebar-app-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+      padding: 0 8px;
+    }
+
+    .sidebar-nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    .sidebar-nav-item.active {
+      background: rgba(255,255,255,0.12);
+    }
+
+    .sidebar-nav-label {
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.4);
+    }
+
+    .sidebar-nav-label.active {
+      color: rgba(255,255,255,0.95);
+      font-weight: 600;
+    }
+
+    /* Tablet main content */
+    .tablet-main {
+      flex: 1;
+      padding: 24px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow: hidden;
+      position: relative;
+      z-index: 1;
+    }
+
+    .tablet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .tablet-header-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.95);
+      letter-spacing: -0.01em;
+    }
+
+    .tablet-header-ts {
+      font-size: 12px;
+      color: rgba(255,255,255,0.45);
+    }
+
+    /* KPI grid — 4 across on tablet */
+    .kpi-grid-tablet {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    /* Tablet trend row — full width now that CTA is in header */
+    .tablet-bottom-row {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .tablet-trend-col {
+      flex: 1;
+    }
+
+    /* Tablet icon-only CTA button (in content header) */
+    .cta-button-tablet-compact {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px; /* rounded-square */
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1.5px solid rgba(255,255,255,0.4);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 4px 24px rgba(255,255,255,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.15);
+      cursor: pointer;
+      flex-shrink: 0;
+      color: #ffffff;
+    }
+
+    /* Tablet trend chart */
+    .trend-card-tablet {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 18px;
+      padding: 16px 16px 12px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .trend-title-tablet {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.45);
+      margin-bottom: 10px;
+    }
+
+    .chart-area-tablet {
+      position: relative;
+      flex: 1;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
+    .budget-line-tablet {
+      position: absolute;
+      /* 15.5/18.2 = 85.2% height */
+      bottom: calc(18px + (100% - 18px) * 0.852);
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* ============================================================
+       SCROLLABLE MAIN AREA (phone screen inner scroll)
+       ============================================================ */
+    .scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 84px; /* room for tab bar */
+      scrollbar-width: none;
+    }
+    .scroll-area::-webkit-scrollbar { display: none; }
+
+  </style>
+</head>
+<body>
+
+  <!-- ============================================================
+       DARK MODE PHONE
+       ============================================================ -->
+  <div class="phone-wrapper">
+    <div class="section-label">Dark Mode — 375px</div>
+    <div class="phone-frame">
+      <div class="phone-screen screen-dark">
+
+        <div class="screen-content">
+
+          <!-- HEADER -->
+          <div class="header">
+            <span class="header-name">Wohnung 3B</span>
+            <span class="header-timestamp">Last read: 20 Jun, 09:14</span>
+          </div>
+
+          <!-- SCROLLABLE CONTENT -->
+          <div class="scroll-area">
+
+            <!-- KPI GRID 2×2 -->
+            <div class="kpi-grid">
+
+              <!-- Card 1: Today -->
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">12.4 kWh</div>
+                <div class="kpi-subline">€2.87</div>
+                <div class="kpi-delta">↓ 0.8 kWh under budget</div>
+              </div>
+
+              <!-- Card 2: This week -->
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">86.8 kWh</div>
+                <div class="kpi-subline">€20.09</div>
+                <!-- no delta on weekly -->
+              </div>
+
+              <!-- Card 3: Projected month -->
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">~632 kWh</div>
+                <div class="kpi-subline">~€87.20</div>
+                <div class="kpi-delta">on track</div>
+              </div>
+
+              <!-- Card 4: Daily budget -->
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">15.5 kWh</div>
+                <div class="kpi-subline">€3.59/day</div>
+                <div class="kpi-tertiary">based on 5,657 kWh/yr</div>
+              </div>
+
+            </div><!-- /kpi-grid -->
+
+            <!-- ENTER READING CTA -->
+            <div class="cta-button">
+              <span class="cta-label">Enter Reading</span>
+            </div>
+
+            <!-- 7-DAY TREND CHART -->
+            <div class="glass-card trend-card">
+              <div class="trend-title">7-Day Trend · Jun 13–19</div>
+              <div class="chart-area">
+                <!-- Budget reference line at 15.5 kWh (85.2% of max 18.2) -->
+                <div class="budget-line"></div>
+
+                <!-- Bar columns: max height area = 72px (90px - 18px for labels) -->
+                <!-- Heights: val/18.2 * 72px -->
+                <!-- 11.2 → 44px | 13.8 → 55px | 10.9 → 43px | 14.1 → 56px | 18.2 → 72px | 12.7 → 50px | 12.4 → 49px -->
+
+                <div class="bar-col">
+                  <div class="bar" style="height: 44px;"></div>
+                  <div class="bar-label">F</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 55px;"></div>
+                  <div class="bar-label">S</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 43px;"></div>
+                  <div class="bar-label">S</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 56px;"></div>
+                  <div class="bar-label">M</div>
+                </div>
+                <!-- Jun 16 spike: 18.2 kWh — amber bar -->
+                <div class="bar-col">
+                  <div class="bar bar-spike" style="height: 72px;"></div>
+                  <div class="bar-label">T</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 50px;"></div>
+                  <div class="bar-label">W</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 49px;"></div>
+                  <div class="bar-label">T</div>
+                </div>
+              </div>
+            </div><!-- /trend-card -->
+
+          </div><!-- /scroll-area -->
+
+        </div><!-- /screen-content -->
+
+        <!-- BOTTOM TAB BAR -->
+        <div class="tab-bar">
+
+          <!-- Dashboard (active) -->
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            <span class="tab-label active">Dashboard</span>
+          </div>
+
+          <!-- Trends -->
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.4;">
+              <polyline points="3 17 9 11 13 15 21 7"/>
+              <polyline points="17 7 21 7 21 11"/>
+            </svg>
+            <span class="tab-label">Trends</span>
+          </div>
+
+          <!-- Decomposition -->
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.4;">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3 L12 12 L19.5 7.5"/>
+              <path d="M12 12 L5 17"/>
+            </svg>
+            <span class="tab-label">Decomp.</span>
+          </div>
+
+          <!-- Settings -->
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.4;">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span class="tab-label">Settings</span>
+          </div>
+
+        </div><!-- /tab-bar -->
+
+      </div><!-- /phone-screen -->
+    </div><!-- /phone-frame -->
+  </div><!-- /phone-wrapper dark -->
+
+
+  <!-- ============================================================
+       LIGHT MODE PHONE
+       ============================================================ -->
+  <div class="phone-wrapper">
+    <div class="section-label">Light Mode — 375px</div>
+    <div class="phone-frame" style="background: #e0e0e2;">
+      <div class="phone-screen screen-light">
+
+        <div class="screen-content">
+
+          <!-- HEADER -->
+          <div class="header">
+            <span class="header-name">Wohnung 3B</span>
+            <span class="header-timestamp">Last read: 20 Jun, 09:14</span>
+          </div>
+
+          <!-- SCROLLABLE CONTENT -->
+          <div class="scroll-area">
+
+            <!-- KPI GRID 2×2 -->
+            <div class="kpi-grid">
+
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">12.4 kWh</div>
+                <div class="kpi-subline">€2.87</div>
+                <div class="kpi-delta">↓ 0.8 kWh under budget</div>
+              </div>
+
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">86.8 kWh</div>
+                <div class="kpi-subline">€20.09</div>
+              </div>
+
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">~632 kWh</div>
+                <div class="kpi-subline">~€87.20</div>
+                <div class="kpi-delta">on track</div>
+              </div>
+
+              <div class="glass-card kpi-card">
+                <div class="kpi-headline">15.5 kWh</div>
+                <div class="kpi-subline">€3.59/day</div>
+                <div class="kpi-tertiary">based on 5,657 kWh/yr</div>
+              </div>
+
+            </div><!-- /kpi-grid -->
+
+            <!-- ENTER READING CTA -->
+            <div class="cta-button">
+              <span class="cta-label">Enter Reading</span>
+            </div>
+
+            <!-- 7-DAY TREND CHART -->
+            <div class="glass-card trend-card">
+              <div class="trend-title">7-Day Trend · Jun 13–19</div>
+              <div class="chart-area">
+                <div class="budget-line"></div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 44px;"></div>
+                  <div class="bar-label">F</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 55px;"></div>
+                  <div class="bar-label">S</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 43px;"></div>
+                  <div class="bar-label">S</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 56px;"></div>
+                  <div class="bar-label">M</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar bar-spike" style="height: 72px;"></div>
+                  <div class="bar-label">T</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 50px;"></div>
+                  <div class="bar-label">W</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar" style="height: 49px;"></div>
+                  <div class="bar-label">T</div>
+                </div>
+              </div>
+            </div><!-- /trend-card -->
+
+          </div><!-- /scroll-area -->
+
+        </div><!-- /screen-content -->
+
+        <!-- BOTTOM TAB BAR — light mode -->
+        <div class="tab-bar">
+
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            <span class="tab-label active">Dashboard</span>
+          </div>
+
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.4;">
+              <polyline points="3 17 9 11 13 15 21 7"/>
+              <polyline points="17 7 21 7 21 11"/>
+            </svg>
+            <span class="tab-label">Trends</span>
+          </div>
+
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.4;">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3 L12 12 L19.5 7.5"/>
+              <path d="M12 12 L5 17"/>
+            </svg>
+            <span class="tab-label">Decomp.</span>
+          </div>
+
+          <div class="tab-item">
+            <svg class="icon-svg" viewBox="0 0 24 24" style="opacity:0.4;">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span class="tab-label">Settings</span>
+          </div>
+
+        </div><!-- /tab-bar -->
+
+      </div><!-- /phone-screen light -->
+    </div><!-- /phone-frame -->
+  </div><!-- /phone-wrapper light -->
+
+
+  <!-- ============================================================
+       TABLET LAYOUT — 768px, dark, sidebar nav
+       ============================================================ -->
+  <div class="tablet-wrapper">
+    <div class="section-label">Tablet — 768px · Dark Mode · Sidebar Nav</div>
+    <div class="tablet-frame">
+      <div class="tablet-screen">
+
+        <!-- SIDEBAR NAV -->
+        <div class="tablet-sidebar">
+          <div class="sidebar-app-name">Euro Burn</div>
+
+          <div class="sidebar-nav-item active">
+            <svg width="18" height="18" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+              <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>
+            <span class="sidebar-nav-label active">Dashboard</span>
+          </div>
+
+          <div class="sidebar-nav-item">
+            <svg width="18" height="18" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="opacity:0.4;">
+              <polyline points="3 17 9 11 13 15 21 7"/>
+              <polyline points="17 7 21 7 21 11"/>
+            </svg>
+            <span class="sidebar-nav-label">Trends</span>
+          </div>
+
+          <div class="sidebar-nav-item">
+            <svg width="18" height="18" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="opacity:0.4;">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M12 3 L12 12 L19.5 7.5"/>
+              <path d="M12 12 L5 17"/>
+            </svg>
+            <span class="sidebar-nav-label">Decomposition</span>
+          </div>
+
+          <div class="sidebar-nav-item">
+            <svg width="18" height="18" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" style="opacity:0.4;">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            <span class="sidebar-nav-label">Settings</span>
+          </div>
+
+          <!-- Apartment label at bottom of sidebar -->
+          <div style="margin-top: auto; padding: 0 8px;">
+            <div style="font-size:11px; color:rgba(255,255,255,0.3); font-weight:500; letter-spacing:0.04em;">Wohnung 3B</div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.2); margin-top:2px;">Last read: 20 Jun, 09:14</div>
+          </div>
+
+        </div><!-- /tablet-sidebar -->
+
+        <!-- TABLET MAIN CONTENT -->
+        <div class="tablet-main">
+
+          <!-- Header -->
+          <div class="tablet-header">
+            <div class="tablet-header-name">Dashboard</div>
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                <span style="font-size:13px; font-weight:600; color:rgba(255,255,255,0.9);">Wohnung 3B</span>
+                <span class="tablet-header-ts">Last read: 20 Jun, 09:14</span>
+              </div>
+              <button class="cta-button-tablet-compact" title="Enter Reading">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- KPI 4-across -->
+          <div class="kpi-grid-tablet">
+
+            <div class="glass-card kpi-card">
+              <div class="kpi-headline" style="font-size:20px;">12.4 kWh</div>
+              <div class="kpi-subline">€2.87</div>
+              <div class="kpi-delta">↓ 0.8 kWh under budget</div>
+            </div>
+
+            <div class="glass-card kpi-card">
+              <div class="kpi-headline" style="font-size:20px;">86.8 kWh</div>
+              <div class="kpi-subline">€20.09</div>
+            </div>
+
+            <div class="glass-card kpi-card">
+              <div class="kpi-headline" style="font-size:20px;">~632 kWh</div>
+              <div class="kpi-subline">~€87.20</div>
+              <div class="kpi-delta">on track</div>
+            </div>
+
+            <div class="glass-card kpi-card">
+              <div class="kpi-headline" style="font-size:20px;">15.5 kWh</div>
+              <div class="kpi-subline">€3.59/day</div>
+              <div class="kpi-tertiary">based on 5,657 kWh/yr</div>
+            </div>
+
+          </div><!-- /kpi-grid-tablet -->
+
+          <!-- Trend chart — full width -->
+          <div class="tablet-bottom-row">
+
+            <div class="tablet-trend-col">
+              <div class="trend-card-tablet">
+                <div class="trend-title-tablet">7-Day Trend · Jun 13–19</div>
+                <div class="chart-area-tablet">
+                  <div class="budget-line-tablet"></div>
+
+                  <div class="bar-col">
+                    <div class="bar" style="height: 44px;"></div>
+                    <div class="bar-label">F</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar" style="height: 55px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar" style="height: 43px;"></div>
+                    <div class="bar-label">S</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar" style="height: 56px;"></div>
+                    <div class="bar-label">M</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar bar-spike" style="height: 72px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar" style="height: 50px;"></div>
+                    <div class="bar-label">W</div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar" style="height: 49px;"></div>
+                    <div class="bar-label">T</div>
+                  </div>
+
+                </div><!-- /chart-area-tablet -->
+              </div><!-- /trend-card-tablet -->
+            </div><!-- /tablet-trend-col -->
+
+          </div><!-- /tablet-bottom-row -->
+
+        </div><!-- /tablet-main -->
+
+      </div><!-- /tablet-screen -->
+    </div><!-- /tablet-frame -->
+  </div><!-- /tablet-wrapper -->
+
+</body>
+</html>

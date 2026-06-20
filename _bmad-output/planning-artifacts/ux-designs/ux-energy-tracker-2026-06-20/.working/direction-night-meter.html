@@ -1,0 +1,940 @@
+<!--
+  Direction: Night Meter — Dark Native, Electric Accent
+  Personality: Always dark — deep near-black base with electric cyan-blue accent glow
+  that makes the app feel like a smart-home control panel. The Enter Reading CTA crackles
+  with a neon glow as if the electricity is live. Trend bars pulse in the accent colour,
+  and the whole screen feels at home at 10pm in a dark basement reading the meter.
+  Best fit: tech-forward users who prefer dark-always apps, smart home aesthetics,
+  and high contrast readability in low light.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy Tracker · Night Meter</title>
+<style>
+  /* ============================================================
+     NIGHT METER — COLOR PALETTE
+     Dark mode (primary / only):
+       --bg-base:         #090e1a  (near-black navy)
+       --bg-card:         #111827  (dark navy card)
+       --bg-card-glass:   rgba(17,24,39,0.80)
+       --glass-border:    rgba(0,200,255,0.14)
+       --accent-electric: #00c8ff  (electric cyan)
+       --accent-glow:     rgba(0,200,255,0.25)
+       --accent-dim:      rgba(0,200,255,0.45)
+       --text-primary:    #e8f4ff
+       --text-secondary:  rgba(232,244,255,0.50)
+       --text-dim:        rgba(232,244,255,0.28)
+       --cta-bg:          rgba(0,200,255,0.15)
+       --cta-border:      rgba(0,200,255,0.55)
+       --cta-glow:        rgba(0,200,255,0.30)
+       --spike-accent:    #ff6040  (warm orange for spike contrast)
+     Soft dark variant (lighter dark for comparison):
+       --bg-soft:         #131d2e  (dark slate blue)
+       --card-soft:       #1a2640
+       --glass-border-s:  rgba(80,160,255,0.18)
+       --accent-soft:     #4090ff  (softer blue)
+     ============================================================ */
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    background: #050810;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+    gap: 60px;
+  }
+
+  /* ── Section labels ──────────────────────────────────────────── */
+  .variant-label {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(0,200,255,0.40);
+    margin-bottom: 16px;
+    text-align: center;
+  }
+
+  /* ── Phone frame ─────────────────────────────────────────────── */
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .phone-frame {
+    width: 393px;
+    min-height: 852px;
+    border-radius: 54px;
+    padding: 4px;
+    box-shadow:
+      0 0 0 1px rgba(0,200,255,0.12),
+      0 0 40px rgba(0,200,255,0.06),
+      0 30px 80px rgba(0,0,0,0.80),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+    background: #0a0f1c;
+  }
+
+  .phone-frame-soft {
+    box-shadow:
+      0 0 0 1px rgba(64,144,255,0.12),
+      0 0 30px rgba(64,144,255,0.05),
+      0 30px 80px rgba(0,0,0,0.70),
+      inset 0 0 0 1px rgba(255,255,255,0.04);
+    background: #101828;
+  }
+
+  .phone-screen {
+    width: 100%;
+    min-height: 844px;
+    border-radius: 50px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .dynamic-island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 34px;
+    background: #000;
+    border-radius: 20px;
+    z-index: 20;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     DEEP DARK SCREEN — primary night meter
+  ══════════════════════════════════════════════════════════════ */
+  .screen-deep {
+    background: #090e1a;
+    min-height: 844px;
+    padding: 58px 18px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Electric glow background orbs */
+  .screen-deep::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(0,200,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .screen-deep::after {
+    content: '';
+    position: absolute;
+    bottom: 80px;
+    right: -60px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(0,180,220,0.05) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ══════════════════════════════════════════════════════════════
+     SOFT DARK SCREEN — slightly lighter dark
+  ══════════════════════════════════════════════════════════════ */
+  .screen-soft {
+    background: #131d2e;
+    min-height: 844px;
+    padding: 58px 18px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .screen-soft::before {
+    content: '';
+    position: absolute;
+    top: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 260px;
+    height: 260px;
+    background: radial-gradient(circle, rgba(64,144,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Shared header ───────────────────────────────────────────── */
+  .app-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 22px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .flat-name  { font-size: 13px; font-weight: 600; letter-spacing: 0.01em; }
+  .last-reading { font-size: 11px; margin-top: 2px; }
+
+  .screen-deep .flat-name    { color: #e8f4ff; }
+  .screen-deep .last-reading { color: rgba(0,200,255,0.55); }
+  .screen-soft .flat-name    { color: #dceeff; }
+  .screen-soft .last-reading { color: rgba(64,144,255,0.55); }
+
+  .header-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+  .screen-deep .header-status {
+    background: rgba(0,200,255,0.08);
+    border: 1px solid rgba(0,200,255,0.20);
+    color: #00c8ff;
+  }
+  .screen-soft .header-status {
+    background: rgba(64,144,255,0.10);
+    border: 1px solid rgba(64,144,255,0.22);
+    color: #4090ff;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .screen-deep .status-dot { background: #00c8ff; box-shadow: 0 0 4px #00c8ff; }
+  .screen-soft .status-dot { background: #4090ff; box-shadow: 0 0 4px #4090ff; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  /* ── Meter display — hero element ───────────────────────────── */
+  .meter-hero {
+    border-radius: 20px;
+    padding: 16px 18px 14px;
+    margin-bottom: 12px;
+    backdrop-filter: blur(20px) saturate(180%);
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .screen-deep .meter-hero {
+    background: rgba(0,200,255,0.06);
+    border: 1px solid rgba(0,200,255,0.18);
+  }
+  .screen-soft .meter-hero {
+    background: rgba(64,144,255,0.07);
+    border: 1px solid rgba(64,144,255,0.20);
+  }
+
+  .meter-label { font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; margin-bottom: 4px; }
+  .screen-deep .meter-label { color: rgba(0,200,255,0.55); }
+  .screen-soft .meter-label { color: rgba(64,144,255,0.55); }
+
+  .meter-val {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+  .screen-deep .meter-val { color: #00c8ff; text-shadow: 0 0 14px rgba(0,200,255,0.40); }
+  .screen-soft .meter-val { color: #4090ff; text-shadow: 0 0 12px rgba(64,144,255,0.35); }
+
+  .meter-unit { font-size: 13px; font-weight: 400; opacity: 0.60; }
+
+  .meter-date { font-size: 10px; font-weight: 500; margin-top: 2px; }
+  .screen-deep .meter-date { color: rgba(232,244,255,0.35); }
+  .screen-soft .meter-date { color: rgba(220,238,255,0.35); }
+
+  /* ── KPI Grid ────────────────────────────────────────────────── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .kpi-card {
+    border-radius: 18px;
+    padding: 14px 16px 12px;
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+  .screen-deep .kpi-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(0,200,255,0.12);
+  }
+  .screen-soft .kpi-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(64,144,255,0.14);
+  }
+
+  .kpi-card.wide { grid-column: 1 / -1; }
+
+  .kpi-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .screen-deep .kpi-label { color: rgba(0,200,255,0.45); }
+  .screen-soft .kpi-label { color: rgba(64,144,255,0.50); }
+
+  .kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .screen-deep .kpi-value { color: #e8f4ff; }
+  .screen-soft .kpi-value { color: #dceeff; }
+
+  .kpi-unit { font-size: 13px; font-weight: 400; opacity: 0.55; }
+
+  .kpi-sub { font-size: 11px; font-weight: 500; margin-top: 3px; }
+  .screen-deep .kpi-sub { color: rgba(0,200,255,0.65); }
+  .screen-soft .kpi-sub { color: rgba(64,144,255,0.70); }
+
+  .kpi-card.wide .kpi-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .kpi-card.wide .kpi-value { font-size: 32px; }
+
+  .kpi-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 8px;
+  }
+  .screen-deep .kpi-badge {
+    background: rgba(0,200,255,0.12);
+    color: #00c8ff;
+    border: 1px solid rgba(0,200,255,0.25);
+  }
+  .screen-soft .kpi-badge {
+    background: rgba(64,144,255,0.12);
+    color: #4090ff;
+    border: 1px solid rgba(64,144,255,0.25);
+  }
+
+  /* ── Trend Chart ─────────────────────────────────────────────── */
+  .chart-card {
+    border-radius: 18px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    backdrop-filter: blur(20px) saturate(180%);
+    position: relative;
+    z-index: 2;
+  }
+  .screen-deep .chart-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(0,200,255,0.12);
+  }
+  .screen-soft .chart-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(64,144,255,0.14);
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .chart-title { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+  .screen-deep .chart-title { color: rgba(0,200,255,0.50); }
+  .screen-soft .chart-title { color: rgba(64,144,255,0.55); }
+
+  .chart-range { font-size: 10px; font-weight: 500; }
+  .screen-deep .chart-range { color: rgba(232,244,255,0.28); }
+  .screen-soft .chart-range { color: rgba(220,238,255,0.30); }
+
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 68px;
+  }
+
+  .bar-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+
+  .bar { width: 100%; border-radius: 3px 3px 2px 2px; position: relative; }
+
+  /* Deep dark bars — electric accent */
+  .screen-deep .bar       {
+    background: rgba(0,200,255,0.25);
+    border: 1px solid rgba(0,200,255,0.20);
+  }
+  .screen-deep .bar.active {
+    background: rgba(0,200,255,0.60);
+    border: 1px solid rgba(0,200,255,0.50);
+    box-shadow: 0 0 6px rgba(0,200,255,0.35);
+  }
+  .screen-deep .bar.spike {
+    background: #ff6040;
+    border: 1px solid rgba(255,96,64,0.60);
+    box-shadow: 0 0 10px rgba(255,96,64,0.40);
+  }
+
+  /* Soft dark bars — blue accent */
+  .screen-soft .bar       {
+    background: rgba(64,144,255,0.25);
+    border: 1px solid rgba(64,144,255,0.20);
+  }
+  .screen-soft .bar.active {
+    background: rgba(64,144,255,0.60);
+    border: 1px solid rgba(64,144,255,0.50);
+    box-shadow: 0 0 6px rgba(64,144,255,0.35);
+  }
+  .screen-soft .bar.spike {
+    background: #ff7040;
+    border: 1px solid rgba(255,112,64,0.55);
+    box-shadow: 0 0 8px rgba(255,112,64,0.35);
+  }
+
+  .bar-label { font-size: 9px; font-weight: 500; }
+  .screen-deep .bar-label { color: rgba(232,244,255,0.28); }
+  .screen-soft .bar-label { color: rgba(220,238,255,0.32); }
+
+  /* Spike label inline */
+  .spike-line {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .spike-pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .screen-deep .spike-pip { background: #ff6040; box-shadow: 0 0 4px rgba(255,96,64,0.60); }
+  .screen-soft .spike-pip { background: #ff7040; box-shadow: 0 0 4px rgba(255,112,64,0.50); }
+
+  .spike-text { font-size: 10px; font-weight: 500; }
+  .screen-deep .spike-text { color: rgba(255,120,80,0.85); }
+  .screen-soft .spike-text { color: rgba(255,140,80,0.85); }
+
+  /* ── CTA — electric glow ─────────────────────────────────────── */
+  .cta-wrap {
+    padding: 2px 0 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .cta-btn {
+    width: 100%;
+    height: 62px;
+    border-radius: 31px;
+    border: none;
+    cursor: pointer;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    backdrop-filter: blur(20px) saturate(200%);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* Electric CTA — deep dark */
+  .screen-deep .cta-btn {
+    background: rgba(0,200,255,0.12);
+    border: 1.5px solid rgba(0,200,255,0.55);
+    color: #00c8ff;
+    box-shadow:
+      0 0 0 1px rgba(0,200,255,0.10),
+      0 0 24px rgba(0,200,255,0.20),
+      0 0 48px rgba(0,200,255,0.10),
+      inset 0 1px 0 rgba(0,200,255,0.15);
+    text-shadow: 0 0 10px rgba(0,200,255,0.60);
+  }
+
+  /* Electric CTA — soft dark */
+  .screen-soft .cta-btn {
+    background: rgba(64,144,255,0.12);
+    border: 1.5px solid rgba(64,144,255,0.50);
+    color: #4090ff;
+    box-shadow:
+      0 0 0 1px rgba(64,144,255,0.10),
+      0 0 20px rgba(64,144,255,0.18),
+      0 0 40px rgba(64,144,255,0.08),
+      inset 0 1px 0 rgba(64,144,255,0.15);
+    text-shadow: 0 0 8px rgba(64,144,255,0.55);
+  }
+
+  /* Glow sweep shimmer */
+  .cta-btn::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -20%;
+    width: 60%;
+    height: 200%;
+    background: linear-gradient(105deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
+    transform: skewX(-15deg);
+    pointer-events: none;
+  }
+
+  .cta-icon { font-size: 20px; line-height: 1; }
+
+  /* ── Tablet hint ─────────────────────────────────────────────── */
+  .tablet-hint {
+    width: 768px;
+    max-width: calc(100vw - 40px);
+    border-radius: 24px;
+    padding: 28px;
+    display: flex;
+    gap: 20px;
+    background: #090e1a;
+    border: 1px solid rgba(0,200,255,0.12);
+    box-shadow:
+      0 0 40px rgba(0,200,255,0.05),
+      0 20px 60px rgba(0,0,0,0.60);
+  }
+
+  .tablet-sidebar {
+    width: 200px;
+    flex-shrink: 0;
+    border-right: 1px solid rgba(0,200,255,0.10);
+    padding-right: 20px;
+  }
+
+  .tablet-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(0,200,255,0.35);
+    margin-bottom: 12px;
+  }
+
+  .t-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .t-nav-item {
+    padding: 8px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(232,244,255,0.40);
+  }
+  .t-nav-item.active {
+    background: rgba(0,200,255,0.10);
+    border: 1px solid rgba(0,200,255,0.20);
+    color: #00c8ff;
+    font-weight: 600;
+  }
+
+  .tablet-cta {
+    width: 100%;
+    height: 44px;
+    border-radius: 22px;
+    border: 1.5px solid rgba(0,200,255,0.50);
+    background: rgba(0,200,255,0.10);
+    color: #00c8ff;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 0 16px rgba(0,200,255,0.15);
+  }
+
+  .tablet-main { flex: 1; }
+
+  .t-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .t-kpi-chip {
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(0,200,255,0.12);
+    backdrop-filter: blur(16px);
+  }
+
+  .chip-label { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(0,200,255,0.45); margin-bottom: 4px; }
+  .chip-val   { font-size: 20px; font-weight: 700; color: #e8f4ff; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .chip-sub   { font-size: 10px; font-weight: 500; color: rgba(0,200,255,0.65); margin-top: 2px; }
+
+  /* Meter row in tablet */
+  .t-meter-row {
+    padding: 12px 16px;
+    border-radius: 14px;
+    background: rgba(0,200,255,0.05);
+    border: 1px solid rgba(0,200,255,0.18);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .t-meter-display {
+    font-size: 24px;
+    font-weight: 700;
+    color: #00c8ff;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 12px rgba(0,200,255,0.40);
+  }
+  .t-meter-info { font-size: 11px; color: rgba(232,244,255,0.40); }
+
+  .section-divider {
+    width: 100%;
+    max-width: 768px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .section-divider hr { flex: 1; border: none; border-top: 1px solid rgba(0,200,255,0.10); }
+  .section-divider span { font-size: 10px; font-weight: 600; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(0,200,255,0.25); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     DEEP DARK — primary variant
+═══════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="variant-label">Night Meter · Deep Dark (primary)</div>
+  <div class="phone-frame">
+    <div class="phone-screen">
+      <div class="dynamic-island"></div>
+      <div class="screen-deep">
+
+        <!-- Header -->
+        <div class="app-header">
+          <div>
+            <div class="flat-name">Wohnung 3B</div>
+            <div class="last-reading">42,187 kWh · Jun 20, 2026</div>
+          </div>
+          <div class="header-status">
+            <div class="status-dot"></div>
+            Live
+          </div>
+        </div>
+
+        <!-- Meter hero bar -->
+        <div class="meter-hero">
+          <div>
+            <div class="meter-label">Meter reading</div>
+            <div class="meter-val">42,187 <span class="meter-unit">kWh</span></div>
+            <div class="meter-date">Entered today · 20 Jun 2026</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="meter-label">Meter no.</div>
+            <div style="font-size:13px;font-weight:600;color:rgba(0,200,255,0.60);font-variant-numeric:tabular-nums;">3B-0042</div>
+          </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Daily avg</div>
+            <div class="kpi-value">12.4 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€2.87 / day</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daily cost</div>
+            <div class="kpi-value">€2.87</div>
+            <div class="kpi-sub">↓ 8% vs last wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly avg</div>
+            <div class="kpi-value">86.8 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€20.09 / wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly cost</div>
+            <div class="kpi-value">€20.09</div>
+            <div class="kpi-sub">on track</div>
+          </div>
+          <div class="kpi-card wide">
+            <div class="kpi-inner">
+              <div>
+                <div class="kpi-label">Projected monthly</div>
+                <div class="kpi-value">€87.20</div>
+              </div>
+              <div class="kpi-badge">≈ Jun 2026</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">7-Day Trend</span>
+            <span class="chart-range">Jun 13–19</span>
+          </div>
+          <div class="bar-chart">
+            <!-- Mon 11.2 -->
+            <div class="bar-col">
+              <div class="bar" style="height:55%"></div>
+              <div class="bar-label">M</div>
+            </div>
+            <!-- Tue 10.8 -->
+            <div class="bar-col">
+              <div class="bar" style="height:52%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <!-- Wed 12.4 -->
+            <div class="bar-col">
+              <div class="bar active" style="height:61%"></div>
+              <div class="bar-label">W</div>
+            </div>
+            <!-- Thu 11.9 -->
+            <div class="bar-col">
+              <div class="bar active" style="height:58%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <!-- Fri 18.2 — SPIKE -->
+            <div class="bar-col">
+              <div class="bar spike" style="height:100%"></div>
+              <div class="bar-label">F</div>
+            </div>
+            <!-- Sat 13.1 -->
+            <div class="bar-col">
+              <div class="bar active" style="height:65%"></div>
+              <div class="bar-label">S</div>
+            </div>
+            <!-- Sun 12.4 — today, full bright -->
+            <div class="bar-col">
+              <div class="bar active" style="height:61%;box-shadow:0 0 8px rgba(0,200,255,0.50);"></div>
+              <div class="bar-label">S</div>
+            </div>
+          </div>
+          <div class="spike-line">
+            <div class="spike-pip"></div>
+            <span class="spike-text">Fri Jun 16 · 18.2 kWh (+47% above avg)</span>
+          </div>
+        </div>
+
+        <!-- CTA — electric -->
+        <div class="cta-wrap">
+          <button class="cta-btn">
+            <span class="cta-icon">⚡</span>
+            Enter Reading
+          </button>
+        </div>
+
+      </div><!-- /screen-deep -->
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     SOFT DARK — secondary variant
+═══════════════════════════════════════════════════ -->
+<div class="phone-wrap">
+  <div class="variant-label">Night Meter · Soft Dark (light variant)</div>
+  <div class="phone-frame phone-frame-soft">
+    <div class="phone-screen">
+      <div class="dynamic-island"></div>
+      <div class="screen-soft">
+
+        <!-- Header -->
+        <div class="app-header">
+          <div>
+            <div class="flat-name">Wohnung 3B</div>
+            <div class="last-reading">42,187 kWh · Jun 20, 2026</div>
+          </div>
+          <div class="header-status">
+            <div class="status-dot"></div>
+            Live
+          </div>
+        </div>
+
+        <!-- Meter hero bar -->
+        <div class="meter-hero">
+          <div>
+            <div class="meter-label">Meter reading</div>
+            <div class="meter-val">42,187 <span class="meter-unit">kWh</span></div>
+            <div class="meter-date">Entered today · 20 Jun 2026</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="meter-label">Meter no.</div>
+            <div style="font-size:13px;font-weight:600;color:rgba(64,144,255,0.65);font-variant-numeric:tabular-nums;">3B-0042</div>
+          </div>
+        </div>
+
+        <!-- KPI Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-label">Daily avg</div>
+            <div class="kpi-value">12.4 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€2.87 / day</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Daily cost</div>
+            <div class="kpi-value">€2.87</div>
+            <div class="kpi-sub">↓ 8% vs last wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly avg</div>
+            <div class="kpi-value">86.8 <span class="kpi-unit">kWh</span></div>
+            <div class="kpi-sub">€20.09 / wk</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Weekly cost</div>
+            <div class="kpi-value">€20.09</div>
+            <div class="kpi-sub">on track</div>
+          </div>
+          <div class="kpi-card wide">
+            <div class="kpi-inner">
+              <div>
+                <div class="kpi-label">Projected monthly</div>
+                <div class="kpi-value">€87.20</div>
+              </div>
+              <div class="kpi-badge">≈ Jun 2026</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Chart -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">7-Day Trend</span>
+            <span class="chart-range">Jun 13–19</span>
+          </div>
+          <div class="bar-chart">
+            <div class="bar-col">
+              <div class="bar" style="height:55%"></div>
+              <div class="bar-label">M</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar" style="height:52%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar active" style="height:61%"></div>
+              <div class="bar-label">W</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar active" style="height:58%"></div>
+              <div class="bar-label">T</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar spike" style="height:100%"></div>
+              <div class="bar-label">F</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar active" style="height:65%"></div>
+              <div class="bar-label">S</div>
+            </div>
+            <div class="bar-col">
+              <div class="bar active" style="height:61%;"></div>
+              <div class="bar-label">S</div>
+            </div>
+          </div>
+          <div class="spike-line">
+            <div class="spike-pip"></div>
+            <span class="spike-text">Fri Jun 16 · 18.2 kWh (+47% above avg)</span>
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <button class="cta-btn">
+            <span class="cta-icon">⚡</span>
+            Enter Reading
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════
+     TABLET HINT
+═══════════════════════════════════════════════════ -->
+<div class="section-divider">
+  <hr><span>Tablet / Desktop hint · Deep Dark</span><hr>
+</div>
+
+<div class="tablet-hint">
+  <div class="tablet-sidebar">
+    <div class="tablet-label">Energy Tracker</div>
+    <div class="t-nav">
+      <div class="t-nav-item active">⚡ Dashboard</div>
+      <div class="t-nav-item">📋 Readings</div>
+      <div class="t-nav-item">📈 History</div>
+      <div class="t-nav-item">⚙️ Settings</div>
+    </div>
+    <button class="tablet-cta">⚡ Enter Reading</button>
+  </div>
+  <div class="tablet-main">
+    <div class="tablet-label">KPIs — Jun 2026</div>
+    <div class="t-kpi-grid">
+      <div class="t-kpi-chip">
+        <div class="chip-label">Daily avg</div>
+        <div class="chip-val">12.4 kWh</div>
+        <div class="chip-sub">€2.87 / day</div>
+      </div>
+      <div class="t-kpi-chip">
+        <div class="chip-label">Weekly avg</div>
+        <div class="chip-val">86.8 kWh</div>
+        <div class="chip-sub">€20.09 / wk</div>
+      </div>
+      <div class="t-kpi-chip">
+        <div class="chip-label">Proj. monthly</div>
+        <div class="chip-val">€87.20</div>
+        <div class="chip-sub">Jun estimate</div>
+      </div>
+    </div>
+    <div class="t-meter-row">
+      <div class="t-meter-display">42,187 kWh</div>
+      <div>
+        <div class="t-meter-info">Last reading: today, Jun 20 2026</div>
+        <div class="t-meter-info" style="margin-top:2px;">Meter: 3B-0042</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
