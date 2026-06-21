@@ -2,7 +2,7 @@
 title: "PRD: energy-tracker"
 status: final
 created: 2026-06-20
-updated: 2026-06-20
+updated: 2026-06-21
 ---
 
 # PRD: energy-tracker
@@ -116,11 +116,12 @@ The identity provider is specified via configuration (environment variables or c
 **Functional Requirements:**
 
 #### FR-4: First-use onboarding gate
-A new user (no existing Flat) cannot access any main app feature until Onboarding is complete. Onboarding collects: Flat name, Annual kWh Baseline (specific value or preset), and initial Tariff (fixed monthly base fee and price per kWh required; provider name, contract start date, and contract duration optional).
+A new user (no existing Flat) cannot access any main app feature until Onboarding is complete. Onboarding collects: Flat name, Annual kWh Baseline (specific value or preset), initial Tariff (fixed monthly base fee and price per kWh required; provider name, contract start date, and contract duration optional), and planned annual spend (auto-derived from Annual kWh Baseline × price per kWh + monthly base fee × 12; editable by the user).
 
 **Consequences (testable):**
 - Navigating to any main route before Onboarding completion redirects to the Onboarding flow.
 - Onboarding completes only when both the Annual kWh Baseline and the required Tariff fields are provided.
+- The planned annual spend field is pre-populated from the entered Tariff and kWh Baseline, with the derivation calculation displayed; the user may override the derived value before completing Onboarding.
 
 #### FR-5: Annual kWh Baseline entry
 The user can enter the Annual kWh Baseline either as a specific numeric value or by selecting one of four household-size presets: 1 person ≈ 1,500 kWh; 2 persons ≈ 2,500 kWh; 3 persons ≈ 3,500 kWh; 4 persons ≈ 4,250 kWh. The selected or entered value is stored as the Flat's Annual kWh Baseline.
@@ -136,10 +137,11 @@ The initial Tariff is captured during Onboarding with the fixed monthly base fee
 - A cost figure calculated immediately after Onboarding uses the Tariff entered during Onboarding.
 
 #### FR-7: Onboarding settings editability
-All Onboarding fields — Flat name, Annual kWh Baseline, and Tariff — are accessible and editable from Settings after initial setup.
+All Onboarding fields — Flat name, Annual kWh Baseline, Tariff, and planned annual spend — are accessible and editable from Settings after initial setup. The planned annual spend is editable from Settings near the Tariff configuration, not in a separate budget section.
 
 **Consequences (testable):**
 - Updating the Annual kWh Baseline from Settings changes the baseline used in Insight calculations immediately.
+- Updating the planned annual spend from Settings takes effect immediately on future budget pressure alert evaluations.
 
 ---
 
@@ -324,7 +326,7 @@ If a plug's timeline contains missing dates within its covered period (first dat
 For periods where both Main Meter Readings and Smart Plug Data exist, the app reconciles total attributed consumption (including interpolated values) against the Main Meter total. Attributed kWh across all plugs does not exceed the Main Meter total for any period. Unattributed consumption becomes the Residual.
 
 **Consequences (testable):**
-- Total attributed kWh + Residual = Main Meter total for any period with Smart Plug Data (within ±0.1 kWh when no interpolation is present; tolerance for periods containing interpolated values is TBD pending architecture — depends on interpolation magnitude and plug coverage). [NOTE FOR PM: exact interpolated-period tolerance to be defined during architecture session.]
+- Total attributed kWh + Residual = Main Meter total for any period with Smart Plug Data (within ±0.1 kWh for clean periods with no interpolated values; within ±1.0 kWh for periods containing any interpolated values, reflecting interpolation uncertainty).
 
 #### FR-28: Import error categorization
 Import failures are logged internally and surfaced to the user as one of three categorized messages: (1) data cannot be read, (2) processing failed — user should retry, (3) service temporarily unavailable — user should retry later. Raw error detail is not exposed to the user.
@@ -373,7 +375,7 @@ For any period with Smart Plug Data, the Decomposition view shows attributed con
 
 **Consequences (testable):**
 - The Decomposition view for a period with Smart Plug Data shows per-Room and per-Device consumption figures.
-- Attributed totals + Residual = Main Meter total for the period (within ±0.1 kWh without interpolation; tolerance for periods with interpolated values is TBD — see FR-27). [NOTE FOR PM: same tolerance TBD as FR-27.]
+- Attributed totals + Residual = Main Meter total for the period (within ±0.1 kWh for clean periods; within ±1.0 kWh for periods containing interpolated values — see FR-27).
 - For a Smart Power Strip, the strip's measured total is displayed as the authoritative kWh figure. Configured sub-devices (with EU label or self-measured values) receive a proportional estimated share; unconfigured sub-devices receive an equal share of the remaining proportion, displayed at reduced visual prominence with a prompt to configure their device profile.
 
 #### FR-33: Residual always shown
@@ -398,13 +400,12 @@ Periods with no imported Smart Plug Data are shown in the Decomposition view as 
 **Functional Requirements:**
 
 #### FR-35: High-standby offender detection
-Based on Smart Plug Data, the app identifies Devices drawing more than 2 W outside their configured usage window and flags them as Insights with the Device name and a quantified monthly cost figure in the active Locale's currency.
+Based on Smart Plug interval data, the app identifies Devices drawing more than 2 W outside their configured usage window and flags them as Insights with the Device name and a quantified monthly cost figure in the active Locale's currency. Standby detection operates exclusively on Eve Home plug data via the raw ~10-minute interval records retained at import. Meross plugs are excluded from standby detection because Meross exports provide daily aggregates only — sub-daily resolution required for this feature is unavailable for that format.
 
 **Consequences (testable):**
-- A Device with recorded draw consistently above 2 W during out-of-use hours is flagged as a standby offender Insight once sufficient Smart Plug Data exists.
+- A Device connected to an Eve Home plug, with recorded interval draw consistently above 2 W during out-of-use hours, is flagged as a standby offender Insight once sufficient data exists.
 - The Insight includes the Device name and a monthly cost figure (kWh and €).
-
-**Notes:** [NOTE FOR PM: Architect must validate that Smart Plug Data resolution (daily kWh aggregates) supports per-hour granularity required for out-of-use-hours detection. If daily resolution is the finest available, the detection method must be revised — standby threshold logic may need to operate on raw interval data if retained, or be approximated differently.]
+- Devices connected only to Meross plugs do not appear in standby offender Insights; no error is shown — this is an explicit format limitation, not a failure condition.
 
 #### FR-36: Replacement candidate detection
 The app identifies high-consumption Devices where replacement offers a quantifiable payback and surfaces it as an Insight with the Device name, estimated current cost, and estimated savings.
@@ -413,11 +414,11 @@ The app identifies high-consumption Devices where replacement offers a quantifia
 - A replacement candidate insight names a specific Device with a quantified savings figure (kWh or €).
 
 #### FR-37: Budget pressure alert
-The app computes a rolling monthly projection for the active Flat and generates a budget pressure alert Insight when the projection exceeds the planned annual spend configured in the budget settings.
+The app computes a rolling monthly projection for the active Flat and generates a budget pressure alert Insight when the projection exceeds the planned annual spend configured during Onboarding (editable from Settings near the Tariff configuration).
 
 **Consequences (testable):**
 - A budget pressure alert appears on the Insights page when the rolling monthly projection × 12 exceeds the user's planned annual spend.
-- The planned annual spend is settable in budget settings; updating it immediately affects future alert evaluations.
+- Updating the planned annual spend from Settings takes effect immediately on future alert evaluations.
 
 #### FR-38: Scheduled and manual insight discovery
 Insight discovery runs automatically on a daily schedule at 02:00 UTC. The user can also trigger discovery manually from the Insights page. Results are shown as soon as they are discovered.
@@ -433,10 +434,10 @@ A visible progress indicator is displayed for the full duration of an insight di
 - A progress indicator is visible from the start to the end of a discovery run.
 
 #### FR-43: Invoice deviation hint
-The app computes a rolling annual kWh figure for the active Flat and generates an invoice deviation Insight when consumption is trending significantly above or below the Annual kWh Baseline set during Onboarding. The Insight surfaces the projected annual kWh, the configured baseline, and the implied euro difference at the current Tariff.
+The app computes a rolling annual kWh figure for the active Flat and generates an invoice deviation Insight when consumption is trending ±10% or more above or below the Annual kWh Baseline set during Onboarding. The Insight surfaces the projected annual kWh, the configured baseline, and the implied euro difference at the current Tariff.
 
 **Consequences (testable):**
-- An invoice deviation Insight appears when rolling annual kWh consumption diverges meaningfully from the Annual kWh Baseline. [NOTE FOR PM: significance threshold (e.g., ±10% of baseline) to be defined during architecture session.]
+- An invoice deviation Insight appears when rolling annual kWh consumption deviates by ±10% or more from the Annual kWh Baseline.
 - The Insight displays the projected annual kWh, the baseline, and the difference in euros at the current Tariff.
 - Updating the Annual kWh Baseline in Settings takes effect immediately on future insight evaluations.
 
@@ -449,12 +450,12 @@ The app computes a rolling annual kWh figure for the active Flat and generates a
 **Functional Requirements:**
 
 #### FR-40: Locale selection
-The user can select their preferred Locale from Settings. Supported Locales at launch: `de-DE` and `en-US`. The selection takes effect immediately across all app surfaces. The selected Locale is persisted in browser-local storage; accessing the app from a different browser requires reconfiguring the Locale.
+The user can select their preferred Locale from Settings. Supported Locales at launch: `de-DE` and `en-US`. The selection takes effect immediately across all app surfaces. The initial Locale is derived from the browser's `Accept-Language` header; once selected, the override is stored server-side in the user profile and applies across all browsers and sessions without requiring reconfiguration.
 
 **Consequences (testable):**
 - Switching from `de-DE` to `en-US` (or vice versa) updates all UI text, number separators, date format, time format, and currency symbol throughout the app without a page reload.
-- After closing and reopening the same browser, the previously selected Locale is restored automatically.
-- Opening the app in a different browser presents the default Locale (not the previously selected one).
+- After closing and reopening the browser — or accessing the app from a different browser — the previously selected Locale is restored automatically from the server-stored user profile.
+- A new session in any browser defaults to the `Accept-Language`-derived Locale only when no server-stored override exists.
 
 #### FR-41: Locale-aware rendering
 All numbers, dates, times, and currency values are formatted according to the active Locale's conventions. `locale-formats.md` is the authoritative format specification; this FR defines the requirement, that file defines the exact output. Currency follows the Locale (€ for `de-DE`; $ for `en-US`). No hardcoded locale-specific formatting anywhere in the codebase.
@@ -527,7 +528,7 @@ See §5 Non-Goals for the full explicit exclusions list.
 
 - **SM-1: Reading entry speed** — A Meter Reading submitted from a mobile browser is persisted and the KPI Dashboard reflects the new data in under 60 seconds of wall-clock time (user experience, network included). Target: 100% of entries in controlled conditions. Validates FR-8, FR-14, FR-15.
 - **SM-2: Cost accuracy** — Dashboard cost figures match independently calculated values (correct Tariff × kWh) for the same period. Target: zero discrepancy on spot-check across three periods. Validates FR-13, FR-14.
-- **SM-3: Decomposition correctness** — Attributed kWh + Residual = Main Meter total for any period with Smart Plug Data (within ±0.1 kWh without interpolation; tolerance for periods with interpolated values is TBD pending architecture). Validates FR-27, FR-32.
+- **SM-3: Decomposition correctness** — Attributed kWh + Residual = Main Meter total for any period with Smart Plug Data (within ±0.1 kWh for clean periods; within ±1.0 kWh for periods containing interpolated values). Validates FR-27, FR-32.
 - **SM-4: Insight actionability** — After one month of use with Smart Plug exports uploaded, the Insights page names at least one specific Device with a quantified figure (kWh or €). Validates FR-35, FR-36.
 
 **Secondary**
@@ -567,12 +568,13 @@ KPI Dashboard load for a Flat with up to 2 years of Readings: Tier 1 (≤ 2 seco
 - All UI text goes through the localization framework. No hardcoded locale-specific strings, number formats, date formats, or currency symbols anywhere in the codebase.
 - All data is stored and transmitted locale-neutrally: ISO 8601 datetimes with timezone offset (`+HH:MM`), decimal-point numbers, currency as fixed-decimal.
 - All datetime values carry explicit timezone information. Scheduled jobs execute in UTC.
+- The user's locale selection is stored server-side in the user profile. The `Accept-Language` header provides the default when no server-stored override exists. Locale formatting is applied only at render time via `Intl.NumberFormat` and `Intl.DateTimeFormat`.
 
 ### NFR-4: Reliability and Async Processing
 
 - Smart Plug file uploads are stored in Azure Blob Storage and processed asynchronously by a blob-triggered Azure Function.
 - Azure Storage Account queues handle lightweight internal messaging.
-- Persistent data store: TBD — Azure SQL or Cosmos DB; decision based on schema complexity and cost. [NOTE FOR PM: architecture decision needed before Release 2 implementation begins.]
+- Persistent data store: Azure SQL Basic DTU (~€5/month, 2 GB). Selected over Cosmos DB because the normalized relational data model (User → Flat → Rooms → Power Points → Devices) and the period-accurate tariff costing query (multi-table join with date-range correlated subquery) are SQL's native territory; Cosmos DB would require application-side joins with no benefit at this data volume.
 
 ---
 
@@ -582,7 +584,7 @@ KPI Dashboard load for a Flat with up to 2 years of Readings: Tier 1 (≤ 2 seco
 - **Backend:** .NET Azure Functions.
 - **File storage:** Azure Blob Storage (smart plug uploads).
 - **Messaging:** Azure Storage Account queues.
-- **Persistent store:** TBD — Azure SQL or Cosmos DB (see NFR-4).
+- **Persistent store:** Azure SQL Basic DTU (~€5/month) — see NFR-4.
 - **Auth:** OIDC / OAuth 2.0; Azure Entra ID as initial provider; provider-agnostic by configuration.
 - **Primary form factor:** Mobile browser. Desktop browser supported as responsive layout.
 - **No native app** in v1/v2 scope (see §5 Non-Goals). A future native Swift iOS companion app (home screen widgets, quick entry shortcut) is part of the product vision — API surface and endpoint design must not assume web-only clients.
@@ -592,25 +594,31 @@ KPI Dashboard load for a Flat with up to 2 years of Readings: Tier 1 (≤ 2 seco
 
 ## 10. Open Questions
 
-*Resolved questions (Q-1, Q-2, Q-5) are recorded in `.decision-log.md` (D-7 through D-9). Active open items:*
+*All open questions resolved. Full decision history in `.decision-log.md`.*
 
-1. **Tariff lock enforcement UX (Q-3):** When a Tariff entry's Contract Period has started and the user tries to edit its price, what does the UI show? **Deferred to UX design session.**
-2. **Budget settings placement (Q-4):** Where does the user configure the planned annual spend for budget pressure alerts (FR-37)? **Deferred to UX design session.**
-3. **Flat deletion confirmation UX (Q-6):** What confirmation pattern is required before a destructive Flat deletion? **Deferred to UX design session.**
-4. **Reconciliation tolerance for interpolated periods (Q-7):** ±0.1 kWh stands for non-interpolated periods; tolerance for interpolated periods is TBD. **Deferred to architecture session.** *(Owner: architect — see FR-27, FR-32, SM-3)*
-5. **Invoice deviation significance threshold (Q-8):** Exact threshold for FR-43 invoice deviation Insight (e.g., ±10% of Annual kWh Baseline) **deferred to architecture session.** *(Owner: architect)*
+**Resolved in UX session (2026-06-20):**
+
+- **Q-3 — Tariff lock enforcement UX:** Price fields on a locked Tariff entry render inline as read-only (greyed, with a lock icon and "Locked — contract active until [month year]"). No dialog or tap-to-reveal. Non-price fields remain editable. *(UX D-13)*
+- **Q-4 — Budget settings placement:** The planned annual spend (for FR-37 budget pressure alerts) is collected during Onboarding in Step 2 alongside the Annual kWh Baseline (auto-derived, editable). In Settings it lives near the Tariff configuration, not in a separate budget section. *(UX D-17)*
+- **Q-6 — Flat deletion confirmation UX:** User must type the exact Flat name to enable the Delete action. Friction matches irreversibility. *(UX D-18)*
+
+**Resolved in architecture session (2026-06-21):**
+
+- **Q-7 — Reconciliation tolerance for interpolated periods:** ±1.0 kWh (10× the clean-data tolerance), reflecting interpolation uncertainty. Governs FR-27, FR-32, SM-3. *(Architecture AD-2)*
+- **Q-8 — Invoice deviation significance threshold:** ±10% of the Annual kWh Baseline. Governs FR-43. *(Architecture)*
+- **FR-35 (standby data resolution):** Eve Home raw ~10-minute interval rows are retained at import (`SmartPlugIntervalData` table). Standby detection operates on this interval data for Eve Home plugs. Meross plugs are excluded from standby detection — Meross exports provide daily aggregates only. *(Architecture AD-2)*
 
 ---
 
 ## 11. Assumptions Index
 
-*Resolved assumptions (A-1: performance tiers; A-7: browser-local Locale) are recorded in `.decision-log.md`. Active assumptions requiring confirmation:*
+*Resolved assumptions (A-1: performance tiers; A-7: browser-local Locale superseded by AD-18 server-stored override) are recorded in `.decision-log.md`. All remaining assumptions confirmed:*
 
 - **[A-2]** A single authenticated user manages one or more Flats; no Flat sharing between users in v1/v2. Source: §5, Constraints.
 - **[A-3]** "Flat" maps to a single European-style dwelling unit; a user may own or rent multiple. Source: SPEC.
 - **[A-4]** The four-level hierarchy (Flat → Rooms → Power Points → Devices) covers the realistic physical layout. Source: SPEC.
 - **[A-5]** Scheduled insight discovery (02:00 daily) executes in UTC. Source: NFR-3.
 - **[A-6]** Interpolation cap (7-day pre-gap average) applies uniformly to both Eve Home and Meross imports. Source: smart-plug-formats.md.
-- **[A-8]** Standby draw > 2 W during out-of-use hours is detectable from available Smart Plug Data resolution. Architect must confirm sub-daily interval data is retained; if not, detection method must be revised. Source: FR-35.
-- **[A-9]** Invoice deviation significance threshold will be defined during architecture (e.g., ±10% of Annual kWh Baseline). Source: FR-43, Q-8.
-- **[A-10]** Reconciliation tolerance for periods containing interpolated Smart Plug values will be defined during architecture. Source: FR-27, FR-32, SM-3, Q-7.
+- **[A-8]** *Resolved.* Eve Home retains raw ~10-minute interval rows at import (`SmartPlugIntervalData`); standby detection operates on this data. Meross is excluded from standby detection — daily aggregates only. Source: architecture AD-2.
+- **[A-9]** *Resolved.* Invoice deviation significance threshold: ±10% of Annual kWh Baseline. Source: architecture, FR-43.
+- **[A-10]** *Resolved.* Reconciliation tolerance for periods containing interpolated values: ±1.0 kWh. Source: architecture, FR-27, FR-32, SM-3.

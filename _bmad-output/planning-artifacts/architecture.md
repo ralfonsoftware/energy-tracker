@@ -209,7 +209,7 @@ Flat deletion cascades all child data (FR-23). Meter Readings are edited in-plac
 | Table | Key columns |
 |---|---|
 | `Users` | `UserId` (string, OIDC `sub` claim PK), `LocaleOverride` (nullable) |
-| `Flats` | `FlatId` (guid), `UserId` FK, `Name`, `AnnualKwhBaseline` (decimal), `SpikeThreshold` (decimal) |
+| `Flats` | `FlatId` (guid), `UserId` FK, `Name`, `AnnualKwhBaseline` (decimal), `SpikeThreshold` (decimal), `PlannedAnnualSpend` (nullable decimal) |
 | `Tariffs` | `TariffId` (guid), `FlatId` FK, `EffectiveDate` (datetimeoffset), `PricePerKwh` (decimal), `MonthlyBaseFee` (decimal), `ContractStartDate` (nullable), `ContractDurationMonths` (nullable int), `ProviderName` (nullable) |
 | `MeterReadings` | `ReadingId` (guid), `FlatId` FK, `ReadingDate` (datetimeoffset), `KwhValue` (decimal), `IsCorrected` (bool), `OriginalKwhValue` (nullable decimal) |
 | `Rooms` | `RoomId` (guid), `FlatId` FK, `Name`, `SortOrder` (int) |
