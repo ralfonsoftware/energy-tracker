@@ -34,6 +34,9 @@ jobs:
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
+      - name: Upgrade npm
+        run: npm install -g npm@11
+
       - name: Build frontend
         working-directory: client
         run: |
