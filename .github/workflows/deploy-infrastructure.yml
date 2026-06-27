@@ -1,0 +1,125 @@
+name: Deploy Azure Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      developer_ip_addresses:
+        description: >
+          Comma-separated developer IP addresses to allow through the SQL Server firewall
+          (e.g. 203.0.113.10,198.51.100.42). Leave empty for no direct SQL access —
+          the Functions app reaches SQL via managed identity through Azure internal routing.
+        required: false
+        default: ''
+
+permissions:
+  id-token: write   # required for OIDC Azure login via Federated Credentials
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to ${{ vars.AZURE_RESOURCE_GROUP }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Bicep CLI
+        run: az bicep install
+
+      - name: Validate Bicep template
+        run: az bicep build --file infra/main.bicep --stdout > /dev/null
+
+      - name: Parse developer IP addresses
+        id: params
+        env:
+          DEVELOPER_IPS_RAW: ${{ inputs.developer_ip_addresses }}
+        run: |
+          python3 - <<'EOF'
+          import os, json
+          raw = os.environ.get('DEVELOPER_IPS_RAW', '').strip()
+          ips = [ip.strip() for ip in raw.split(',') if ip.strip()] if raw else []
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'ip_array={json.dumps(ips)}\n')
+          EOF
+
+      - name: Deploy Bicep template
+        id: deploy
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          MANAGED_IDENTITY_OBJECT_ID: ${{ vars.AZURE_PRINCIPAL_ID }}
+          MANAGED_IDENTITY_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          MANAGED_IDENTITY_RESOURCE_ID: /subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ vars.AZURE_RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/energytracker-identity
+          SQL_ADMIN_LOGIN: ${{ secrets.SQL_ADMIN_LOGIN }}
+          SQL_ADMIN_OBJECT_ID: ${{ secrets.SQL_ADMIN_OBJECT_ID }}
+          DEVELOPER_IPS: ${{ steps.params.outputs.ip_array }}
+        run: |
+          az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/main.bicep \
+            --parameters \
+              managedIdentityObjectId="$MANAGED_IDENTITY_OBJECT_ID" \
+              managedIdentityClientId="$MANAGED_IDENTITY_CLIENT_ID" \
+              managedIdentityResourceId="$MANAGED_IDENTITY_RESOURCE_ID" \
+              sqlAdminLogin="$SQL_ADMIN_LOGIN" \
+              sqlAdminObjectId="$SQL_ADMIN_OBJECT_ID" \
+              developerIpAddresses="$DEVELOPER_IPS" \
+            --query "properties.outputs" \
+            --output json | tee /tmp/deploy-outputs.json
+
+      - name: Write job summary
+        if: always()
+        run: |
+          python3 - <<'EOF'
+          import json, os
+
+          ghs = open(os.environ['GITHUB_STEP_SUMMARY'], 'a')
+
+          try:
+              with open('/tmp/deploy-outputs.json') as f:
+                  outputs = json.load(f)
+          except Exception:
+              outputs = None
+
+          if outputs:
+              ghs.write('## Deployment Outputs\n\n')
+              ghs.write('| Resource | Value |\n|----------|-------|\n')
+              for k, v in outputs.items():
+                  ghs.write(f'| `{k}` | `{v["value"]}` |\n')
+              ghs.write('\n')
+
+              sql_fqdn = outputs.get('sqlServerFqdn', {}).get('value', '<sqlServerFqdn>')
+              swa_name = outputs.get('staticWebAppName', {}).get('value', '<staticWebAppName>')
+              fn_name  = outputs.get('functionsAppName', {}).get('value', '<functionsAppName>')
+          else:
+              sql_fqdn = '<sqlServerFqdn>'
+              swa_name = '<staticWebAppName>'
+              fn_name  = '<functionsAppName>'
+
+          ghs.write('## Required Follow-Up Steps\n\n')
+          ghs.write('### 1. Grant managed identity access to SQL\n\n')
+          ghs.write('Run as your Entra ID admin account (Azure AD auth):\n\n')
+          ghs.write('```sql\n')
+          ghs.write(f'-- Connect: sqlcmd -S {sql_fqdn} -d energytracker-db --authentication-method ActiveDirectoryDefault\n')
+          ghs.write('CREATE USER [energytracker-identity] FROM EXTERNAL PROVIDER;\n')
+          ghs.write('ALTER ROLE db_datareader ADD MEMBER [energytracker-identity];\n')
+          ghs.write('ALTER ROLE db_datawriter ADD MEMBER [energytracker-identity];\n')
+          ghs.write('ALTER ROLE db_ddladmin  ADD MEMBER [energytracker-identity];\n')
+          ghs.write('```\n\n')
+          ghs.write('### 2. Add GitHub repository secret\n\n')
+          ghs.write(f'- **`AZURE_STATIC_WEB_APPS_API_TOKEN`** — ')
+          ghs.write(f'Azure Portal → Static Web Apps → `{swa_name}` → Manage deployment token\n\n')
+          ghs.write('### 3. Add GitHub repository variable\n\n')
+          ghs.write(f'- **`AZURE_FUNCTIONS_APP_NAME`** = `{fn_name}`\n\n')
+          ghs.write('### 4. Fill in local settings\n\n')
+          ghs.write('Copy `api/local.settings.json.example` → `api/local.settings.json` ')
+          ghs.write('and fill in values from the outputs table above.\n')
+
+          ghs.close()
+          EOF
