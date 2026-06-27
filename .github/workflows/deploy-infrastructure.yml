@@ -60,6 +60,7 @@ jobs:
           SQL_ADMIN_OBJECT_ID: ${{ secrets.SQL_ADMIN_OBJECT_ID }}
           DEVELOPER_IPS: ${{ steps.params.outputs.ip_array }}
         run: |
+          set -euo pipefail
           az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
             --template-file infra/main.bicep \

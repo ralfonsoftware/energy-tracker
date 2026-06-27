@@ -25,6 +25,9 @@ param appInsightsName string = 'energytracker-insights'
 @description('Azure Static Web App name')
 param swaName string = 'energytracker-swa'
 
+@description('Azure region for the Static Web App — SWA is not available in all regions (e.g. not in germanywestcentral). Defaults to westeurope.')
+param swaLocation string = 'westeurope'
+
 @description('Object ID of the user-assigned managed identity (for RBAC assignments)')
 param managedIdentityObjectId string
 
@@ -282,7 +285,7 @@ resource functionsApp 'Microsoft.Web/sites@2023-12-01' = {
 // ── Azure Static Web App ───────────────────────────────────────────────────────
 resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   name: swaName
-  location: location
+  location: swaLocation
   sku: { name: 'Free', tier: 'Free' }
   properties: {
     stagingEnvironmentPolicy: 'Disabled'
