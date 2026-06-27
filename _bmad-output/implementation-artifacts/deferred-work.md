@@ -14,3 +14,12 @@
 - `ExcelDataReader` needs `System.Text.Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)` called at startup on Linux — required before any Excel import. Address in Story 6.x when the import pipeline is built.
 - No catch-all `path: '*'` route in the React Router — unknown URLs render a blank page with no feedback. Add a 404 page in a future UX story.
 - `fetch()` network errors (e.g., `TypeError: Failed to fetch`) are not reshaped into Problem Details format in `apiClient.ts` — inconsistent error shape for callers. Address when the API client is hardened.
+
+## Deferred from: code review of 1-2-azure-infrastructure-provisioning (2026-06-27)
+
+- No network isolation — all resources expose public endpoints (`infra/main.bicep`). Private endpoints would add cost beyond Basic-tier scope; revisit if security posture hardens.
+- SQL API uses preview version `2022-11-01-preview` (`infra/main.bicep`). Upgrade to GA API version when available.
+- No `Microsoft.Insights/diagnosticSettings` resources — Log Analytics workspace is unconnected to SQL, Key Vault, Storage, and Functions logs (`infra/main.bicep`). Wire up in a future observability story.
+- Static Web App `stagingEnvironmentPolicy: 'Disabled'` removes PR preview environments (`infra/main.bicep`). Revisit if PR preview environments become needed.
+- SQL Basic (5 DTUs) intentionally mismatched against up to 10 concurrent 2 GB Function instances — cost trade-off per story spec. Upgrade tier if load testing reveals contention.
+- No `@minLength`/`@maxLength`/`@pattern` on storage/keyvault name params in Bicep — invalid names fail inside ARM after partial provisioning. Add Bicep parameter decorators in a hardening pass.
