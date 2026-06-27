@@ -91,3 +91,24 @@ test-results/
 # ─── Logs ─────────────────────────────────────────────────────
 *.log
 logs/
+
+# ─── energy-tracker: Frontend (client/) ───────────────────────
+client/node_modules/
+client/dist/
+client/.vite/
+
+# ─── energy-tracker: Backend (api/) ───────────────────────────
+api/bin/
+api/obj/
+api/local.settings.json
+
+# ─── energy-tracker: Tests (api.Tests/) ───────────────────────
+api.Tests/bin/
+api.Tests/obj/
+
+# ─── energy-tracker: Publish output ───────────────────────────
+publish/
+
+# ─── .NET general ─────────────────────────────────────────────
+*.user
+.vs/

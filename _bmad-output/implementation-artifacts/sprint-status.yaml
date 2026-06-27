@@ -1,0 +1,111 @@
+# generated: 2026-06-27
+# last_updated: 2026-06-27 (Story 1.1 code review complete → done)
+# project: energy-tracker
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+
+generated: 2026-06-27
+last_updated: 2026-06-27
+project: energy-tracker
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # Epic 1: Project Foundation & Authenticated App Shell
+  epic-1: in-progress
+  1-1-monorepo-scaffold-and-cicd-pipeline: done
+  1-2-azure-infrastructure-provisioning: backlog
+  1-3-database-schema-users-table-and-ef-core-migration-baseline: backlog
+  1-4-swa-easy-auth-and-tenantresolver-middleware: backlog
+  1-5-app-shell-design-system-tokens-routing-and-navigation: backlog
+  epic-1-retrospective: optional
+
+  # Epic 2: Onboarding & Locale Selection
+  epic-2: backlog
+  2-1-i18n-infrastructure-and-locale-settings-api: backlog
+  2-2-onboarding-gate-and-intro-screen: backlog
+  2-3-onboarding-step-1-flat-name: backlog
+  2-4-onboarding-step-2-energy-contract-and-completion: backlog
+  2-5-settings-flat-name-annual-kwh-baseline-and-locale: backlog
+  epic-2-retrospective: optional
+
+  # Epic 3: Meter Reading, KPI Dashboard & Reading History
+  epic-3: backlog
+  3-1-meter-reading-submission-backend: backlog
+  3-2-kpi-dashboard-backend-computation: backlog
+  3-3-kpi-dashboard-frontend-euro-burn-design-and-grid: backlog
+  3-4-enter-reading-cta-bottom-sheet-and-immediate-dashboard-update: backlog
+  3-5-trend-chart-and-spike-detection: backlog
+  3-6-reading-history-view-and-correction: backlog
+  epic-3-retrospective: optional
+
+  # Epic 4: Tariff Management
+  epic-4: backlog
+  4-1-tariff-crud-backend-list-create-and-contract-lock-enforcement: backlog
+  4-2-tariff-management-ui-list-and-add-form-in-settings: backlog
+  4-3-tariff-lock-indicator-and-planned-annual-spend-settings: backlog
+  epic-4-retrospective: optional
+
+  # Epic 5: Multi-Flat Management & Flat Structure
+  epic-5: backlog
+  5-1-multi-flat-backend-create-list-and-cascade-delete: backlog
+  5-2-flat-switcher-add-flat-and-deletion-ui: backlog
+  5-3-flat-structure-backend-rooms-power-points-and-devices: backlog
+  5-4-flat-structure-editor-frontend: backlog
+  epic-5-retrospective: optional
+
+  # Epic 6: Smart Plug Import & Device Registry
+  epic-6: backlog
+  6-1-import-pipeline-infrastructure-upload-job-tracking-and-blob-trigger: backlog
+  6-2-eve-home-excel-parser: backlog
+  6-3-meross-csv-parser: backlog
+  6-4-gap-detection-interpolation-and-main-meter-reconciliation: backlog
+  6-5-device-registry-eu-label-and-self-measured-consumption: backlog
+  6-6-import-ui-upload-zone-file-list-and-progress-card: backlog
+  epic-6-retrospective: optional
+
+  # Epic 7: Consumption Decomposition
+  epic-7: backlog
+  7-1-decomposition-backend-engine-api-and-cost-attribution: backlog
+  7-2-decomposition-tab-period-selector-residual-card-and-unavailable-state: backlog
+  7-3-room-cards-device-card-variants-and-smart-power-strip-card: backlog
+  epic-7-retrospective: optional
+
+  # Epic 8: Actionable Insights
+  epic-8: backlog
+  8-1-insights-infrastructure-data-model-run-tracking-schedule-and-api: backlog
+  8-2-standby-offender-and-replacement-candidate-detectors: backlog
+  8-3-budget-pressure-and-invoice-deviation-detectors: backlog
+  8-4-insights-tab-trend-chart-insight-cards-and-discovery-progress: backlog
+  epic-8-retrospective: optional
