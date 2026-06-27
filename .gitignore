@@ -109,6 +109,9 @@ api.Tests/obj/
 # ─── energy-tracker: Publish output ───────────────────────────
 publish/
 
+# ─── energy-tracker: Bicep compiled output ────────────────────
+infra/main.json
+
 # ─── .NET general ─────────────────────────────────────────────
 *.user
 .vs/

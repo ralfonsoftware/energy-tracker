@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "westeurope"
+    },
+    "storageAccountName": {
+      "value": "energytrackerstorage"
+    },
+    "functionsAppName": {
+      "value": "energytracker-api"
+    },
+    "sqlServerName": {
+      "value": "energytracker-sqlsrv"
+    },
+    "sqlDatabaseName": {
+      "value": "energytracker-db"
+    },
+    "keyVaultName": {
+      "value": "energytracker-kv"
+    },
+    "logAnalyticsName": {
+      "value": "energytracker-logs"
+    },
+    "appInsightsName": {
+      "value": "energytracker-insights"
+    },
+    "swaName": {
+      "value": "energytracker-swa"
+    },
+    "managedIdentityObjectId": {
+      "value": "<MANAGED_IDENTITY_OBJECT_ID — run: az identity show -g energytracker-rg -n energytracker-identity --query principalId -o tsv>"
+    },
+    "managedIdentityClientId": {
+      "value": "<MANAGED_IDENTITY_CLIENT_ID — run: az identity show -g energytracker-rg -n energytracker-identity --query clientId -o tsv>"
+    },
+    "managedIdentityResourceId": {
+      "value": "<MANAGED_IDENTITY_RESOURCE_ID — run: az identity show -g energytracker-rg -n energytracker-identity --query id -o tsv>"
+    },
+    "sqlAdminLogin": {
+      "value": "<YOUR_ENTRA_ID_UPN e.g. ralf@ralfonsoftware.de>"
+    },
+    "sqlAdminObjectId": {
+      "value": "<YOUR_ENTRA_ID_OBJECT_ID — run: az ad signed-in-user show --query id -o tsv>"
+    },
+    "developerIpAddresses": {
+      "value": []
+    }
+  }
+}
