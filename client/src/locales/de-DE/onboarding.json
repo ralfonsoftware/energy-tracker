@@ -1,1 +1,9 @@
-{}
+{
+  "intro": {
+    "title": "Energy Tracker",
+    "valueProp": "Weißt du immer, was deine Energie kostet.",
+    "getStarted": "Loslegen"
+  },
+  "locale": { "de": "DE", "en": "EN", "label": "Sprache" },
+  "steps": { "step1": "Wohnungsname", "step2": "Energievertrag" }
+}

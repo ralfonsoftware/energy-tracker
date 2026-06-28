@@ -1,14 +1,17 @@
 import { NavLink } from 'react-router-dom'
 import { House, TrendingUp, BarChart2, Settings } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
-const tabs = [
-  { to: '/', label: 'Dashboard', Icon: House, end: true },
-  { to: '/insights', label: 'Insights', Icon: TrendingUp, end: false },
-  { to: '/decomposition', label: 'Decomposition', Icon: BarChart2, end: false },
-  { to: '/settings', label: 'Settings', Icon: Settings, end: false },
-]
+const tabRoutes = [
+  { to: '/', icon: House, tKey: 'dashboard', end: true },
+  { to: '/insights', icon: TrendingUp, tKey: 'insights', end: false },
+  { to: '/decomposition', icon: BarChart2, tKey: 'decomposition', end: false },
+  { to: '/settings', icon: Settings, tKey: 'settings', end: false },
+] as const
 
 export function BottomTabBar() {
+  const { t } = useTranslation('common')
+
   return (
     <nav
       role="navigation"
@@ -21,24 +24,27 @@ export function BottomTabBar() {
         borderTop: '1px solid rgba(255,255,255,0.10)',
       }}
     >
-      {tabs.map(({ to, label, Icon, end }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          aria-label={label}
-          className={({ isActive }) =>
-            `flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] gap-1 ${
-              isActive
-                ? 'opacity-100 text-text-primary'
-                : 'opacity-40 text-text-tertiary'
-            }`
-          }
-        >
-          <Icon className="w-[22px] h-[22px]" />
-          <span className="text-micro uppercase">{label}</span>
-        </NavLink>
-      ))}
+      {tabRoutes.map(({ to, icon: Icon, tKey, end }) => {
+        const label = t(`nav.${tKey}`)
+        return (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            aria-label={label}
+            className={({ isActive }) =>
+              `flex flex-col items-center justify-center flex-1 min-h-[44px] min-w-[44px] gap-1 ${
+                isActive
+                  ? 'opacity-100 text-text-primary'
+                  : 'opacity-40 text-text-tertiary'
+              }`
+            }
+          >
+            <Icon className="w-[22px] h-[22px]" />
+            <span className="text-micro uppercase">{label}</span>
+          </NavLink>
+        )
+      })}
     </nav>
   )
 }

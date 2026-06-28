@@ -37,6 +37,14 @@
 - No `errorElement` / React error boundary around `<Outlet />` in `AppShell` — a runtime throw in any child page unmounts the entire shell. Add resilience in a dedicated hardening pass.
 - `queryKey: ['auth', 'me']` has no tenant/user scope — risks cross-account React Query cache pollution in multi-tab logout/login scenarios. Revisit when multi-flat or multi-user story lands.
 
+## Deferred from: code review of 2-1-i18n-infrastructure-and-locale-settings-api (2026-06-28)
+
+- No guard on `GetUserId()` null result (`api/Features/Settings/GetUserSettingsFunction.cs:17`) — auth guaranteed by SWA Easy Auth + TenantResolverMiddleware (Story 1.4); revisit only if middleware is bypassed.
+- In-memory DB tests don't enforce FK constraints — pre-existing project-wide pattern (also deferred from 1-3 review); tracked as a future integration test hardening item.
+- Multi-user SPA session cache leak: `queryKey: ['settings']` not user-scoped (`client/src/features/settings/hooks/useUserSettings.ts`) — personal single-user app; low risk in current deployment; revisit if multi-user or multi-flat support is added.
+- AnnualKwhBaseline/SpikeThreshold negative/zero value validation (`api/Data/Entities/Flat.cs`) — Flat record creation is Story 2.4's scope; add range validation in the create-flat handler then.
+- `LocaleSync + retry:false` may silently permanently fail on transient network error (`client/src/App.tsx`) — `retry: false` is explicitly spec-specified (Task 8); SWA auth makes auth-timing concern moot; address if reliability requirements change.
+
 ## Deferred from: code review of 1-2-azure-infrastructure-provisioning (2026-06-27)
 
 - No network isolation — all resources expose public endpoints (`infra/main.bicep`). Private endpoints would add cost beyond Basic-tier scope; revisit if security posture hardens.

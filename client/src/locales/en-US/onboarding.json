@@ -1,1 +1,9 @@
-{}
+{
+  "intro": {
+    "title": "Energy Tracker",
+    "valueProp": "Know what your energy costs, every day.",
+    "getStarted": "Get Started"
+  },
+  "locale": { "de": "DE", "en": "EN", "label": "Language" },
+  "steps": { "step1": "Flat Name", "step2": "Energy Contract" }
+}

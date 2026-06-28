@@ -1,3 +1,6 @@
+import { useTranslation } from 'react-i18next'
+
 export default function SettingsPage() {
-  return <div>Settings</div>
+  const { t } = useTranslation('settings')
+  return <div>{t('title')}</div>
 }

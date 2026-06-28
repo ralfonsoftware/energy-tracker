@@ -1,1 +1,5 @@
-{}
+{
+  "title": "Einstellungen",
+  "locale": { "title": "Sprache & Region", "de": "Deutsch", "en": "Englisch" },
+  "account": { "title": "Konto", "signOut": "Abmelden" }
+}

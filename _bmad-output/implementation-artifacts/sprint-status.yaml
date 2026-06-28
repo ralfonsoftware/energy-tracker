@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-06-27 (Story 1.2 code review complete → done)
+# last_updated: 2026-06-28 (Story 2.1 done — code review complete)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-06-28 (Epic 1 → done)
+last_updated: 2026-06-28 (Story 2.1 done — code review complete)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -52,8 +52,8 @@ development_status:
   epic-1-retrospective: done
 
   # Epic 2: Onboarding & Locale Selection
-  epic-2: backlog
-  2-1-i18n-infrastructure-and-locale-settings-api: backlog
+  epic-2: in-progress
+  2-1-i18n-infrastructure-and-locale-settings-api: done
   2-2-onboarding-gate-and-intro-screen: backlog
   2-3-onboarding-step-1-flat-name: backlog
   2-4-onboarding-step-2-energy-contract-and-completion: backlog

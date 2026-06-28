@@ -1,1 +1,19 @@
-{}
+{
+  "app": { "name": "Energy Tracker" },
+  "nav": {
+    "dashboard": "Übersicht",
+    "insights": "Erkenntnisse",
+    "decomposition": "Verbrauch",
+    "settings": "Einstellungen"
+  },
+  "actions": {
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "continue": "Weiter",
+    "back": "Zurück"
+  },
+  "errors": {
+    "networkError": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
+    "validationNumber": "Bitte gib eine gültige Zahl ein"
+  }
+}
