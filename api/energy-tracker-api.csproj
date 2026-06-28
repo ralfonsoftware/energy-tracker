@@ -8,6 +8,7 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <PublishReadyToRun>true</PublishReadyToRun>
+    <RootNamespace>EnergyTracker.Api</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

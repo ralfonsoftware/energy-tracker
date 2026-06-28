@@ -15,6 +15,15 @@
 - No catch-all `path: '*'` route in the React Router — unknown URLs render a blank page with no feedback. Add a 404 page in a future UX story.
 - `fetch()` network errors (e.g., `TypeError: Failed to fetch`) are not reshaped into Problem Details format in `apiClient.ts` — inconsistent error shape for callers. Address when the API client is hardened.
 
+## Deferred from: code review of 1-3-database-schema-users-table-and-ef-core-migration-baseline (2026-06-28)
+
+- No SQL transient-fault retry policy (`EnableRetryOnFailure`) configured on `UseSqlServer` in `Program.cs`. Azure SQL emits transient errors on throttling/failover — add `EnableRetryOnFailure` in a production-hardening pass.
+- No migration execution path defined for Azure Functions production runtime — `dotnet ef database update` must be run manually or wired into CI/CD. Define the migration deployment strategy in a deployment-hardening story.
+- InMemory EF provider used in all DB tests — doesn't enforce `nvarchar` column types, max-length, or SQL Server-specific constraints. Add integration tests (SQLite or real SQL) to validate schema constraints in a future test-hardening story.
+- `LocaleOverride` accepts arbitrary strings — no BCP-47 or allowed-values validation. Address when locale settings story (2.1/2.5) is implemented.
+- No guard against concurrent duplicate-PK inserts for `UserId` — a `DbUpdateException` PK-violation is not distinguishable from other DB errors. Add conflict detection in the service layer when user write paths are built.
+- Migration `Down` (`DropTable("Users")`) will fail if future migrations add FK references to `Users` and rollback order is wrong — future migration authors must drop FKs before rolling back this migration.
+
 ## Deferred from: code review of 1-2-azure-infrastructure-provisioning (2026-06-27)
 
 - No network isolation — all resources expose public endpoints (`infra/main.bicep`). Private endpoints would add cost beyond Basic-tier scope; revisit if security posture hardens.
