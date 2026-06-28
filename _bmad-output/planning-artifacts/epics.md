@@ -450,6 +450,18 @@ So that I understand the app's purpose and can start the setup flow.
 **When** a locale is selected,
 **Then** all text on the current screen immediately re-renders in the selected language and `PUT /api/v1/user/settings` stores the override server-side.
 
+**Given** a locale change is applied during onboarding,
+**When** the new locale renders,
+**Then** all visible UI strings update in the same render cycle — no full-page reload, no flash of untranslated content, no scroll position reset.
+
+**Given** the user has entered text in any form field when locale is switched,
+**When** locale is applied,
+**Then** all previously entered field values are preserved exactly; only labels, placeholders, and error messages re-render in the new locale.
+
+**Given** the new locale introduces longer strings (e.g. German labels),
+**When** the layout reflows,
+**Then** no CTA button is pushed off-screen and no input overlaps its label.
+
 **Given** a user who has already completed onboarding (`hasFlat === true`),
 **When** they navigate to `/onboarding`,
 **Then** they are redirected to the Dashboard (`/`) — the gate does not re-trigger.
@@ -470,7 +482,11 @@ So that my energy data is associated with a meaningful label I recognize.
 
 **Given** the user taps "Get Started" on the Intro screen,
 **When** Step 1 renders,
-**Then** a text input labelled for flat name entry is auto-focused; the "Continue" button is inactive until a non-empty name is entered.
+**Then** a text input labelled for flat name entry is auto-focused; the "Continue" button is inactive until a non-empty name is entered; `input.value.trim()` is used for the empty check — whitespace-only values do not enable "Continue".
+
+**Given** the user has typed only whitespace characters into the name field,
+**When** the component evaluates the field value,
+**Then** "Continue" remains disabled; no validation error is shown until the user blurs the field.
 
 **Given** a flat name is entered and "Continue" is tapped,
 **When** the step advances,
@@ -479,6 +495,12 @@ So that my energy data is associated with a meaningful label I recognize.
 **Given** Step 1 is active and the user navigates back,
 **When** returning to the Intro screen,
 **Then** no data is lost and the user can re-enter Step 1 with the previously typed value still present.
+
+**Given** the flat name input on a mobile device and the soft keyboard opens,
+**When** the keyboard is fully raised,
+**Then** the "Continue" button is still fully visible within the visible viewport without requiring a scroll.
+
+**Story Note (2.3):** Implement keyboard-aware CTA using `position: sticky; bottom: 0` on the CTA container inside a scrollable parent, or listen to `visualViewport.resize` and adjust padding.
 
 **Given** the flat name input,
 **When** rendered,
@@ -496,7 +518,19 @@ So that the app can calculate my costs and budget from the moment I enter my fir
 
 **Given** Step 2 renders,
 **When** the Annual kWh Baseline section is shown,
-**Then** four household-size preset buttons appear (1 person ≈ 1,500 kWh; 2 persons ≈ 2,500 kWh; 3 persons ≈ 3,500 kWh; 4 persons ≈ 4,250 kWh) and a custom numeric input; selecting a preset populates the input with its value; typing a custom value deselects any active preset.
+**Then** four household-size preset buttons appear (1 person ≈ 1,500 kWh; 2 persons ≈ 2,500 kWh; 3 persons ≈ 3,500 kWh; 4 persons ≈ 4,250 kWh) and a custom numeric input.
+
+**Given** the user taps a preset tile,
+**When** tapped,
+**Then** the tile enters a selected visual state (highlighted border + checkmark) AND the kWh input is prefilled with the preset value AND focus moves to the kWh input field.
+
+**Given** a preset tile is selected and the user modifies the kWh input (any keystroke that changes the value),
+**When** the value changes,
+**Then** the tile deselects (returns to default visual state) and the input retains the user-typed value.
+
+**Given** the user manually types a value into the kWh field that exactly matches a preset value,
+**When** typed,
+**Then** the corresponding tile does NOT auto-select — manual entry is not equivalent to tile selection.
 
 **Given** the Tariff section in Step 2,
 **When** rendered,
@@ -505,6 +539,24 @@ So that the app can calculate my costs and budget from the moment I enter my fir
 **Given** Annual kWh Baseline and price per kWh are both entered,
 **When** either value changes,
 **Then** the planned annual spend field auto-calculates as `(annual_kwh × price_per_kwh) + (monthly_base_fee × 12)`, shows the derivation formula below the field, and remains manually editable by the user.
+
+**Given** the user enters a value in the planned spend field,
+**When** entered,
+**Then** the field displays an "override active" indicator (e.g. small tag "Custom budget") signalling it is decoupled from the auto-calculation.
+
+**Given** a spend override is active AND the user changes the kWh or tariff values,
+**When** the other fields change,
+**Then** the spend field is NOT recalculated — the override persists; the user must clear the spend field manually to return to auto-calculation.
+
+**Given** the user clears the planned spend field,
+**When** the field loses focus,
+**Then** the field returns to showing a computed placeholder (e.g. "~€420 / yr based on current tariff") and the "override active" indicator is removed.
+
+**Given** the user is on Step 2 and taps "Back" to Step 1, then "Continue" again to return,
+**When** Step 2 re-renders,
+**Then** all previously entered kWh, preset tile selection, tariff fields, and planned spend values are restored exactly as left.
+
+**Story Note (2.4):** Preserve all onboarding wizard state in component state or a lightweight store slice — do not rely on browser history state alone.
 
 **Given** all required fields are valid and "Complete Setup" is tapped,
 **When** `POST /api/v1/onboarding` is called,
@@ -515,9 +567,31 @@ So that the app can calculate my costs and budget from the moment I enter my fir
 **When** reviewed,
 **Then** `FlatConfiguration` defines: `FlatId` (guid PK), `UserId` (FK to `Users`, cascade delete), `Name` (nvarchar), `AnnualKwhBaseline` (decimal), `SpikeThreshold` (decimal, default `2.0`), `PlannedAnnualSpend` (nullable decimal); all mappings via Fluent API only; zero Data Annotation attributes on the `Flat` entity class.
 
-**Given** a network failure during submission,
+**Given** the `Tariffs` EF Core entity and `TariffConfiguration`,
+**When** reviewed,
+**Then** `TariffConfiguration` defines the complete schema: `TariffId` (guid PK), `FlatId` (FK to `Flats`, cascade delete), `EffectiveDate` (datetimeoffset), `PricePerKwh` (decimal), `MonthlyBaseFee` (decimal), `ProviderName` (nullable nvarchar), `ContractStartDate` (nullable datetimeoffset), `ContractDurationMonths` (nullable int); index `IX_Tariffs_FlatId_EffectiveDate`; all mappings via Fluent API only; zero Data Annotation attributes on the `Tariff` entity class. This migration creates the full Tariffs schema — Story 4.1 adds application logic only, no further schema changes to this table.
+
+**Given** the tariff price/kWh or monthly base fee fields,
+**When** rendered with locale `de-DE` (or any locale using comma as decimal separator),
+**Then** the field accepts a comma as the decimal separator (e.g. "0,28") and correctly parses the value; a period is treated as a thousands separator.
+
+**Given** locale is `en-US`,
+**When** the user types "3,500" into a numeric field,
+**Then** it is accepted as 3500 (thousands separator); a period is the decimal separator.
+
+**Given** the user submits a value that cannot be parsed in the active locale (e.g. "3.5.0"),
+**When** the field loses focus,
+**Then** an inline validation error reads "Please enter a valid number" in the active locale language.
+
+**Story Note (2.4):** Do not rely on browser default locale for number parsing — use the locale resolved by the i18n context from Story 2.1.
+
+**Given** the "Complete Setup" API call is in-flight,
+**When** pending,
+**Then** the button displays a loading spinner, is disabled, and shows the label "Saving…".
+
+**Given** the API call fails (network error or 5xx),
 **When** the error response is received,
-**Then** the form stays open with all entered values preserved and the inline error "Couldn't save — try again." is shown.
+**Then** the inline error "Something went wrong. Your data wasn't saved — please try again." appears below the CTA; the button reverts to "Complete Setup" (enabled); all entered values are preserved — the user can retry without re-entering any data.
 
 ---
 
@@ -534,16 +608,46 @@ So that I can refine my setup at any time without restarting onboarding.
 **Then** a Flat card shows the current flat name with a "kWh Baseline" quick link; a "Language & Region" section is present; an Account section shows a Sign Out action.
 
 **Given** the user taps the flat name on the Flat card,
-**When** the edit surface opens,
-**Then** a text input pre-populated with the current flat name is shown; saving sends a PATCH/PUT to the appropriate settings endpoint and the updated name appears immediately across all surfaces.
+**When** tapped,
+**Then** the name text transforms into an inline editable input pre-filled with the current value; a "Save" action appears adjacent (or via keyboard "Done").
+
+**Given** the user confirms the inline name edit,
+**When** "Save" / "Done" is tapped,
+**Then** the UI immediately shows the new name (optimistic update) AND `PATCH /api/v1/flats/{flatId}` is sent in the background with body `{ "name": string }`.
+
+**Given** the PATCH request fails,
+**When** the error response is received,
+**Then** the name reverts to the previous value and the inline error "Couldn't save changes — please try again." appears; the input re-opens with the failed new value so the user does not need to retype.
 
 **Given** the "kWh Baseline" quick link,
 **When** tapped,
-**Then** the baseline screen shows the same four presets and custom input from onboarding; the current value is pre-populated; saving updates `Flats.AnnualKwhBaseline` and the change takes effect immediately on future budget pressure evaluations.
+**Then** the user is navigated to a full edit screen reusing the consumption form from Story 2.4 (preset tiles + kWh input + planned spend) with current values pre-populated; a "Save changes" CTA and a back/cancel affordance are present.
+
+**Given** the user saves baseline changes and `PATCH /api/v1/flats/{flatId}` succeeds,
+**When** the response is received,
+**Then** the user is returned to the Settings screen with updated values shown and the change takes effect immediately on future budget pressure evaluations.
+
+**Given** the PATCH request for baseline changes fails,
+**When** the error response is received,
+**Then** the user remains on the edit screen with an error banner; no data is lost and all entered values remain in the form.
+
+**Story Note (2.5 — PATCH endpoint contract):** `PATCH /api/v1/flats/{flatId}` accepts a partial body `{ "name"?: string, "annualKwhBaseline"?: number, "plannedAnnualSpend"?: number | null }`. Omitted fields are not updated. Explicit `null` for `plannedAnnualSpend` clears the override. Returns HTTP 200 with the updated Flat resource (not 204 — client needs the persisted values to confirm the optimistic update).
 
 **Given** the "Language & Region" locale dropdown,
 **When** changed to a different locale,
 **Then** `PUT /api/v1/user/settings` stores the override server-side; all UI text, numbers, dates, times, and currency immediately re-render in the new locale without a page reload; accessing the app from any other browser subsequently restores the stored locale automatically.
+
+**Given** the user taps "Sign Out" in the Account section,
+**When** tapped,
+**Then** a confirmation dialog appears with title "Sign out?", body "You'll need to sign in again to access your data.", and two actions: "Cancel" (dismisses, no action) and "Sign out" (destructive styling, proceeds).
+
+**Given** the user confirms sign-out,
+**When** confirmed,
+**Then** the browser is redirected to `/.auth/logout` (SWA Easy Auth built-in endpoint); no backend code is required — the Sign Out action is a link or `window.location.href` assignment; the user lands on the app sign-in screen after the SWA session is cleared.
+
+**Given** the `/.auth/logout` redirect fails,
+**When** failure occurs,
+**Then** local session state is cleared anyway and the user is still redirected to the sign-in screen — retaining a broken session is worse than a silent failure.
 
 ---
 
