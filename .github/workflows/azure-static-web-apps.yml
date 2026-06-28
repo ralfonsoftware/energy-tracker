@@ -46,6 +46,7 @@ jobs:
         run: |
           npm ci
           npm run build
+          rm -rf node_modules
 
       # ── Backend ────────────────────────────────────────────────────────────
       - name: Setup .NET
