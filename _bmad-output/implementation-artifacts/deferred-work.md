@@ -24,6 +24,10 @@
 - No guard against concurrent duplicate-PK inserts for `UserId` — a `DbUpdateException` PK-violation is not distinguishable from other DB errors. Add conflict detection in the service layer when user write paths are built.
 - Migration `Down` (`DropTable("Users")`) will fail if future migrations add FK references to `Users` and rollback order is wrong — future migration authors must drop FKs before rolling back this migration.
 
+## Deferred from: code review of 1-4-swa-easy-auth-and-tenantresolver-middleware (2026-06-28)
+
+- `InternalsVisibleTo` via MSBuild `<AssemblyAttribute>` in `api/energy-tracker-api.csproj` — if `AssemblyInfo.cs` auto-generation is enabled in future, the duplicate attribute will cause a compile error. Switch to `[assembly: InternalsVisibleTo(...)]` in `AssemblyInfo.cs` at that time.
+
 ## Deferred from: code review of 1-2-azure-infrastructure-provisioning (2026-06-27)
 
 - No network isolation — all resources expose public endpoints (`infra/main.bicep`). Private endpoints would add cost beyond Basic-tier scope; revisit if security posture hardens.

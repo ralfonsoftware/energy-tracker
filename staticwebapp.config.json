@@ -1,12 +1,36 @@
 {
-  "navigationFallback": {
-    "rewrite": "/index.html",
-    "exclude": ["/api/*", "/_framework/*", "/assets/*", "/*.{ico,png,svg,woff,woff2,css,js}"]
+  "auth": {
+    "identityProviders": {
+      "azureActiveDirectory": {
+        "registration": {
+          "openIdIssuer": "https://login.microsoftonline.com/63234ecd-e309-4aee-a115-fbf92251902f/v2.0",
+          "clientIdSettingName": "AZURE_CLIENT_ID"
+        }
+      }
+    }
   },
   "routes": [
     {
+      "route": "/.auth/*",
+      "allowedRoles": ["anonymous"]
+    },
+    {
       "route": "/api/*",
       "allowedRoles": ["anonymous"]
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["authenticated"]
     }
-  ]
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/aad?post_login_redirect_uri={request.pathAndQuery}",
+      "statusCode": 302
+    }
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/_framework/*", "/assets/*", "/*.{ico,png,svg,woff,woff2,css,js}"]
+  }
 }

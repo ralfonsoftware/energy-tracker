@@ -1,5 +1,6 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
 using EnergyTracker.Api.Data;
+using EnergyTracker.Api.Shared;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
@@ -11,6 +12,7 @@ using OpenTelemetry;
 var builder = FunctionsApplication.CreateBuilder(args);
 
 builder.ConfigureFunctionsWebApplication();
+builder.UseMiddleware<TenantResolverMiddleware>();
 
 builder.Services.AddOpenTelemetry()
     .UseFunctionsWorkerDefaults()
