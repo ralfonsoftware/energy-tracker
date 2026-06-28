@@ -158,6 +158,17 @@ resource sqlFirewallDeveloperIps 'Microsoft.Sql/servers/firewallRules@2022-11-01
   }
 }]
 
+// Allows GitHub-hosted runners (which are Azure VMs) to reach SQL during CI migrations.
+// This rule name is special: Azure recognises 0.0.0.0→0.0.0.0 as "Allow Azure services".
+resource sqlFirewallAllowAzureServices 'Microsoft.Sql/servers/firewallRules@2022-11-01-preview' = {
+  parent: sqlServer
+  name: 'AllowAllWindowsAzureIps'
+  properties: {
+    startIpAddress: '0.0.0.0'
+    endIpAddress: '0.0.0.0'
+  }
+}
+
 resource sqlDatabase 'Microsoft.Sql/servers/databases@2022-11-01-preview' = {
   parent: sqlServer
   name: sqlDatabaseName
