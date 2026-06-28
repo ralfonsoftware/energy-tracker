@@ -30,7 +30,7 @@
 
 ## Deferred from: code review of 1-5-app-shell-design-system-tokens-routing-and-navigation (2026-06-28)
 
-- `accent-over-budget` and `accent-spike` share the same hex `#f59e0b` [index.css] — UX expert input needed on whether over-budget should be visually distinct from a spike; may need a different hex (candidate: error red `#f87171`).
+- ~~`accent-over-budget` and `accent-spike` share the same hex `#f59e0b`~~ — **RESOLVED in Epic 1 retrospective**: `accent-over-budget` changed to `#fb923c` (orange-400); spike stays amber `#f59e0b`. Semantic distinction: spike = data observation (amber), over-budget = financial alarm (orange), error = system failure (coral `#f87171`). [client/src/index.css, 2026-06-28]
 - `useAuth` doesn't expose `isError`/`error` — spec explicitly scopes return type to `{ user, isLoading }`; callers cannot distinguish network error from unauthenticated state. Expand when hook is wired to UI.
 - No 404/catch-all route — unmatched paths render a blank AppShell with no user feedback. Pre-existing gap (also noted from 1-1 review). Add a 404 page in a future UX story.
 - No iOS safe-area-inset (`env(safe-area-inset-bottom)`) on `BottomTabBar` — home indicator on iPhones overlaps the fixed tab bar. Spec specifies exact 72px height; address safe-area handling in a UX-polish story.

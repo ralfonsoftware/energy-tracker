@@ -41,10 +41,15 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@11.17.0
 
-      - name: Build frontend
+      - name: Test frontend
         working-directory: client
         run: |
           npm ci
+          npm test -- --run
+
+      - name: Build frontend
+        working-directory: client
+        run: |
           npm run build
           rm -rf node_modules
 
@@ -53,6 +58,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      - name: Test backend
+        run: dotnet test api.Tests/
 
       - name: Publish Functions app
         run: |
