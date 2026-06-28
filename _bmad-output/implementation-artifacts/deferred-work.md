@@ -28,6 +28,15 @@
 
 - `InternalsVisibleTo` via MSBuild `<AssemblyAttribute>` in `api/energy-tracker-api.csproj` — if `AssemblyInfo.cs` auto-generation is enabled in future, the duplicate attribute will cause a compile error. Switch to `[assembly: InternalsVisibleTo(...)]` in `AssemblyInfo.cs` at that time.
 
+## Deferred from: code review of 1-5-app-shell-design-system-tokens-routing-and-navigation (2026-06-28)
+
+- `accent-over-budget` and `accent-spike` share the same hex `#f59e0b` [index.css] — UX expert input needed on whether over-budget should be visually distinct from a spike; may need a different hex (candidate: error red `#f87171`).
+- `useAuth` doesn't expose `isError`/`error` — spec explicitly scopes return type to `{ user, isLoading }`; callers cannot distinguish network error from unauthenticated state. Expand when hook is wired to UI.
+- No 404/catch-all route — unmatched paths render a blank AppShell with no user feedback. Pre-existing gap (also noted from 1-1 review). Add a 404 page in a future UX story.
+- No iOS safe-area-inset (`env(safe-area-inset-bottom)`) on `BottomTabBar` — home indicator on iPhones overlaps the fixed tab bar. Spec specifies exact 72px height; address safe-area handling in a UX-polish story.
+- No `errorElement` / React error boundary around `<Outlet />` in `AppShell` — a runtime throw in any child page unmounts the entire shell. Add resilience in a dedicated hardening pass.
+- `queryKey: ['auth', 'me']` has no tenant/user scope — risks cross-account React Query cache pollution in multi-tab logout/login scenarios. Revisit when multi-flat or multi-user story lands.
+
 ## Deferred from: code review of 1-2-azure-infrastructure-provisioning (2026-06-27)
 
 - No network isolation — all resources expose public endpoints (`infra/main.bicep`). Private endpoints would add cost beyond Basic-tier scope; revisit if security posture hardens.

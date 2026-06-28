@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-06-28 (Story 1.4 → done)
+last_updated: 2026-06-28 (Story 1.5 → done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -48,7 +48,7 @@ development_status:
   1-2-azure-infrastructure-provisioning: done
   1-3-database-schema-users-table-and-ef-core-migration-baseline: done
   1-4-swa-easy-auth-and-tenantresolver-middleware: done
-  1-5-app-shell-design-system-tokens-routing-and-navigation: backlog
+  1-5-app-shell-design-system-tokens-routing-and-navigation: done
   epic-1-retrospective: optional
 
   # Epic 2: Onboarding & Locale Selection

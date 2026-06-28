@@ -1,3 +1,77 @@
 @import "tailwindcss";
 
-/* Design system tokens will be added in Story 1.5 */
+@theme {
+  /* Euro Burn gradient */
+  --color-gradient-cool-start: #1a1f4e;
+  --color-gradient-cool-end: #0d4f5c;
+  --color-gradient-neutral: #2d2018;
+  --color-gradient-warm-start: #4a2000;
+  --color-gradient-warm-end: #6b2d00;
+
+  /* Glass surfaces */
+  --color-glass-surface: rgba(255, 255, 255, 0.08);
+  --color-glass-border: rgba(255, 255, 255, 0.14);
+  --color-glass-surface-light: rgba(255, 255, 255, 0.55);
+  --color-glass-border-light: rgba(0, 0, 0, 0.08);
+
+  /* Semantic accents */
+  --color-accent-spike: #f59e0b;
+  --color-accent-under-budget: #4ade80;
+  --color-accent-over-budget: #f59e0b;
+  --color-accent-info: #60a5fa;
+  --color-accent-error: #f87171;
+  --color-accent-tariff-locked: #d97706;
+  --color-residual-tint: rgba(245, 158, 11, 0.10);
+
+  /* Text palette (dark mode) */
+  --color-text-primary: rgba(255, 255, 255, 0.90);
+  --color-text-secondary: rgba(255, 255, 255, 0.65);
+  --color-text-tertiary: rgba(255, 255, 255, 0.35);
+
+  /* Border radii */
+  --radius-pill: 9999px;
+  --radius-sheet: 24px;
+  --radius-card: 18px;
+  --radius-input: 12px;
+  --radius-badge: 20px;
+  --radius-sidebar-item: 10px;
+
+  /* System font — no web fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Helvetica Neue", sans-serif;
+}
+
+/* Type scale roles */
+@utility text-display-kpi {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+@utility text-display-kpi-tablet {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+@utility text-body-sm {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+@utility text-label-caps {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+@utility text-caption {
+  font-size: 10px;
+  font-weight: 400;
+}
+@utility text-micro {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
