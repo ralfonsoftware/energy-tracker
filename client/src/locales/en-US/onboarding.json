@@ -7,5 +7,14 @@
     "duration": "Takes about 2 minutes"
   },
   "locale": { "de": "DE", "en": "EN", "label": "Language" },
-  "steps": { "step1": "Flat Name", "step2": "Energy Contract" }
+  "steps": { "step1": "Flat Name", "step2": "Energy Contract" },
+  "flatName": {
+    "title": "Name your flat",
+    "subtitle": "You can manage multiple flats later.",
+    "label": "Flat Name",
+    "placeholder": "e.g. Flat 3B",
+    "continue": "Continue",
+    "back": "Back",
+    "nameRequired": "Please enter a flat name"
+  }
 }

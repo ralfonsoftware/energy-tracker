@@ -7,5 +7,14 @@
     "duration": "Dauert etwa 2 Minuten"
   },
   "locale": { "de": "DE", "en": "EN", "label": "Sprache" },
-  "steps": { "step1": "Wohnungsname", "step2": "Energievertrag" }
+  "steps": { "step1": "Wohnungsname", "step2": "Energievertrag" },
+  "flatName": {
+    "title": "Gib deiner Wohnung einen Namen",
+    "subtitle": "Du kannst später mehrere Wohnungen verwalten.",
+    "label": "Wohnungsname",
+    "placeholder": "z.B. Wohnung 3B",
+    "continue": "Weiter",
+    "back": "Zurück",
+    "nameRequired": "Bitte einen Namen eingeben"
+  }
 }

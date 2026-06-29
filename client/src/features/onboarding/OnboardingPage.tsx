@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { OnboardingIntro } from './components/OnboardingIntro'
+import { OnboardingFlatName } from './components/OnboardingFlatName'
 
 type OnboardingStep = 'intro' | 'flat-name' | 'contract'
 
@@ -28,16 +29,24 @@ function StepIndicator({ currentStep }: { currentStep: OnboardingStep }) {
 export default function OnboardingPage() {
   const { settings, isLoading, isError } = useUserSettings()
   const [step, setStep] = useState<OnboardingStep>('intro')
+  const [flatName, setFlatName] = useState('')
 
   if (!isLoading && !isError && settings?.hasFlat) return <Navigate to="/" replace />
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: '#0f1235' }}>
+    <div className="flex flex-col h-[100dvh]" style={{ background: '#0f1235' }}>
       <StepIndicator currentStep={step} />
       {step === 'intro' && (
         <OnboardingIntro onGetStarted={() => setStep('flat-name')} />
       )}
-      {/* 'flat-name' rendered in Story 2.3; 'contract' rendered in Story 2.4 */}
+      {step === 'flat-name' && (
+        <OnboardingFlatName
+          initialValue={flatName}
+          onContinue={(name) => { setFlatName(name); setStep('contract') }}
+          onBack={() => setStep('intro')}
+        />
+      )}
+      {/* 'contract' rendered in Story 2.4 */}
     </div>
   )
 }

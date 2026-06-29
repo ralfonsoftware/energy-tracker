@@ -60,3 +60,16 @@
 - Static Web App `stagingEnvironmentPolicy: 'Disabled'` removes PR preview environments (`infra/main.bicep`). Revisit if PR preview environments become needed.
 - SQL Basic (5 DTUs) intentionally mismatched against up to 10 concurrent 2 GB Function instances — cost trade-off per story spec. Upgrade tier if load testing reveals contention.
 - No `@minLength`/`@maxLength`/`@pattern` on storage/keyvault name params in Bicep — invalid names fail inside ARM after partial provisioning. Add Bicep parameter decorators in a hardening pass.
+
+## Deferred from: code review of 2-3-onboarding-step-1-flat-name (2026-06-29)
+
+- Blank screen when user reaches 'contract' step — intentional placeholder; Story 2.4 adds `OnboardingContract` component. (`OnboardingPage.tsx`)
+- Locale switcher copy-pasted into `OnboardingFlatName` from `OnboardingIntro` — spec explicitly says "same pattern"; extract into a shared `<LocalePill>` component after Story 2.4 completes the full wizard. (`OnboardingFlatName.tsx`)
+- Direct `i18n` singleton import (`import i18n from '@/lib/i18n'`) instead of `useTranslation`-returned instance — pre-existing Story 2.2 pattern in `OnboardingIntro.tsx`; change consistently across all onboarding components in a cleanup pass. (`OnboardingFlatName.tsx:5`)
+- `flatName` not forwarded to contract render block — intentional; Story 2.4 adds `OnboardingContract` and will receive it via `initialFlatName` prop. (`OnboardingPage.tsx`)
+- Tests use live `react-i18next` without mocking — pre-existing Story 2.2 pattern; works because i18n key names contain matched substrings. Consider adding a `vi.mock('react-i18next')` setup if test stability becomes an issue. (`OnboardingFlatName.test.tsx`)
+- No max-length constraint on flat name — Story 2.4 adds the backend call; add `z.string().max(N)` and `maxLength={N}` on `<input>` when DB column width is confirmed. (`onboardingSchema.ts`)
+- Optimistic locale rollback causes a language flash with no user feedback — pre-existing Story 2.2 pattern; address with a loading indicator or debounce in a UX-polish pass. (`OnboardingFlatName.tsx:72-76`)
+- Locale dropdown lacks ARIA roles (`role="listbox"`) and keyboard navigation (Escape to close, arrow keys) — pre-existing Story 2.2 pattern; address in a UX-accessibility polish pass.
+- Touch events not handled for locale dropdown dismiss (`mousedown` only, no `touchstart`) — pre-existing Story 2.2 pattern; touch-only mobile devices cannot tap-outside to dismiss.
+- `useUpdateLocale` mock uses `as any` and is set at module scope without `beforeEach` reset — pre-existing Story 2.2 pattern; refactor if the test suite expands.
