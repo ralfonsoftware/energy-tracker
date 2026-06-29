@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { OnboardingIntro } from './components/OnboardingIntro'
 import { OnboardingFlatName } from './components/OnboardingFlatName'
+import { OnboardingContract, type ContractInitialValues } from './components/OnboardingContract'
 
 type OnboardingStep = 'intro' | 'flat-name' | 'contract'
 
@@ -30,6 +31,17 @@ export default function OnboardingPage() {
   const { settings, isLoading, isError } = useUserSettings()
   const [step, setStep] = useState<OnboardingStep>('intro')
   const [flatName, setFlatName] = useState('')
+  const [contractValues, setContractValues] = useState<ContractInitialValues>({
+    annualKwhBaseline: '',
+    selectedPresetIndex: null,
+    pricePerKwh: '',
+    monthlyBaseFee: '',
+    providerName: '',
+    contractStartDate: '',
+    contractDurationMonths: null,
+    plannedAnnualSpend: '',
+    isSpendOverride: false,
+  })
 
   if (!isLoading && !isError && settings?.hasFlat) return <Navigate to="/" replace />
 
@@ -46,7 +58,14 @@ export default function OnboardingPage() {
           onBack={() => setStep('intro')}
         />
       )}
-      {/* 'contract' rendered in Story 2.4 */}
+      {step === 'contract' && (
+        <OnboardingContract
+          initialValues={contractValues}
+          flatName={flatName}
+          onComplete={() => {}}
+          onBack={(values) => { setContractValues(values); setStep('flat-name') }}
+        />
+      )}
     </div>
   )
 }

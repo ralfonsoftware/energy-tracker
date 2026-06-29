@@ -7,6 +7,10 @@ vi.mock('@/features/settings/hooks/useUserSettings')
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 const mockUseUserSettings = vi.mocked(useUserSettings)
 
+vi.mock('./hooks/useCompleteOnboarding', () => ({
+  useCompleteOnboarding: () => ({ mutate: vi.fn(), isPending: false, error: null }),
+}))
+
 vi.mock('./components/OnboardingIntro', () => ({
   OnboardingIntro: ({ onGetStarted }: { onGetStarted: () => void }) => (
     <button onClick={onGetStarted}>Get Started</button>

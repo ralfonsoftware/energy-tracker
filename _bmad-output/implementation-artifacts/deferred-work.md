@@ -73,3 +73,20 @@
 - Locale dropdown lacks ARIA roles (`role="listbox"`) and keyboard navigation (Escape to close, arrow keys) — pre-existing Story 2.2 pattern; address in a UX-accessibility polish pass.
 - Touch events not handled for locale dropdown dismiss (`mousedown` only, no `touchstart`) — pre-existing Story 2.2 pattern; touch-only mobile devices cannot tap-outside to dismiss.
 - `useUpdateLocale` mock uses `as any` and is set at module scope without `beforeEach` reset — pre-existing Story 2.2 pattern; refactor if the test suite expands.
+
+## Deferred from: code review of 2-4-onboarding-step-2-energy-contract-and-completion (2026-06-29)
+
+- W1: de-DE locale silently treats dot as thousands separator — `parseLocaleNumber("1.5", "de-DE")` → 15; spec-defined behavior but UX risk. Future: input mask or warning. (`OnboardingContract.tsx`)
+- W2: `OnboardingValidator` registered as `AddSingleton` instead of `AddTransient` — FluentValidation recommends Transient; stateless so no correctness bug today. (`Program.cs`)
+- W3: No upper-bound validation on `AnnualKwhBaseline`, `PricePerKwh`, `MonthlyBaseFee` — extreme values could exceed `decimal(18,6)` at DB level. (`OnboardingValidator.cs`)
+- W4: `EffectiveDate = DateTimeOffset.UtcNow` (insertion time) — spec-compliant per AC11, but future tariff range queries (Epic 4) must account for the discrepancy between EffectiveDate and ContractStartDate. (`CompleteOnboardingFunction.cs`)
+- W5: No UNIQUE constraint on `IX_Tariffs_FlatId_EffectiveDate` — allows multiple tariffs per flat/date; relevant when Epic 4 adds tariff update paths. (`TariffConfiguration.cs`)
+- W6: No loading indicator after submit while `['settings']` re-fetch completes — user waits on contract screen after HTTP 201. (`OnboardingPage.tsx`)
+- W7: Locale change mid-form doesn't re-normalize existing field values — switching locale with values already entered causes silent mismatch. (`OnboardingContract.tsx`)
+- W8: FlatName leading/trailing whitespace not trimmed before DB insert — `NotEmpty()` rejects whitespace-only but doesn't trim valid names. (`CompleteOnboardingFunction.cs`)
+- W9: `setTimeout(() => focus(), 0)` after preset click races with React's commit — AC2 focus requirement; low risk in practice. (`OnboardingContract.tsx`)
+- W10: Test gaps — no tests verify tile visual deselection (AC3) or non-auto-select invariant (AC4). (`OnboardingContract.test.tsx`)
+- W11: Invalid number error only surfaced on submit, not on blur — "inline validation" in AC15 typically implies on-blur. (`OnboardingContract.tsx`)
+- W12: No test for `isPending` loading state — AC16 loading spinner untested. (`OnboardingContract.test.tsx`)
+- W13: `X-MS-CLIENT-PRINCIPAL` forgeable if Azure Function URL exposed directly — pre-existing concern across all functions; SWA proxy is intended guard. (`TenantResolverMiddleware.cs`)
+- W14: Derivation formula rendered above spend input; AC6 says "below the field" — minor layout deviation; current UX makes practical sense. (`OnboardingContract.tsx`)
