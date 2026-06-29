@@ -45,6 +45,13 @@
 - AnnualKwhBaseline/SpikeThreshold negative/zero value validation (`api/Data/Entities/Flat.cs`) — Flat record creation is Story 2.4's scope; add range validation in the create-flat handler then.
 - `LocaleSync + retry:false` may silently permanently fail on transient network error (`client/src/App.tsx`) — `retry: false` is explicitly spec-specified (Task 8); SWA auth makes auth-timing concern moot; address if reliability requirements change.
 
+## Deferred from: code review of 2-2-onboarding-gate-and-intro-screen (2026-06-29)
+
+- `Get Started` CTA advances `step` to `'flat-name'` but no component renders for that step — intentional per story spec; Stories 2.3/2.4 will fill it in.
+- No `aria-haspopup` on locale dropdown trigger button (`OnboardingIntro.tsx`) — assistive technology won't announce the control as a dropdown; address in a UX-accessibility polish pass.
+- `useUpdateLocale` mock set at module scope outside `beforeEach` in `OnboardingIntro.test.tsx` — subsequent tests inherit mock state if implementation is overridden mid-suite; refactor when adding more OnboardingIntro tests.
+- `OnboardingIntro` tests assert against real translated English strings without explicitly mocking `react-i18next` — may fail if test environment i18n is not configured; add a `vi.mock('react-i18next')` setup if test stability becomes an issue.
+
 ## Deferred from: code review of 1-2-azure-infrastructure-provisioning (2026-06-27)
 
 - No network isolation — all resources expose public endpoints (`infra/main.bicep`). Private endpoints would add cost beyond Basic-tier scope; revisit if security posture hardens.

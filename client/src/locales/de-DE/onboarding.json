@@ -2,7 +2,9 @@
   "intro": {
     "title": "Energy Tracker",
     "valueProp": "Weißt du immer, was deine Energie kostet.",
-    "getStarted": "Loslegen"
+    "getStarted": "Loslegen",
+    "tariffHint": "Du benötigst deine aktuellen Tarifangaben für die Einrichtung.",
+    "duration": "Dauert etwa 2 Minuten"
   },
   "locale": { "de": "DE", "en": "EN", "label": "Sprache" },
   "steps": { "step1": "Wohnungsname", "step2": "Energievertrag" }

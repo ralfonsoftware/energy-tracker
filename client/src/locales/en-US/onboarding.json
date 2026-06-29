@@ -2,7 +2,9 @@
   "intro": {
     "title": "Energy Tracker",
     "valueProp": "Know what your energy costs, every day.",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "tariffHint": "You need your current tariff information to complete setup.",
+    "duration": "Takes about 2 minutes"
   },
   "locale": { "de": "DE", "en": "EN", "label": "Language" },
   "steps": { "step1": "Flat Name", "step2": "Energy Contract" }
