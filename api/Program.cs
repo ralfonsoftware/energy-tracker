@@ -1,6 +1,7 @@
 using Azure.Monitor.OpenTelemetry.Exporter;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Features.Flats;
+using EnergyTracker.Api.Features.Readings;
 using EnergyTracker.Api.Features.Onboarding;
 using EnergyTracker.Api.Shared;
 using Microsoft.Azure.Functions.Worker;
@@ -29,6 +30,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<LocaleResolver>();
 builder.Services.AddSingleton<OnboardingValidator>();
 builder.Services.AddSingleton<PatchFlatValidator>();
+builder.Services.AddSingleton<ReadingValidator>();
 
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
     options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);

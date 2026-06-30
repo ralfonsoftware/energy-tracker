@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<User> Users => Set<User>();
     public DbSet<Flat> Flats => Set<Flat>();
     public DbSet<Tariff> Tariffs => Set<Tariff>();
+    public DbSet<MeterReading> MeterReadings => Set<MeterReading>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

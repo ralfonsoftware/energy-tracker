@@ -4,6 +4,7 @@ using EnergyTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EnergyTracker.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260630155345_AddMeterReadingsTable")]
+    partial class AddMeterReadingsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -82,7 +85,6 @@ namespace EnergyTracker.Api.Data.Migrations
                     b.HasKey("ReadingId");
 
                     b.HasIndex("FlatId", "ReadingDate")
-                        .IsUnique()
                         .HasDatabaseName("IX_MeterReadings_FlatId_ReadingDate");
 
                     b.ToTable("MeterReadings", (string)null);
