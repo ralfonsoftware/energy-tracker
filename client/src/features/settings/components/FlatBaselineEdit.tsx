@@ -4,6 +4,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
+import { parseLocaleNumber } from '@/lib/localeNumber'
 import { useUserSettings } from '../hooks/useUserSettings'
 import { usePatchFlat } from '../hooks/usePatchFlat'
 import { baselineEditSchema, type BaselineEditFormValues } from '../schemas/settingsSchema'
@@ -14,14 +15,6 @@ const PRESETS = [
   { persons: 3, kwh: 3500 },
   { persons: 4, kwh: 4250 },
 ]
-
-function parseLocaleNumber(value: string, locale: string): number {
-  const isDE = locale.startsWith('de')
-  const normalized = isDE
-    ? value.replace(/\./g, '').replace(',', '.')
-    : value.replace(/,/g, '')
-  return parseFloat(normalized)
-}
 
 export default function FlatBaselineEdit() {
   const { t } = useTranslation('settings')

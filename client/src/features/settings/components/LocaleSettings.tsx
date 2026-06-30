@@ -17,11 +17,20 @@ export function LocaleSettings() {
   const currentLabel = i18n.language.startsWith('de') ? t('locale.de') : t('locale.en')
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const close = (e: MouseEvent | TouchEvent) => {
       if (!dropdownRef.current?.contains(e.target as Node)) setIsOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('touchstart', close)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      document.removeEventListener('touchstart', close)
+      document.removeEventListener('keydown', onKeyDown)
+    }
   }, [])
 
   return (
@@ -29,6 +38,8 @@ export function LocaleSettings() {
       <button
         className="w-full flex items-center justify-between px-4 py-[13px] min-h-[48px] text-left"
         onClick={() => setIsOpen(v => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
       >
         <span className="text-white text-[15px]">{t('locale.title')}</span>
         <span className="flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.45)', fontSize: '14px' }}>
@@ -40,6 +51,7 @@ export function LocaleSettings() {
       {isOpen && (
         <div
           className="absolute right-4 top-full mt-1 min-w-[120px] rounded-xl overflow-hidden z-10"
+          role="listbox"
           style={{
             background: 'rgba(30,30,50,0.95)',
             backdropFilter: 'blur(20px)',
@@ -51,6 +63,8 @@ export function LocaleSettings() {
             return (
               <button
                 key={value}
+                role="option"
+                aria-selected={isSelected}
                 className="block w-full px-4 py-2.5 text-sm text-left hover:bg-white/10 transition-colors"
                 style={{ color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.70)' }}
                 onClick={() => {

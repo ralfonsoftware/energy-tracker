@@ -44,7 +44,7 @@ public class CompleteOnboardingFunction(AppDbContext db, OnboardingValidator val
         var flat = new Flat
         {
             UserId = userId,
-            Name = body.FlatName,
+            Name = body.FlatName.Trim(),
             AnnualKwhBaseline = body.AnnualKwhBaseline,
             SpikeThreshold = 2.0m,
             PlannedAnnualSpend = body.PlannedAnnualSpend,

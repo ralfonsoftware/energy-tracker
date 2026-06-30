@@ -96,3 +96,8 @@
 - D1: `GetUserId()` null guard absent in `PatchFlatFunction` — pre-existing pattern across all functions; auth guaranteed by SWA Easy Auth + TenantResolverMiddleware. (`api/Features/Flats/PatchFlatFunction.cs:20`)
 - D2: `FlatBaselineEdit` form initialises with empty defaults if mounted via direct URL before `['settings']` cache is warm — edge case outside normal navigation flow; in normal flow settings are already in cache when user navigates from SettingsRoot. (`client/src/features/settings/components/FlatBaselineEdit.tsx:50`)
 - D3: `handleSaveName` silent no-op when `settings.flatId` is undefined — prevented by upstream `hasFlat && flatName` guard in SettingsRoot; not reachable in practice. (`client/src/features/settings/components/FlatSettingsCard.tsx:36`)
+
+## Deferred from: code review of pre-epic-3-prep (2026-06-30)
+
+- D1: Rapid locale re-selection rollback race — if user selects locale A then B before A's API call settles and both fail, `onError` reverts to A instead of the original. Pre-existing pattern in all three original inline implementations; no change introduced by this extraction. (`client/src/components/LocaleDropdown.tsx`)
+- D2: `parseLocaleNumber` DE branch uses `replace(',', '.')` (single replace) vs EN branch `replace(/,/g, '')` (all occurrences) — asymmetry pre-dates this change; multi-comma input silently parses partial result. Acceptable given upstream input constraints; align to `/,/g` if stricter validation is added later. (`client/src/lib/localeNumber.ts`)

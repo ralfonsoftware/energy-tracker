@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-06-30 (Story 2.5 done)
+# last_updated: 2026-06-30 (Epic 2 retrospective done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -52,13 +52,13 @@ development_status:
   epic-1-retrospective: done
 
   # Epic 2: Onboarding & Locale Selection
-  epic-2: in-progress
+  epic-2: done
   2-1-i18n-infrastructure-and-locale-settings-api: done
   2-2-onboarding-gate-and-intro-screen: done
   2-3-onboarding-step-1-flat-name: done
   2-4-onboarding-step-2-energy-contract-and-completion: done
   2-5-settings-flat-name-annual-kwh-baseline-and-locale: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   # Epic 3: Meter Reading, KPI Dashboard & Reading History
   epic-3: backlog
