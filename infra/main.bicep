@@ -297,13 +297,24 @@ resource functionsApp 'Microsoft.Web/sites@2023-12-01' = {
 resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   name: swaName
   location: swaLocation
-  sku: { name: 'Free', tier: 'Free' }
+  sku: { name: 'Standard', tier: 'Standard' }
   properties: {
     stagingEnvironmentPolicy: 'Disabled'
     allowConfigFileUpdates: true
     buildProperties: {
       skipGithubActionWorkflowGeneration: true
     }
+  }
+}
+
+// Links the separately-deployed Functions app as the /api/* backend for the SWA.
+// Requires Standard tier — Free tier only supports managed (bundled) functions.
+resource swaLinkedBackend 'Microsoft.Web/staticSites/linkedBackends@2023-12-01' = {
+  parent: staticWebApp
+  name: 'default'
+  properties: {
+    backendResourceId: functionsApp.id
+    region: location
   }
 }
 
