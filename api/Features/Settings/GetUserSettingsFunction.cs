@@ -34,8 +34,16 @@ public class GetUserSettingsFunction(AppDbContext db, LocaleResolver localeResol
             }
         }
 
-        var hasFlat = await db.Flats.AnyAsync(f => f.UserId == userId, ct);
+        var flat = await db.Flats.FirstOrDefaultAsync(f => f.UserId == userId, ct);
+        var hasFlat = flat is not null;
 
-        return new OkObjectResult(new UserSettingsResponse(localeResolver.Resolve(req, user.LocaleOverride), hasFlat));
+        return new OkObjectResult(new UserSettingsResponse(
+            localeResolver.Resolve(req, user.LocaleOverride),
+            hasFlat,
+            flat?.FlatId,
+            flat?.Name,
+            flat?.AnnualKwhBaseline,
+            flat?.PlannedAnnualSpend
+        ));
     }
 }

@@ -90,3 +90,9 @@
 - W12: No test for `isPending` loading state — AC16 loading spinner untested. (`OnboardingContract.test.tsx`)
 - W13: `X-MS-CLIENT-PRINCIPAL` forgeable if Azure Function URL exposed directly — pre-existing concern across all functions; SWA proxy is intended guard. (`TenantResolverMiddleware.cs`)
 - W14: Derivation formula rendered above spend input; AC6 says "below the field" — minor layout deviation; current UX makes practical sense. (`OnboardingContract.tsx`)
+
+## Deferred from: code review of 2-5-settings-flat-name-annual-kwh-baseline-and-locale (2026-06-30)
+
+- D1: `GetUserId()` null guard absent in `PatchFlatFunction` — pre-existing pattern across all functions; auth guaranteed by SWA Easy Auth + TenantResolverMiddleware. (`api/Features/Flats/PatchFlatFunction.cs:20`)
+- D2: `FlatBaselineEdit` form initialises with empty defaults if mounted via direct URL before `['settings']` cache is warm — edge case outside normal navigation flow; in normal flow settings are already in cache when user navigates from SettingsRoot. (`client/src/features/settings/components/FlatBaselineEdit.tsx:50`)
+- D3: `handleSaveName` silent no-op when `settings.flatId` is undefined — prevented by upstream `hasFlat && flatName` guard in SettingsRoot; not reachable in practice. (`client/src/features/settings/components/FlatSettingsCard.tsx:36`)

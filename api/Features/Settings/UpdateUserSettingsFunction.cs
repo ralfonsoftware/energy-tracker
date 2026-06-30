@@ -66,7 +66,15 @@ public class UpdateUserSettingsFunction(AppDbContext db, ILogger<UpdateUserSetti
             await db.SaveChangesAsync(ct);
         }
 
-        var hasFlat = await db.Flats.AnyAsync(f => f.UserId == userId, ct);
-        return new OkObjectResult(new UserSettingsResponse(user.LocaleOverride, hasFlat));
+        var flat = await db.Flats.FirstOrDefaultAsync(f => f.UserId == userId, ct);
+        var hasFlat = flat is not null;
+        return new OkObjectResult(new UserSettingsResponse(
+            body.Locale,
+            hasFlat,
+            flat?.FlatId,
+            flat?.Name,
+            flat?.AnnualKwhBaseline,
+            flat?.PlannedAnnualSpend
+        ));
     }
 }

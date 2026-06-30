@@ -1,5 +1,35 @@
 {
   "title": "Einstellungen",
   "locale": { "title": "Sprache & Region", "de": "Deutsch", "en": "Englisch" },
-  "account": { "title": "Konto", "signOut": "Abmelden" }
+  "flat": {
+    "sectionTitle": "Meine Wohnungen",
+    "kwhBaselineLink": "kWh-Baseline",
+    "saveError": "Änderungen konnten nicht gespeichert werden — bitte erneut versuchen.",
+    "namePlaceholder": "Wohnungsname",
+    "save": "Speichern"
+  },
+  "appSettings": {
+    "title": "App-Einstellungen"
+  },
+  "baselineEdit": {
+    "title": "Jährliche kWh-Baseline",
+    "subtitle": "Wie viel Strom verbraucht dein Haushalt pro Jahr?",
+    "saveButton": "Änderungen speichern",
+    "errorBanner": "Änderungen konnten nicht gespeichert werden — bitte erneut versuchen.",
+    "back": "Zurück",
+    "presetPerson": "Person",
+    "presetPersons": "Personen",
+    "plannedSpendLabel": "Geplante Jahresausgaben",
+    "optional": "optional"
+  },
+  "account": {
+    "title": "Konto",
+    "signOut": "Abmelden",
+    "signOutConfirm": {
+      "title": "Abmelden?",
+      "body": "Du musst dich erneut anmelden, um auf deine Daten zuzugreifen.",
+      "cancel": "Abbrechen",
+      "confirm": "Abmelden"
+    }
+  }
 }

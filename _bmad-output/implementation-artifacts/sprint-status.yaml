@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-06-29 (Story 2.4 done)
+# last_updated: 2026-06-30 (Story 2.5 done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-06-29 (Story 2.4 done)
+last_updated: 2026-06-30 (Story 2.5 done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -57,7 +57,7 @@ development_status:
   2-2-onboarding-gate-and-intro-screen: done
   2-3-onboarding-step-1-flat-name: done
   2-4-onboarding-step-2-energy-contract-and-completion: done
-  2-5-settings-flat-name-annual-kwh-baseline-and-locale: backlog
+  2-5-settings-flat-name-annual-kwh-baseline-and-locale: done
   epic-2-retrospective: optional
 
   # Epic 3: Meter Reading, KPI Dashboard & Reading History

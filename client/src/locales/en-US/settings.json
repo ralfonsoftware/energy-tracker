@@ -1,5 +1,35 @@
 {
   "title": "Settings",
   "locale": { "title": "Language & Region", "de": "Deutsch", "en": "English" },
-  "account": { "title": "Account", "signOut": "Sign Out" }
+  "flat": {
+    "sectionTitle": "My Flats",
+    "kwhBaselineLink": "kWh Baseline",
+    "saveError": "Couldn't save changes — please try again.",
+    "namePlaceholder": "Flat name",
+    "save": "Save"
+  },
+  "appSettings": {
+    "title": "App Settings"
+  },
+  "baselineEdit": {
+    "title": "Annual kWh Baseline",
+    "subtitle": "How much electricity does your household use per year?",
+    "saveButton": "Save changes",
+    "errorBanner": "Couldn't save changes — please try again.",
+    "back": "Back",
+    "presetPerson": "person",
+    "presetPersons": "persons",
+    "plannedSpendLabel": "Planned annual spend",
+    "optional": "optional"
+  },
+  "account": {
+    "title": "Account",
+    "signOut": "Sign Out",
+    "signOutConfirm": {
+      "title": "Sign out?",
+      "body": "You'll need to sign in again to access your data.",
+      "cancel": "Cancel",
+      "confirm": "Sign out"
+    }
+  }
 }
