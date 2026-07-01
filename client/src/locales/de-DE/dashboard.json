@@ -1,1 +1,22 @@
-{}
+{
+  "tile": {
+    "dailyAvg": "Tagesdurchschnitt",
+    "weeklyAvg": "Wochendurchschnitt",
+    "projectedMonthly": "Hochgerechneter Monat",
+    "today": "Heute",
+    "todayVsBudget": "vs. {{budget}} kWh/Tag Budget",
+    "budgetCaption": "basierend auf {{baseline}} kWh/Jahr",
+    "underBudget": "↓ {{amount}} kWh unter Budget",
+    "overBudget": "↑ {{amount}} kWh über Budget",
+    "atBudget": "— im Tagesbudget"
+  },
+  "costGap": {
+    "badgeLabel": "Tarif deckt {{covered}} von {{total}} Tagen",
+    "popoverBody": "Einige deiner Ablesungen liegen vor deinem Tarif. Der Kostendurchschnitt umfasst nur tarifierte Tage.",
+    "popoverCta": "Tarif aktualisieren →"
+  },
+  "lastRead": {
+    "label": "Letzte Ablesung:",
+    "never": "noch nie"
+  }
+}

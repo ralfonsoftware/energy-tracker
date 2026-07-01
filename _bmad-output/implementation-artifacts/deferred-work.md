@@ -128,3 +128,11 @@
 - `coveredDaysInt = Math.Min(Math.Ceiling(coveredDays), totalDaysInt)` silently clamps instead of surfacing an error if `coveredDays` ever exceeds `totalDays` — defensive-only masking; not currently reachable given readings/tariffs are pre-sorted and intervals don't overlap by construction. (`api/Features/Dashboard/KpiCalculator.cs`)
 - Floating-point epsilon risk: `TotalDays`/`CoveredDays` derive from `TimeSpan.TotalDays` (double) before `Math.Ceiling`, so representation error could theoretically shift a displayed day count by one — unlikely to matter at typical meter-reading cadence. (`api/Features/Dashboard/KpiCalculator.cs`)
 - AC6 "403 Problem Details" is still an anonymous object without a `type` field, not a literal RFC 9457 `ProblemDetails` — pre-existing gap carried forward from Story 3.1, already tracked as a cross-cutting concern. (`api/Features/Dashboard/GetDashboardFunction.cs`)
+
+## Deferred from: code review of 3-3-kpi-dashboard-frontend-euro-burn-design-and-grid (2026-07-01)
+
+- Zero test coverage for `EuroBurnGradient`, `CostGapBadge`, and `DashboardPage` wiring — pre-existing gap outside Task 9's literal scope (which only mandated `DashboardGrid`/`useDashboard` tests); would have caught the AC-5 cold-open gradient bug directly. (`client/src/features/dashboard/components/EuroBurnGradient.tsx`, `CostGapBadge.tsx`, `client/src/features/dashboard/DashboardPage.tsx`)
+- `spikeDays` is fetched into `DashboardSummary` but never rendered anywhere in this diff — no AC in this story covers a spike indicator. (`client/src/features/dashboard/api/dashboardApi.ts:20`)
+- AC-5's "Enter Reading CTA" is unimplemented — explicitly deferred to Story 3.4 in the Dev Agent Record; only the cold-open dash/gradient/last-read behavior was implemented here. (`client/src/features/dashboard/components/DashboardGrid.tsx`)
+- `package-lock.json` has unrelated transitive-dependency flag changes (`@types/react-dom` dev→devOptional, `tslib` loses dev/optional flags) — likely an npm resolution side-effect of adding `@radix-ui/react-popover`, not a hand-edit. (`client/package-lock.json`)
+- Architecture Compliance Checklist in the story file was left entirely unchecked despite the Dev Agent Record claiming full completion — process nit; several unchecked boxes correspond to patch findings from this review.

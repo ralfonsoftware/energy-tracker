@@ -1,1 +1,22 @@
-{}
+{
+  "tile": {
+    "dailyAvg": "Daily Average",
+    "weeklyAvg": "Weekly Average",
+    "projectedMonthly": "Projected Monthly",
+    "today": "Today",
+    "todayVsBudget": "vs {{budget}} kWh/day budget",
+    "budgetCaption": "based on {{baseline}} kWh/yr",
+    "underBudget": "↓ {{amount}} kWh under budget",
+    "overBudget": "↑ {{amount}} kWh over budget",
+    "atBudget": "— at daily budget"
+  },
+  "costGap": {
+    "badgeLabel": "Tariff covers {{covered}} of {{total}} days",
+    "popoverBody": "Some of your readings predate your tariff. The cost average only covers tariffed days.",
+    "popoverCta": "Update tariff →"
+  },
+  "lastRead": {
+    "label": "Last read:",
+    "never": "never"
+  }
+}
