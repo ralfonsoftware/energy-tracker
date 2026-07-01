@@ -4,7 +4,7 @@ baseline_commit: 8b1c6c1
 
 # Story 3.2: KPI Dashboard — Backend Computation
 
-Status: done
+Status: in-progress
 
 ## Story
 
@@ -473,8 +473,218 @@ Pattern files to study before writing:
 
 ## Review Findings
 
-- [x] [Review][Defer] dailyAvgCost silent underestimation when some reading intervals have no tariff — `totalCost` only accumulates for intervals that have a tariff, but `dailyAvgCost = totalCost / totalDays` divides by the full reading span. If early intervals pre-date any tariff, cost is understated with no signal to the caller. AC-4 is silent on what to do when no tariff is active for a period. See `KpiCalculator.cs:40`. — deferred, for team discussion after the code review
+- [x] [Review][Resolved] dailyAvgCost silent underestimation when some reading intervals have no tariff — resolved via team discussion (2026-07-01). Decision: restructure `DashboardSummary` with a nested `CostSummary?` record; fix denominator to `coveredDays`; add `HasCostGap`, `CoveredDays`, `TotalDays`, `CostDetailAvailable` fields. `Cost: null` when no tariff is configured. See Amendment section below.
 - [x] [Review][Defer] No test for null/empty userId (unauthenticated path) [`api.Tests/Features/Dashboard/GetDashboardFunctionTests.cs`] — deferred, pre-existing gap across all function tests; SWA Easy Auth makes this path unreachable in production
+
+## Amendment: Post-Review Backend Changes (2026-07-01)
+
+Resolves the deferred `dailyAvgCost` underestimation finding. Must be implemented before Story 3.3 (frontend) begins — Story 3.3's TypeScript types and gap-handling UI depend on this new API shape.
+
+### Amendment Tasks
+
+- [ ] Task A1: Restructure `DashboardModels.cs` — split into `CostSummary` + `DashboardSummary` (see Amendment Dev Notes)
+  - [ ] Add `CostSummary` record above `DashboardSummary`
+  - [ ] Replace `DashboardSummary` with the new 7-field shape (kWh fields + `LastReadingDate` + `SpikeDays` + `Cost`)
+  - [ ] Remove standalone cost fields (`DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost`) from `DashboardSummary`
+
+- [ ] Task A2: Rewrite `KpiCalculator.cs` cost block (see Amendment Dev Notes)
+  - [ ] Add `private const int MinCostDetailDays = 7;` at class level
+  - [ ] Fix the cost loop: track `coveredDays` alongside `totalCost`; divide by `coveredDays` not `totalDays`
+  - [ ] Return `Cost: null` when `tariffs.Count == 0` (no tariff configured)
+  - [ ] Build `CostSummary` when `tariffs.Count > 0`
+  - [ ] Switch all four early-return paths to named parameters + `Cost: null`
+  - [ ] Reorder `DashboardSummary` constructor args: `DailyAvgKwh, WeeklyAvgKwh, TodayKwh, DailyBudgetKwh, LastReadingDate, SpikeDays, Cost`
+
+- [ ] Task A3: Update `KpiCalculatorTests.cs` (see Amendment Dev Notes for full test list)
+  - [ ] Update all existing 9 tests to the new record shape (`summary.Cost!.DailyAvgCost` etc.)
+  - [ ] Add 4 new tests covering the denominator fix and gap flags
+
+- [ ] Task A4: Update `GetDashboardFunctionTests.cs`
+  - [ ] Update existing tests to access `summary.Cost?.DailyAvgCost`; add `.ShouldNotBeNull()` guard where needed
+  - [ ] Add `RunAsync_FlatWithPartialTariffCoverage_HasCostGapIsTrue` test
+
+- [ ] Task A5: Final verification
+  - [ ] `cd api && dotnet build` exits 0, no warnings
+  - [ ] `cd api.Tests && dotnet test` — all tests pass (58 pre-existing + new ones from A3/A4)
+
+### Amendment Dev Notes
+
+#### New `DashboardModels.cs` — complete file
+
+```csharp
+namespace EnergyTracker.Api.Features.Dashboard;
+
+public record CostSummary(
+    decimal DailyAvgCost,
+    decimal WeeklyAvgCost,
+    decimal ProjectedMonthlyCost,
+    bool HasCostGap,
+    int CoveredDays,
+    int TotalDays,
+    bool CostDetailAvailable
+);
+
+public record DashboardSummary(
+    decimal DailyAvgKwh,
+    decimal WeeklyAvgKwh,
+    decimal TodayKwh,
+    decimal DailyBudgetKwh,
+    DateTimeOffset? LastReadingDate,
+    string[] SpikeDays,
+    CostSummary? Cost
+);
+```
+
+**Semantic contract:**
+- `Cost == null` → no tariff has ever been configured for this flat; all cost figures are undefined
+- `Cost != null, Cost.HasCostGap == true` → at least one reading interval had no active tariff; `DailyAvgCost` and `WeeklyAvgCost` are computed over `CoveredDays` only (accurate for covered periods, not the full span)
+- `Cost != null, Cost.HasCostGap == false` → all intervals were tariffed; cost figures cover the full reading span
+- `Cost.CostDetailAvailable` → `CoveredDays >= MinCostDetailDays` (7); frontend uses this to decide whether to show the number or a dash
+
+#### Updated `KpiCalculator.cs` — complete rewrite
+
+```csharp
+using EnergyTracker.Api.Data.Entities;
+
+namespace EnergyTracker.Api.Features.Dashboard;
+
+public class KpiCalculator
+{
+    private const int MinCostDetailDays = 7;
+
+    public DashboardSummary Compute(
+        Flat flat,
+        IReadOnlyList<MeterReading> readings,
+        IReadOnlyList<Tariff> tariffs,
+        DateTimeOffset now)
+    {
+        var dailyBudgetKwh = flat.AnnualKwhBaseline / 365m;
+
+        if (readings.Count == 0)
+            return new DashboardSummary(
+                DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
+                TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
+                LastReadingDate: null, SpikeDays: [], Cost: null);
+
+        if (readings.Count == 1)
+            return new DashboardSummary(
+                DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
+                TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
+                LastReadingDate: readings[0].ReadingDate, SpikeDays: [], Cost: null);
+
+        // readings is pre-sorted ascending by ReadingDate
+        var totalDays = (readings[^1].ReadingDate - readings[0].ReadingDate).TotalDays;
+        if (totalDays <= 0)
+            return new DashboardSummary(
+                DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
+                TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
+                LastReadingDate: readings[^1].ReadingDate, SpikeDays: [], Cost: null);
+
+        var totalKwh = Math.Max(0m, readings[^1].KwhValue - readings[0].KwhValue);
+        var dailyAvgKwh = totalKwh / (decimal)totalDays;
+        var weeklyAvgKwh = dailyAvgKwh * 7m;
+
+        // TodayKwh: last interval's daily rate (most recent consumption trend)
+        var lastDays = (readings[^1].ReadingDate - readings[^2].ReadingDate).TotalDays;
+        var lastKwh = Math.Max(0m, readings[^1].KwhValue - readings[^2].KwhValue);
+        var todayKwh = lastDays > 0 ? lastKwh / (decimal)lastDays : dailyAvgKwh;
+
+        // Cost block: null when no tariff has ever been configured
+        CostSummary? cost = null;
+        if (tariffs.Count > 0)
+        {
+            decimal totalCost = 0m;
+            decimal coveredDays = 0m;
+            for (var i = 0; i < readings.Count - 1; i++)
+            {
+                var periodKwh = Math.Max(0m, readings[i + 1].KwhValue - readings[i].KwhValue);
+                var periodDays = (decimal)(readings[i + 1].ReadingDate - readings[i].ReadingDate).TotalDays;
+                var tariff = ResolveTariff(tariffs, readings[i].ReadingDate);
+                if (tariff is not null)
+                {
+                    totalCost += periodKwh * tariff.PricePerKwh;
+                    coveredDays += periodDays;
+                }
+            }
+
+            var totalDaysInt = (int)Math.Ceiling(totalDays);
+            var coveredDaysInt = Math.Min((int)Math.Ceiling(coveredDays), totalDaysInt);
+            // dailyAvgCost divides by coveredDays only — excludes untariffed intervals. See HasCostGap.
+            var dailyAvgCost = coveredDays > 0m ? totalCost / coveredDays : 0m;
+
+            var currentTariff = ResolveTariff(tariffs, now);
+            var projectedMonthlyCost = currentTariff is not null
+                ? dailyAvgKwh * currentTariff.PricePerKwh * 30m
+                : 0m;
+
+            cost = new CostSummary(
+                DailyAvgCost: dailyAvgCost,
+                WeeklyAvgCost: dailyAvgCost * 7m,
+                ProjectedMonthlyCost: projectedMonthlyCost,
+                HasCostGap: coveredDaysInt < totalDaysInt,
+                CoveredDays: coveredDaysInt,
+                TotalDays: totalDaysInt,
+                CostDetailAvailable: coveredDaysInt >= MinCostDetailDays
+            );
+        }
+
+        return new DashboardSummary(
+            DailyAvgKwh: dailyAvgKwh,
+            WeeklyAvgKwh: weeklyAvgKwh,
+            TodayKwh: todayKwh,
+            DailyBudgetKwh: dailyBudgetKwh,
+            LastReadingDate: readings[^1].ReadingDate,
+            SpikeDays: [],
+            Cost: cost
+        );
+    }
+
+    private static Tariff? ResolveTariff(IReadOnlyList<Tariff> tariffs, DateTimeOffset date)
+    {
+        Tariff? best = null;
+        foreach (var t in tariffs)
+        {
+            if (t.EffectiveDate <= date && (best is null || t.EffectiveDate > best.EffectiveDate))
+                best = t;
+        }
+        return best;
+    }
+}
+```
+
+#### New and updated tests for `KpiCalculatorTests.cs`
+
+All existing 9 tests must be updated: access cost fields via `summary.Cost!.DailyAvgCost` etc. Add `summary.Cost.ShouldNotBeNull()` before accessing `Cost` members — **never use `?.` in Shouldly assertions** as it silently passes when the value is null.
+
+**4 new test methods to add:**
+
+1. `Compute_NoTariffs_CostIsNull`
+   - 2 readings, 10 days apart, **no tariffs** → `summary.Cost.ShouldBeNull()`
+
+2. `Compute_AllIntervalsCovered_HasCostGapFalseAndFullDenominator`
+   - 2 readings 10 days apart, 50 kWh, tariff effective before first reading @ 0.30€
+   - `totalCost = 15m`, `coveredDays = 10`
+   - `summary.Cost!.DailyAvgCost.ShouldBe(1.5m)`, `HasCostGap.ShouldBeFalse()`, `CoveredDays.ShouldBe(10)`, `TotalDays.ShouldBe(10)`
+
+3. `Compute_FirstIntervalUntariffed_DividedByCoveredDaysOnlyAndHasCostGapTrue`
+   - 3 readings: A(day 0, 100 kWh), B(day 10, 150 kWh), C(day 20, 200 kWh)
+   - Tariff effective at day 10 (B's date) @ 0.30€ → interval A→B uncovered, B→C covered
+   - `coveredDays = 10`, `totalDays = 20`
+   - `summary.Cost!.DailyAvgCost.ShouldBe(1.5m)` (not 0.75m — regression anchor), `HasCostGap.ShouldBeTrue()`, `CoveredDays.ShouldBe(10)`, `TotalDays.ShouldBe(20)`
+
+4. `Compute_CoveredDaysLessThanMinCostDetailDays_CostDetailAvailableFalse`
+   - 2 readings, 3 days apart, tariff covers all 3 days
+   - `CoveredDays.ShouldBe(3)`, `CostDetailAvailable.ShouldBeFalse()`
+
+**Regression:** existing test `Compute_TwoReadings_NoTariff_CostFieldsAreZero` → replace with `Compute_NoTariffs_CostIsNull` (test #1 above).
+
+#### Updates to `GetDashboardFunctionTests.cs`
+
+- All existing `DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost` field accesses → `result.Cost!.DailyAvgCost` etc.; add `result.Cost.ShouldNotBeNull()` guard before
+- `RunAsync_ValidFlatNoReadings_Returns200WithZeroSummary` → add `result.Cost.ShouldBeNull()` (no tariff seeded)
+- Add new test: `RunAsync_FlatWithPartialTariffCoverage_HasCostGapIsTrue`
+  - Seed flat + 3 readings across 20 days + tariff effective at midpoint reading
+  - Assert: 200, `result.Cost!.HasCostGap.ShouldBeTrue()`, `result.Cost!.CoveredDays.ShouldBeLessThan(result.Cost!.TotalDays)`
 
 ## Dev Agent Record
 

@@ -116,7 +116,7 @@
 - `OperationCanceledException` not caught → noisy 500 telemetry on client disconnect — pre-existing cross-cutting concern; add a global exception handler or middleware in a hardening pass. (`api/Features/Readings/SubmitReadingFunction.cs`)
 - `ReadingDate` timezone offset not normalized to UTC before storage — AC3 explicitly requires storing the date as supplied; same-instant submissions with different offsets differ in the composite index. Revisit if deduplication logic is added later. (`api/Features/Readings/SubmitReadingFunction.cs`)
 
-## Deferred from: code review of 3-2-kpi-dashboard-backend-computation (2026-07-01)
+## ~~Deferred from: code review of 3-2-kpi-dashboard-backend-computation (2026-07-01)~~ RESOLVED 2026-07-01
 
-- `dailyAvgCost` silent underestimation when some reading intervals have no tariff — `totalCost` only accumulates for covered intervals but `dailyAvgCost` divides by the full reading span; spec AC-4 is silent on uncovered periods. For team discussion after the code review. (`api/Features/Dashboard/KpiCalculator.cs:40`)
+- ~~`dailyAvgCost` silent underestimation~~ — **RESOLVED**: `DashboardSummary` restructured with `CostSummary?` nested record; `dailyAvgCost` now divides by `coveredDays` (intervals with tariff) not total span; `HasCostGap`, `CoveredDays`, `TotalDays`, `CostDetailAvailable` added; `Cost: null` signals no tariff configured. Implementation pending in Story 3.2 Amendment; frontend handling in Story 3.3 ACs 7–11.
 - No test for null/empty userId (unauthenticated path) — pre-existing gap across all function tests; SWA Easy Auth makes this path unreachable in production. Address in a global test-hardening pass. (`api.Tests/Features/Dashboard/GetDashboardFunctionTests.cs`)
