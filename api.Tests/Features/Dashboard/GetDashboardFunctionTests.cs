@@ -63,6 +63,7 @@ public class GetDashboardFunctionTests
         var summary = ok.Value.ShouldBeOfType<DashboardSummary>();
         summary.DailyAvgKwh.ShouldBe(0m);
         summary.LastReadingDate.ShouldBeNull();
+        summary.Cost.ShouldBeNull();
     }
 
     [Fact]
@@ -124,5 +125,51 @@ public class GetDashboardFunctionTests
         var summary = ok.Value.ShouldBeOfType<DashboardSummary>();
         summary.DailyAvgKwh.ShouldBeGreaterThan(0m);
         summary.LastReadingDate.ShouldNotBeNull();
+        summary.Cost.ShouldNotBeNull();
+        summary.Cost!.DailyAvgCost.ShouldBe(1.5m);
+        summary.Cost!.HasCostGap.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task RunAsync_FlatWithPartialTariffCoverage_HasCostGapIsTrue()
+    {
+        var (flat, db) = await SeedFlatAsync();
+
+        var dateA = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var dateB = dateA.AddDays(10);
+        var dateC = dateB.AddDays(10);
+        db.MeterReadings.Add(new MeterReading
+        {
+            ReadingId = Guid.NewGuid(), FlatId = flat.FlatId,
+            KwhValue = 100m, ReadingDate = dateA, IsCorrected = false
+        });
+        db.MeterReadings.Add(new MeterReading
+        {
+            ReadingId = Guid.NewGuid(), FlatId = flat.FlatId,
+            KwhValue = 150m, ReadingDate = dateB, IsCorrected = false
+        });
+        db.MeterReadings.Add(new MeterReading
+        {
+            ReadingId = Guid.NewGuid(), FlatId = flat.FlatId,
+            KwhValue = 200m, ReadingDate = dateC, IsCorrected = false
+        });
+        db.Tariffs.Add(new Tariff
+        {
+            TariffId = Guid.NewGuid(), FlatId = flat.FlatId,
+            EffectiveDate = dateB, PricePerKwh = 0.30m, MonthlyBaseFee = 10m
+        });
+        await db.SaveChangesAsync();
+
+        var fn = new GetDashboardFunction(db, new KpiCalculator());
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        ok.StatusCode.ShouldBe(200);
+        var summary = ok.Value.ShouldBeOfType<DashboardSummary>();
+        summary.Cost.ShouldNotBeNull();
+        summary.Cost!.HasCostGap.ShouldBeTrue();
+        summary.Cost!.CoveredDays.ShouldBeLessThan(summary.Cost!.TotalDays);
     }
 }

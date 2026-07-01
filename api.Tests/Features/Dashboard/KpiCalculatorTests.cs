@@ -27,12 +27,10 @@ public class KpiCalculatorTests
 
         result.DailyAvgKwh.ShouldBe(0m);
         result.WeeklyAvgKwh.ShouldBe(0m);
-        result.DailyAvgCost.ShouldBe(0m);
-        result.WeeklyAvgCost.ShouldBe(0m);
-        result.ProjectedMonthlyCost.ShouldBe(0m);
         result.LastReadingDate.ShouldBeNull();
         result.TodayKwh.ShouldBe(0m);
         result.SpikeDays.ShouldBeEmpty();
+        result.Cost.ShouldBeNull();
     }
 
     [Fact]
@@ -46,9 +44,8 @@ public class KpiCalculatorTests
 
         result.DailyAvgKwh.ShouldBe(0m);
         result.WeeklyAvgKwh.ShouldBe(0m);
-        result.DailyAvgCost.ShouldBe(0m);
-        result.ProjectedMonthlyCost.ShouldBe(0m);
         result.LastReadingDate.ShouldBe(readingDate);
+        result.Cost.ShouldBeNull();
     }
 
     [Fact]
@@ -85,11 +82,12 @@ public class KpiCalculatorTests
         var result = _calculator.Compute(flat, readings, tariffs, Now);
 
         // totalCost = 50 kWh × 0.30 = 15m; dailyAvgCost = 15m / 10d = 1.5m
-        result.DailyAvgCost.ShouldBe(1.5m);
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.DailyAvgCost.ShouldBe(1.5m);
     }
 
     [Fact]
-    public void Compute_TwoReadings_NoTariff_CostFieldsAreZero()
+    public void Compute_NoTariffs_CostIsNull()
     {
         var flat = MakeFlat();
         var date1 = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
@@ -102,8 +100,7 @@ public class KpiCalculatorTests
 
         var result = _calculator.Compute(flat, readings, [], Now);
 
-        result.DailyAvgCost.ShouldBe(0m);
-        result.ProjectedMonthlyCost.ShouldBe(0m);
+        result.Cost.ShouldBeNull();
     }
 
     [Fact]
@@ -129,7 +126,8 @@ public class KpiCalculatorTests
         var result = _calculator.Compute(flat, readings, tariffs, Now);
 
         // A→B: 50 kWh × 0.20 = 10m; B→C: 50 kWh × 0.30 = 15m → totalCost = 25m over 20 days
-        result.DailyAvgCost.ShouldBe(1.25m);
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.DailyAvgCost.ShouldBe(1.25m);
     }
 
     [Fact]
@@ -179,6 +177,96 @@ public class KpiCalculatorTests
         var result = _calculator.Compute(flat, readings, tariffs, Now);
 
         // DailyAvgKwh = 5m; current tariff = 0.40€; projected = 5m × 0.40m × 30m = 60m
-        result.ProjectedMonthlyCost.ShouldBe(60m);
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.ProjectedMonthlyCost.ShouldBe(60m);
+    }
+
+    [Fact]
+    public void Compute_AllIntervalsCovered_HasCostGapFalseAndFullDenominator()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(10);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 150m)
+        };
+        var tariffs = new List<Tariff> { MakeTariff(date1.AddDays(-1), 0.30m) };
+
+        var result = _calculator.Compute(flat, readings, tariffs, Now);
+
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.DailyAvgCost.ShouldBe(1.5m);
+        result.Cost!.HasCostGap.ShouldBeFalse();
+        result.Cost!.CoveredDays.ShouldBe(10);
+        result.Cost!.TotalDays.ShouldBe(10);
+    }
+
+    [Fact]
+    public void Compute_FirstIntervalUntariffed_DividedByCoveredDaysOnlyAndHasCostGapTrue()
+    {
+        var flat = MakeFlat();
+        var dateA = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var dateB = dateA.AddDays(10);
+        var dateC = dateB.AddDays(10);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(dateA, 100m),
+            MakeReading(dateB, 150m),
+            MakeReading(dateC, 200m)
+        };
+        // Tariff effective at dateB only — interval A→B uncovered, B→C covered
+        var tariffs = new List<Tariff> { MakeTariff(dateB, 0.30m) };
+
+        var result = _calculator.Compute(flat, readings, tariffs, Now);
+
+        result.Cost.ShouldNotBeNull();
+        // Not 0.75m (25m total-span average) — regression anchor for the coveredDays-only denominator
+        result.Cost!.DailyAvgCost.ShouldBe(1.5m);
+        result.Cost!.HasCostGap.ShouldBeTrue();
+        result.Cost!.CoveredDays.ShouldBe(10);
+        result.Cost!.TotalDays.ShouldBe(20);
+    }
+
+    [Fact]
+    public void Compute_CoveredDaysLessThanMinCostDetailDays_CostDetailAvailableFalse()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(3);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 110m)
+        };
+        var tariffs = new List<Tariff> { MakeTariff(date1.AddDays(-1), 0.30m) };
+
+        var result = _calculator.Compute(flat, readings, tariffs, Now);
+
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.CoveredDays.ShouldBe(3);
+        result.Cost!.CostDetailAvailable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Compute_CoveredDaysExactlyEqualsMinCostDetailDays_CostDetailAvailableTrue()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(7);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 114m)
+        };
+        var tariffs = new List<Tariff> { MakeTariff(date1.AddDays(-1), 0.30m) };
+
+        var result = _calculator.Compute(flat, readings, tariffs, Now);
+
+        // Boundary anchor: CoveredDays == MinCostDetailDays (7) must be CostDetailAvailable=true (>=, not >)
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.CoveredDays.ShouldBe(7);
+        result.Cost!.CostDetailAvailable.ShouldBeTrue();
     }
 }

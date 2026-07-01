@@ -4,7 +4,7 @@ baseline_commit: 8b1c6c1
 
 # Story 3.2: KPI Dashboard — Backend Computation
 
-Status: in-progress
+Status: done
 
 ## Story
 
@@ -14,13 +14,13 @@ so that the dashboard always reflects period-accurate figures in euros.
 
 ## Acceptance Criteria
 
-1. **GET returns DashboardSummary** — Given `GET /api/v1/flats/{flatId}/dashboard`, when `GetDashboardFunction.RunAsync` executes, then `KpiCalculator.Compute()` returns a `DashboardSummary` record with: `DailyAvgKwh`, `WeeklyAvgKwh`, `DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost` (all decimal), `LastReadingDate` (datetimeoffset nullable), `TodayKwh` (decimal), `DailyBudgetKwh` (decimal — `AnnualKwhBaseline ÷ 365`), `SpikeDays` (string[] — empty array, full algorithm in Story 3.5); HTTP 200.
+1. **GET returns DashboardSummary** — Given `GET /api/v1/flats/{flatId}/dashboard`, when `GetDashboardFunction.RunAsync` executes, then `KpiCalculator.Compute()` returns a `DashboardSummary` record with: `DailyAvgKwh`, `WeeklyAvgKwh`, `TodayKwh`, `DailyBudgetKwh` (decimal — `AnnualKwhBaseline ÷ 365`), `LastReadingDate` (datetimeoffset nullable), `SpikeDays` (string[] — empty array, full algorithm in Story 3.5), and `Cost` (nullable nested `CostSummary` — see Amendment — carrying `DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost`, `HasCostGap`, `CoveredDays`, `TotalDays`, `CostDetailAvailable`; `Cost` is `null` when cost cannot currently be computed); HTTP 200. *(Superseded by the Amendment below — original flat cost fields were replaced by the nested `Cost` shape.)*
 
 2. **Response time ≤ 2 seconds** — Given any flat with up to 2 years of readings, server processing completes in ≤ 2 seconds (NFR-1 Tier 1). All data is loaded in two queries (readings + tariffs) before KpiCalculator is called — no per-reading DB calls.
 
-3. **No readings → zeros** — Given a Flat with no meter readings, when called, then HTTP 200 with all numeric KPI values as `0m` and `LastReadingDate` as `null`.
+3. **No readings → zeros** — Given a Flat with no meter readings, when called, then HTTP 200 with all numeric kWh KPI values as `0m`, `LastReadingDate` as `null`, and `Cost` as `null` (cost cannot be computed without at least two readings). *(Amended: `Cost` is nested/nullable, not a flat `0m` field — see Amendment.)*
 
-4. **Period-accurate tariff costing** — Given a flat with readings spanning two different tariff periods, when the dashboard is computed, then each period's cost uses the tariff active on that period's start date (resolved by `TariffResolver`), not the current tariff. `ProjectedMonthlyCost` uses the tariff active NOW.
+4. **Period-accurate tariff costing** — Given a flat with readings spanning two different tariff periods, when the dashboard is computed, then each period's cost uses the tariff active on that period's start date, resolved in-memory by `KpiCalculator`'s private `ResolveTariff` (the same latest-effective-tariff-at-or-before-date rule as `TariffResolver`, applied without a DB round-trip per interval to satisfy AC2's two-query constraint), not the current tariff. `ProjectedMonthlyCost` uses the tariff active NOW.
 
 5. **JSON contract** — Given all responses, field names are camelCase; `LastReadingDate` is ISO 8601 with explicit offset; all decimal values are JSON numbers. `SpikeDays` serialises as `[]`.
 
@@ -482,30 +482,30 @@ Resolves the deferred `dailyAvgCost` underestimation finding. Must be implemente
 
 ### Amendment Tasks
 
-- [ ] Task A1: Restructure `DashboardModels.cs` — split into `CostSummary` + `DashboardSummary` (see Amendment Dev Notes)
-  - [ ] Add `CostSummary` record above `DashboardSummary`
-  - [ ] Replace `DashboardSummary` with the new 7-field shape (kWh fields + `LastReadingDate` + `SpikeDays` + `Cost`)
-  - [ ] Remove standalone cost fields (`DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost`) from `DashboardSummary`
+- [x] Task A1: Restructure `DashboardModels.cs` — split into `CostSummary` + `DashboardSummary` (see Amendment Dev Notes)
+  - [x] Add `CostSummary` record above `DashboardSummary`
+  - [x] Replace `DashboardSummary` with the new 7-field shape (kWh fields + `LastReadingDate` + `SpikeDays` + `Cost`)
+  - [x] Remove standalone cost fields (`DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost`) from `DashboardSummary`
 
-- [ ] Task A2: Rewrite `KpiCalculator.cs` cost block (see Amendment Dev Notes)
-  - [ ] Add `private const int MinCostDetailDays = 7;` at class level
-  - [ ] Fix the cost loop: track `coveredDays` alongside `totalCost`; divide by `coveredDays` not `totalDays`
-  - [ ] Return `Cost: null` when `tariffs.Count == 0` (no tariff configured)
-  - [ ] Build `CostSummary` when `tariffs.Count > 0`
-  - [ ] Switch all four early-return paths to named parameters + `Cost: null`
-  - [ ] Reorder `DashboardSummary` constructor args: `DailyAvgKwh, WeeklyAvgKwh, TodayKwh, DailyBudgetKwh, LastReadingDate, SpikeDays, Cost`
+- [x] Task A2: Rewrite `KpiCalculator.cs` cost block (see Amendment Dev Notes)
+  - [x] Add `private const int MinCostDetailDays = 7;` at class level
+  - [x] Fix the cost loop: track `coveredDays` alongside `totalCost`; divide by `coveredDays` not `totalDays`
+  - [x] Return `Cost: null` when `tariffs.Count == 0` (no tariff configured)
+  - [x] Build `CostSummary` when `tariffs.Count > 0`
+  - [x] Switch all four early-return paths to named parameters + `Cost: null`
+  - [x] Reorder `DashboardSummary` constructor args: `DailyAvgKwh, WeeklyAvgKwh, TodayKwh, DailyBudgetKwh, LastReadingDate, SpikeDays, Cost`
 
-- [ ] Task A3: Update `KpiCalculatorTests.cs` (see Amendment Dev Notes for full test list)
-  - [ ] Update all existing 9 tests to the new record shape (`summary.Cost!.DailyAvgCost` etc.)
-  - [ ] Add 4 new tests covering the denominator fix and gap flags
+- [x] Task A3: Update `KpiCalculatorTests.cs` (see Amendment Dev Notes for full test list)
+  - [x] Update all existing 9 tests to the new record shape (`summary.Cost!.DailyAvgCost` etc.)
+  - [x] Add 4 new tests covering the denominator fix and gap flags
 
-- [ ] Task A4: Update `GetDashboardFunctionTests.cs`
-  - [ ] Update existing tests to access `summary.Cost?.DailyAvgCost`; add `.ShouldNotBeNull()` guard where needed
-  - [ ] Add `RunAsync_FlatWithPartialTariffCoverage_HasCostGapIsTrue` test
+- [x] Task A4: Update `GetDashboardFunctionTests.cs`
+  - [x] Update existing tests to access `summary.Cost?.DailyAvgCost`; add `.ShouldNotBeNull()` guard where needed
+  - [x] Add `RunAsync_FlatWithPartialTariffCoverage_HasCostGapIsTrue` test
 
-- [ ] Task A5: Final verification
-  - [ ] `cd api && dotnet build` exits 0, no warnings
-  - [ ] `cd api.Tests && dotnet test` — all tests pass (58 pre-existing + new ones from A3/A4)
+- [x] Task A5: Final verification
+  - [x] `cd api && dotnet build` exits 0, no warnings
+  - [x] `cd api.Tests && dotnet test` — all tests pass (58 pre-existing + new ones from A3/A4)
 
 ### Amendment Dev Notes
 
@@ -535,8 +535,8 @@ public record DashboardSummary(
 );
 ```
 
-**Semantic contract:**
-- `Cost == null` → no tariff has ever been configured for this flat; all cost figures are undefined
+**Semantic contract (revised 2026-07-01, Round 2 review):**
+- `Cost == null` → cost cannot currently be computed, for **any** of: no tariff has ever been configured for this flat, fewer than 2 readings exist, or the reading span is under 1 day. Frontend must NOT infer "no tariff configured" from `Cost == null` alone — if that distinction matters, check `LastReadingDate`/reading count separately.
 - `Cost != null, Cost.HasCostGap == true` → at least one reading interval had no active tariff; `DailyAvgCost` and `WeeklyAvgCost` are computed over `CoveredDays` only (accurate for covered periods, not the full span)
 - `Cost != null, Cost.HasCostGap == false` → all intervals were tariffed; cost figures cover the full reading span
 - `Cost.CostDetailAvailable` → `CoveredDays >= MinCostDetailDays` (7); frontend uses this to decide whether to show the number or a dash
@@ -703,6 +703,14 @@ claude-sonnet-4-6
 - All 58 tests pass: 5 TariffResolverTests, 9 KpiCalculatorTests, 4 GetDashboardFunctionTests + 40 pre-existing.
 - Build: 0 warnings, 0 errors.
 
+**Amendment (2026-07-01) — post-review cost-gap fix:**
+- Restructured `DashboardModels.cs`: extracted a nested `CostSummary` record (`DailyAvgCost`, `WeeklyAvgCost`, `ProjectedMonthlyCost`, `HasCostGap`, `CoveredDays`, `TotalDays`, `CostDetailAvailable`); `DashboardSummary.Cost` is now `CostSummary?` — `null` when no tariff has ever been configured for the flat.
+- Rewrote `KpiCalculator`'s cost block: the cost loop now tracks `coveredDays` (sum of tariffed interval lengths) separately from `totalDays` (full reading span) and divides by `coveredDays`, fixing the silent underestimation when some intervals had no active tariff. Added `MinCostDetailDays = 7` threshold surfaced as `CostDetailAvailable`.
+- Updated all 9 existing `KpiCalculatorTests` to the new `Cost` shape and added 4 new tests (`Compute_NoTariffs_CostIsNull`, `Compute_AllIntervalsCovered_HasCostGapFalseAndFullDenominator`, `Compute_FirstIntervalUntariffed_DividedByCoveredDaysOnlyAndHasCostGapTrue`, `Compute_CoveredDaysLessThanMinCostDetailDays_CostDetailAvailableFalse`) — the untariffed-first-interval test is a regression anchor pinning `DailyAvgCost` at 1.5m (covered-days denominator) rather than 0.75m (full-span denominator).
+- Updated `GetDashboardFunctionTests`: null-guarded `Cost` access, added `RunAsync_FlatWithPartialTariffCoverage_HasCostGapIsTrue`.
+- `GetDashboardFunction.cs` and `DashboardSummary`'s non-cost fields were unaffected — no changes needed there.
+- All 62 tests pass (58 pre-existing minus 1 replaced test, plus 4 new `KpiCalculatorTests`, plus 1 new `GetDashboardFunctionTests`). Build: 0 warnings, 0 errors.
+
 ### File List
 
 **New files:**
@@ -716,5 +724,30 @@ claude-sonnet-4-6
 
 **Modified files:**
 - api/Program.cs (added using EnergyTracker.Api.Features.Dashboard; + AddScoped<TariffResolver>() + AddSingleton<KpiCalculator>())
+- api/Features/Dashboard/DashboardModels.cs (Amendment: added `CostSummary` record, restructured `DashboardSummary`)
+- api/Features/Dashboard/KpiCalculator.cs (Amendment: coveredDays-based cost denominator, cost-gap flags)
+- api.Tests/Features/Dashboard/KpiCalculatorTests.cs (Amendment: updated to new `Cost` shape, added 4 tests)
+- api.Tests/Features/Dashboard/GetDashboardFunctionTests.cs (Amendment: null-guarded `Cost` access, added 1 test)
 - _bmad-output/implementation-artifacts/sprint-status.yaml (status: review)
 - _bmad-output/implementation-artifacts/3-2-kpi-dashboard-backend-computation.md (this file)
+
+## Review Findings (Round 2 — 2026-07-01, reviewing the Amendment)
+
+- [x] [Review][Patch] `Cost: null` semantic contract needs correcting, not the code — Decision (2026-07-01): keep `Cost: null` meaning "cost cannot currently be computed" for ANY reason (no tariff configured, OR fewer than 2 readings, OR zero/negative span) rather than strictly "no tariff." Update the Amendment's semantic-contract note in Dev Notes and inform Story 3.3 that the frontend must not infer "no tariff" from `Cost == null` alone. `api/Features/Dashboard/KpiCalculator.cs`
+- [x] [Review][Patch] Make `totalKwh`/cost clamping consistent — Decision (2026-07-01): keep `Math.Max(0m,...)` clamping behavior (meter-reset/correction handling deferred separately below), but compute `totalKwh` as the sum of the same per-interval clamped deltas used by the cost loop, instead of a single end-to-end `Math.Max(0m, last-first)`, so `DailyAvgKwh` and cost figures never diverge for the same reading set. `api/Features/Dashboard/KpiCalculator.cs`
+- [x] [Review][Patch] Floor sub-day reading intervals at 1 day — Decision (2026-07-01): when `totalDays < 1.0` (or the last interval's `lastDays < 1.0` for `TodayKwh`), treat it the same as the existing `totalDays<=0` case (return zeros) instead of dividing by a near-zero fraction. Consistent with the app's daily meter-reading cadence. `api/Features/Dashboard/KpiCalculator.cs`
+- [x] [Review][Patch] `dailyAvgCost` divides by raw decimal `coveredDays`, but `CoveredDays`/`TotalDays` shown to callers are `Math.Ceiling`'d ints — the displayed denominator can disagree with the one actually used in the division. Align by dividing using the same rounded value that's reported. [`api/Features/Dashboard/KpiCalculator.cs`]
+- [x] [Review][Patch] `HasCostGap` compares `Math.Ceiling`'d ints (`coveredDaysInt < totalDaysInt`), which can mask a genuine intra-day tariff-coverage gap smaller than 1 day. Compare the raw decimal `coveredDays`/`totalDays` instead. [`api/Features/Dashboard/KpiCalculator.cs`]
+- [x] [Review][Patch] Missing `.AsNoTracking()` on the two read-only EF queries in the GET handler, relevant to the ≤2s NFR for flats with up to 2 years of readings. [`api/Features/Dashboard/GetDashboardFunction.cs`]
+- [x] [Review][Patch] AC1/AC3 in this story's Acceptance Criteria were not updated after the Amendment restructured `DashboardSummary` — they still describe flat `DailyAvgCost`/`WeeklyAvgCost`/`ProjectedMonthlyCost` fields and "all numeric KPI values as 0m," but the implemented shape nests cost in `CostSummary? Cost`, which is `null` (not `0m`) when uncosted. Update AC1/AC3 text to match the Amendment. [story file AC section]
+- [x] [Review][Patch] AC4's "resolved by TariffResolver" wording doesn't match the implementation — `KpiCalculator` intentionally does its own in-memory resolution (per Dev Notes, to avoid per-interval async DB calls); reword AC4 to describe the actual resolution mechanism instead of naming the unused-in-this-path service. [story file AC section]
+- [x] [Review][Patch] `RunAsync_ValidFlatWithReadings_Returns200WithComputedSummary` seeds a `Tariff` but never asserts on `summary.Cost` — add a real assertion so there's HTTP-path coverage of the cost calculation, not just the pure `KpiCalculatorTests`. [`api.Tests/Features/Dashboard/GetDashboardFunctionTests.cs`]
+- [x] [Review][Patch] `CostDetailAvailable`'s exact boundary (`CoveredDays == MinCostDetailDays` = 7) is untested — add a boundary test so an off-by-one in `>=` vs `>` would be caught. [`api.Tests/Features/Dashboard/KpiCalculatorTests.cs`]
+- [x] [Review][Patch] Stale text in `deferred-work.md`: the resolved cost-underestimation entry still says "Implementation pending in Story 3.2 Amendment" despite the Amendment being fully implemented — remove the stale phrase. [`_bmad-output/implementation-artifacts/deferred-work.md`]
+- [x] [Review][Defer] `IsCorrected`/`OriginalKwhValue` never consulted — a meter reset/replacement (downward `KwhValue` jump) is clamped to 0 consumption and 0 cost for that interval instead of using `OriginalKwhValue` to bridge the gap [`api/Features/Dashboard/KpiCalculator.cs`] — deferred (2026-07-01), out of scope for Story 3.2; needs a product decision on how meter resets should be reflected in KPIs before implementing
+- [x] [Review][Defer] Non-deterministic tariff tie-break on duplicate `EffectiveDate` — `TariffResolver.ResolveAsync` and `KpiCalculator.ResolveTariff` use different tie-break rules, and there is no DB uniqueness constraint on `(FlatId, EffectiveDate)` [`api/Shared/TariffResolver.cs`, `api/Features/Dashboard/KpiCalculator.cs`] — deferred (2026-07-01), low real-world likelihood of two tariffs sharing an exact EffectiveDate for one flat
+- [x] [Review][Defer] `coveredDaysInt = Math.Min(Math.Ceiling(coveredDays), totalDaysInt)` silently clamps instead of surfacing an error if `coveredDays` ever exceeds `totalDays` [`api/Features/Dashboard/KpiCalculator.cs`] — deferred, defensive-only masking; not currently reachable given readings/tariffs are pre-sorted and intervals don't overlap by construction
+- [x] [Review][Defer] Floating-point epsilon risk: `TotalDays`/`CoveredDays` derive from `TimeSpan.TotalDays` (double) before `Math.Ceiling`, so representation error could theoretically shift a displayed day count by one [`api/Features/Dashboard/KpiCalculator.cs`] — deferred, unlikely to matter at typical meter-reading cadence
+- [x] [Review][Defer] AC6 "403 Problem Details" is still an anonymous object without a `type` field, not a literal RFC 9457 `ProblemDetails` [`api/Features/Dashboard/GetDashboardFunction.cs`] — deferred, pre-existing gap carried forward from Story 3.1, already tracked as a cross-cutting concern
+
+**Dismissed as noise (2):** `TariffResolver` being unused by `GetDashboardFunction`/`KpiCalculator` in production is explicitly intentional per Dev Notes (avoids per-interval async DB calls; the service is reserved for future per-date-lookup features) — not a defect. Unauthenticated/null-`userId` path being untested is already explicitly acknowledged and tracked as deferred in this same diff's `deferred-work.md` entry — not new.

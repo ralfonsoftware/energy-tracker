@@ -26,7 +26,8 @@ public class GetDashboardFunction(AppDbContext db, KpiCalculator calculator)
                 detail = "Invalid flatId format."
             });
 
-        var flat = await db.Flats.SingleOrDefaultAsync(f => f.FlatId == flatGuid && f.UserId == userId, ct);
+        var flat = await db.Flats.AsNoTracking()
+            .SingleOrDefaultAsync(f => f.FlatId == flatGuid && f.UserId == userId, ct);
         if (flat is null)
             return new ObjectResult(new
             {
@@ -34,12 +35,12 @@ public class GetDashboardFunction(AppDbContext db, KpiCalculator calculator)
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
 
-        var readings = await db.MeterReadings
+        var readings = await db.MeterReadings.AsNoTracking()
             .Where(r => r.FlatId == flatGuid)
             .OrderBy(r => r.ReadingDate)
             .ToListAsync(ct);
 
-        var tariffs = await db.Tariffs
+        var tariffs = await db.Tariffs.AsNoTracking()
             .Where(t => t.FlatId == flatGuid)
             .OrderBy(t => t.EffectiveDate)
             .ToListAsync(ct);

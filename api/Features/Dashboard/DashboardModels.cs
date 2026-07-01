@@ -1,13 +1,21 @@
 namespace EnergyTracker.Api.Features.Dashboard;
 
-public record DashboardSummary(
-    decimal DailyAvgKwh,
-    decimal WeeklyAvgKwh,
+public record CostSummary(
     decimal DailyAvgCost,
     decimal WeeklyAvgCost,
     decimal ProjectedMonthlyCost,
-    DateTimeOffset? LastReadingDate,
+    bool HasCostGap,
+    int CoveredDays,
+    int TotalDays,
+    bool CostDetailAvailable
+);
+
+public record DashboardSummary(
+    decimal DailyAvgKwh,
+    decimal WeeklyAvgKwh,
     decimal TodayKwh,
     decimal DailyBudgetKwh,
-    string[] SpikeDays
+    DateTimeOffset? LastReadingDate,
+    string[] SpikeDays,
+    CostSummary? Cost
 );
