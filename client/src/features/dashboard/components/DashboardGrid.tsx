@@ -1,13 +1,16 @@
 import type { ReactNode } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import type { CostSummary, DashboardSummary } from '@/features/dashboard/api/dashboardApi'
+import { useAnimatedNumber } from '@/features/dashboard/hooks/useAnimatedNumber'
 import { KpiTile } from './KpiTile'
 import { CostGapBadge } from './CostGapBadge'
 
 type Props = {
   dashboard: DashboardSummary | undefined
   annualKwhBaseline: number | undefined
+  animateArmedRef?: { current: boolean }
 }
 
 const formatNumber = (value: number, maximumFractionDigits = 1) =>
@@ -45,10 +48,26 @@ function resolveCostDisplay(cost: CostSummary | null, amount: number): ReactNode
   return formatCurrency(amount)
 }
 
-export function DashboardGrid({ dashboard, annualKwhBaseline }: Props) {
+export function DashboardGrid({ dashboard, annualKwhBaseline, animateArmedRef }: Props) {
   const { t } = useTranslation('dashboard')
+  const fallbackArmedRef = useRef(false)
+  const armedRef = animateArmedRef ?? fallbackArmedRef
 
   const isColdOpen = dashboard !== undefined && dashboard.lastReadingDate === null
+
+  const animatedDailyAvgKwh = useAnimatedNumber(dashboard?.dailyAvgKwh ?? 0, armedRef)
+  const animatedWeeklyAvgKwh = useAnimatedNumber(dashboard?.weeklyAvgKwh ?? 0, armedRef)
+  const animatedTodayKwh = useAnimatedNumber(dashboard?.todayKwh ?? 0, armedRef)
+  const animatedProjectedMonthlyCost = useAnimatedNumber(
+    dashboard?.cost?.projectedMonthlyCost ?? 0,
+    armedRef
+  )
+
+  // Runs after all four useAnimatedNumber effects above (same component, declared later) have
+  // already read armedRef for this render — safe to consume it here exactly once per update.
+  useEffect(() => {
+    armedRef.current = false
+  }, [dashboard, armedRef])
 
   let deltaText: string | undefined
   let deltaVariant: 'under' | 'over' | 'neutral' = 'neutral'
@@ -79,7 +98,7 @@ export function DashboardGrid({ dashboard, annualKwhBaseline }: Props) {
         <KpiTile
           label={t('tile.dailyAvg')}
           headline={
-            dashboard === undefined ? undefined : isColdOpen ? '—' : formatKwh(dashboard.dailyAvgKwh)
+            dashboard === undefined ? undefined : isColdOpen ? '—' : formatKwh(animatedDailyAvgKwh)
           }
           subline={
             dashboard === undefined || isColdOpen
@@ -97,7 +116,7 @@ export function DashboardGrid({ dashboard, annualKwhBaseline }: Props) {
         <KpiTile
           label={t('tile.weeklyAvg')}
           headline={
-            dashboard === undefined ? undefined : isColdOpen ? '—' : formatKwh(dashboard.weeklyAvgKwh)
+            dashboard === undefined ? undefined : isColdOpen ? '—' : formatKwh(animatedWeeklyAvgKwh)
           }
           subline={
             dashboard === undefined || isColdOpen
@@ -112,13 +131,13 @@ export function DashboardGrid({ dashboard, annualKwhBaseline }: Props) {
               ? undefined
               : isColdOpen
                 ? '—'
-                : resolveCostDisplay(dashboard.cost, dashboard.cost?.projectedMonthlyCost ?? 0)
+                : resolveCostDisplay(dashboard.cost, animatedProjectedMonthlyCost)
           }
         />
         <KpiTile
           label={t('tile.today')}
           headline={
-            dashboard === undefined ? undefined : isColdOpen ? '—' : formatKwh(dashboard.todayKwh)
+            dashboard === undefined ? undefined : isColdOpen ? '—' : formatKwh(animatedTodayKwh)
           }
           subline={
             dashboard === undefined || isColdOpen

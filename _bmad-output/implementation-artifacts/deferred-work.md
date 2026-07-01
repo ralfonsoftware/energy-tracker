@@ -136,3 +136,10 @@
 - AC-5's "Enter Reading CTA" is unimplemented — explicitly deferred to Story 3.4 in the Dev Agent Record; only the cold-open dash/gradient/last-read behavior was implemented here. (`client/src/features/dashboard/components/DashboardGrid.tsx`)
 - `package-lock.json` has unrelated transitive-dependency flag changes (`@types/react-dom` dev→devOptional, `tslib` loses dev/optional flags) — likely an npm resolution side-effect of adding `@radix-ui/react-popover`, not a hand-edit. (`client/package-lock.json`)
 - Architecture Compliance Checklist in the story file was left entirely unchecked despite the Dev Agent Record claiming full completion — process nit; several unchecked boxes correspond to patch findings from this review.
+
+## Deferred from: code review of 3-4-enter-reading-cta-bottom-sheet-and-immediate-dashboard-update (2026-07-01)
+
+- `parseLocaleNumber` (`client/src/lib/localeNumber.ts`) mis-parses de-DE decimals typed with `.` (treats it as a thousands separator, e.g. `150.5` → `1505`) and multi-comma input (e.g. `1,234,56` silently truncates to `1.234`) — pre-existing shared utility, already used identically by `FlatBaselineEdit.tsx`/`OnboardingContract.tsx`, not introduced by Story 3.4. Needs a dedicated fix/hardening pass on the shared parser.
+- No upper-bound/sanity check on the kWh value client-side in `EnterReadingSheet.tsx` — only `>0`/non-NaN enforced; matches existing precedent (`FlatBaselineEdit` also has no cap) and correctness depends on backend validation.
+- No guard against future-dated readings in `EnterReadingSheet.tsx` — not required by any AC in this story; consider for the reading-history/correction story (3.6) if it becomes a real user problem.
+- `flatId` is interpolated unencoded into the API URL path in `client/src/features/readings/api/readingApi.ts` (e.g. `` `/flats/${flatId}/readings` ``) — pre-existing repo-wide convention, `dashboardApi.ts` does the same; low risk since `flatId` is a GUID, but worth a consistent fix across all API modules if ever revisited.

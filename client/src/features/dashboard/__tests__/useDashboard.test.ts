@@ -23,6 +23,7 @@ const sampleDashboard: DashboardSummary = {
   lastReadingDate: '2026-06-30T00:00:00+02:00',
   spikeDays: [],
   cost: null,
+  lastKwhValue: 100,
 }
 
 describe('useDashboard', () => {

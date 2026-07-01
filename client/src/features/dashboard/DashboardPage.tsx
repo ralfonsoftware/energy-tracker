@@ -1,8 +1,10 @@
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { useDashboard } from '@/features/dashboard/hooks/useDashboard'
 import { EuroBurnGradient } from '@/features/dashboard/components/EuroBurnGradient'
 import { DashboardGrid } from '@/features/dashboard/components/DashboardGrid'
+import { EnterReadingCta } from '@/features/readings/components/EnterReadingCta'
 
 export default function DashboardPage() {
   const { t } = useTranslation('common')
@@ -10,6 +12,7 @@ export default function DashboardPage() {
   const { data: dashboard, isPending, isError: isDashboardError } = useDashboard(settings?.flatId)
   const isError = isSettingsError || isDashboardError
   const isColdOpen = dashboard === undefined || dashboard.lastReadingDate === null
+  const animateArmedRef = useRef(false)
 
   return (
     <div className="relative min-h-screen">
@@ -18,6 +21,15 @@ export default function DashboardPage() {
         dailyBudgetKwh={dashboard?.dailyBudgetKwh ?? 0}
         isColdOpen={isColdOpen}
       />
+      <div className="relative z-10 px-4 pt-4 md:flex md:justify-end">
+        <EnterReadingCta
+          flatId={settings?.flatId}
+          lastKwhValue={dashboard?.lastKwhValue ?? null}
+          onSubmitSuccess={() => {
+            animateArmedRef.current = true
+          }}
+        />
+      </div>
       {isError ? (
         <p
           role="alert"
@@ -29,6 +41,7 @@ export default function DashboardPage() {
         <DashboardGrid
           dashboard={isPending ? undefined : dashboard}
           annualKwhBaseline={settings?.annualKwhBaseline}
+          animateArmedRef={animateArmedRef}
         />
       )}
     </div>

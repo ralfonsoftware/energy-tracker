@@ -18,6 +18,7 @@ export type DashboardSummary = {
   lastReadingDate: string | null
   spikeDays: string[]
   cost: CostSummary | null
+  lastKwhValue: number | null
 }
 
 export const getDashboard = (flatId: string) =>

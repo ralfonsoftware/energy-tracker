@@ -1,1 +1,9 @@
-{}
+{
+  "sheet": {
+    "ctaLabel": "Enter Reading",
+    "dateHint": "Date and time will be saved with your reading.",
+    "lowerWarning": "Lower than your last reading ({{value}} kWh) — is this correct?",
+    "saveButton": "Save",
+    "saveError": "Couldn't save — try again."
+  }
+}

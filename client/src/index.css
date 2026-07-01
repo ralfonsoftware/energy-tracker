@@ -54,6 +54,11 @@
   letter-spacing: -0.02em;
   line-height: 1.2;
 }
+@utility text-body {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 @utility text-body-sm {
   font-size: 13px;
   font-weight: 500;

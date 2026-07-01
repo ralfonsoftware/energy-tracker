@@ -1,1 +1,9 @@
-{}
+{
+  "sheet": {
+    "ctaLabel": "Zählerstand erfassen",
+    "dateHint": "Datum und Uhrzeit werden mit deiner Ablesung gespeichert.",
+    "lowerWarning": "Niedriger als deine letzte Ablesung ({{value}} kWh) — ist das richtig?",
+    "saveButton": "Speichern",
+    "saveError": "Konnte nicht gespeichert werden — versuch's noch mal."
+  }
+}

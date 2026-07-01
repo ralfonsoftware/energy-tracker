@@ -17,5 +17,6 @@ public record DashboardSummary(
     decimal DailyBudgetKwh,
     DateTimeOffset? LastReadingDate,
     string[] SpikeDays,
-    CostSummary? Cost
+    CostSummary? Cost,
+    decimal? LastKwhValue
 );

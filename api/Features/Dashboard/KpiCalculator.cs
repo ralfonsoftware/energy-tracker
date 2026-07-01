@@ -18,13 +18,14 @@ public class KpiCalculator
             return new DashboardSummary(
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
-                LastReadingDate: null, SpikeDays: [], Cost: null);
+                LastReadingDate: null, SpikeDays: [], Cost: null, LastKwhValue: null);
 
         if (readings.Count == 1)
             return new DashboardSummary(
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
-                LastReadingDate: readings[0].ReadingDate, SpikeDays: [], Cost: null);
+                LastReadingDate: readings[0].ReadingDate, SpikeDays: [], Cost: null,
+                LastKwhValue: readings[0].KwhValue);
 
         // readings is pre-sorted ascending by ReadingDate
         var totalDays = (readings[^1].ReadingDate - readings[0].ReadingDate).TotalDays;
@@ -34,7 +35,8 @@ public class KpiCalculator
             return new DashboardSummary(
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
-                LastReadingDate: readings[^1].ReadingDate, SpikeDays: [], Cost: null);
+                LastReadingDate: readings[^1].ReadingDate, SpikeDays: [], Cost: null,
+                LastKwhValue: readings[^1].KwhValue);
 
         // Single pass computes both total consumption and (when tariffed) total cost from the
         // same per-interval clamped deltas, so DailyAvgKwh and cost figures never diverge.
@@ -102,7 +104,8 @@ public class KpiCalculator
             DailyBudgetKwh: dailyBudgetKwh,
             LastReadingDate: readings[^1].ReadingDate,
             SpikeDays: [],
-            Cost: cost
+            Cost: cost,
+            LastKwhValue: readings[^1].KwhValue
         );
     }
 

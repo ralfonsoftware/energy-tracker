@@ -31,6 +31,7 @@ public class KpiCalculatorTests
         result.TodayKwh.ShouldBe(0m);
         result.SpikeDays.ShouldBeEmpty();
         result.Cost.ShouldBeNull();
+        result.LastKwhValue.ShouldBeNull();
     }
 
     [Fact]
@@ -46,6 +47,7 @@ public class KpiCalculatorTests
         result.WeeklyAvgKwh.ShouldBe(0m);
         result.LastReadingDate.ShouldBe(readingDate);
         result.Cost.ShouldBeNull();
+        result.LastKwhValue.ShouldBe(100m);
     }
 
     [Fact]
@@ -64,6 +66,7 @@ public class KpiCalculatorTests
 
         result.DailyAvgKwh.ShouldBe(5m);
         result.WeeklyAvgKwh.ShouldBe(35m);
+        result.LastKwhValue.ShouldBe(150m);
     }
 
     [Fact]

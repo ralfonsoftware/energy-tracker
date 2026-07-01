@@ -64,6 +64,7 @@ public class GetDashboardFunctionTests
         summary.DailyAvgKwh.ShouldBe(0m);
         summary.LastReadingDate.ShouldBeNull();
         summary.Cost.ShouldBeNull();
+        summary.LastKwhValue.ShouldBeNull();
     }
 
     [Fact]
@@ -128,6 +129,7 @@ public class GetDashboardFunctionTests
         summary.Cost.ShouldNotBeNull();
         summary.Cost!.DailyAvgCost.ShouldBe(1.5m);
         summary.Cost!.HasCostGap.ShouldBeFalse();
+        summary.LastKwhValue.ShouldBe(150m);
     }
 
     [Fact]

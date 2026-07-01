@@ -26,6 +26,7 @@ const baseDashboard: DashboardSummary = {
   lastReadingDate: '2026-06-30T08:00:00+02:00',
   spikeDays: [],
   cost: baseCost,
+  lastKwhValue: 1234.5,
 }
 
 function renderGrid(dashboard: DashboardSummary | undefined, annualKwhBaseline: number | undefined = 2500) {
@@ -51,6 +52,7 @@ describe('DashboardGrid', () => {
       lastReadingDate: null,
       spikeDays: [],
       cost: null,
+      lastKwhValue: null,
     }
     renderGrid(coldOpen)
     expect(screen.getAllByText('—')).toHaveLength(4)
