@@ -30,9 +30,13 @@ So that my tariff history is accurate and locked rates cannot be accidentally ch
 **And** the upper bounds match the project-wide numeric-bound convention established in `OnboardingValidator` and `PatchFlatValidator` during the Epic 3 retrospective (2026-07-02).
 
 **Given** `PATCH /api/v1/flats/{flatId}/tariffs/{tariffId}` attempting to update `PricePerKwh` or `MonthlyBaseFee`,
-**When** the Tariff entry has `ContractStartDate` in the past AND `ContractDurationMonths` is not null,
+**When** the Tariff entry has `ContractStartDate` in the past AND `ContractDurationMonths` is not null, AND the request's optional `LockOverride` boolean is not `true` (missing or `false`),
 **Then** HTTP 422 Problem Details with `type: "tariff-locked"` is returned; the price fields are not modified.
 **And** non-price fields (`ProviderName`, `ContractStartDate`, `ContractDurationMonths`) are updated successfully regardless of lock status.
+
+**Given** the same locked-tariff `PATCH` request but with `LockOverride: true` in the request body,
+**When** `PatchTariffFunction` processes it,
+**Then** the price fields are updated normally, subject to `TariffValidator`'s existing bounds; `LockOverride` is a request-only flag — it is not persisted as a column and has no effect when the tariff is not locked.
 
 **Given** the `Tariffs` EF Core entity and `TariffConfiguration`,
 **When** reviewed,
@@ -68,6 +72,10 @@ So that I can track my full contract history and pre-enter upcoming rate changes
 **When** displayed,
 **Then** it is clearly labelled as upcoming (e.g., "From {date}") and appears at the top of the list.
 
+**Given** `parseLocaleNumber`'s known DE-locale multi-comma truncation defect (flagged in the Epic 3 retrospective, 2026-07-02, as relevant once Epic 4 adds locale-sensitive numeric fields),
+**When** the `PricePerKwh` and `MonthlyBaseFee` inputs are implemented in `TariffForm.tsx`,
+**Then** the underlying `parseLocaleNumber` defect is fixed (not deferred again) before these two fields ship, with a regression test covering the multi-comma DE-locale input case.
+
 ---
 
 ## Story 4.3: Tariff Lock Indicator & Planned Annual Spend Settings
@@ -82,13 +90,21 @@ So that locked rates cannot be accidentally modified and my budget target is eas
 **When** its edit form opens,
 **Then** `PricePerKwh` and `MonthlyBaseFee` render as read-only and visually greyed out, each with an inline lock icon (`accent-tariff-locked` #d97706) and the label "Locked — contract active until {month year}"; non-price fields remain fully editable; the lock state is immediately visible on form open — no dialog or tap-to-reveal.
 
-**Given** a PATCH request with modified price fields on a locked tariff submitted directly to the API,
+**Given** the locked price fields,
+**When** the user taps the lock icon or an adjacent "Edit anyway" affordance,
+**Then** a confirmation dialog explains that overriding will change the contract's locked rate and asks the user to confirm; on confirm, the price fields become editable and the subsequent `PATCH` includes `LockOverride: true` (see Story 4.1); on cancel, the fields remain locked and no request is sent.
+
+**Given** a PATCH request with modified price fields on a locked tariff submitted directly to the API without `LockOverride: true`,
 **When** the backend receives it,
-**Then** HTTP 422 Problem Details with `type: "tariff-locked"` is returned — lock enforced server-side regardless of UI state.
+**Then** HTTP 422 Problem Details with `type: "tariff-locked"` is returned — lock enforced server-side regardless of UI state; only an explicit `LockOverride: true` bypasses it.
 
 **Given** the Tariff settings screen,
 **When** rendered below the tariff list,
-**Then** a "Planned Annual Spend" field shows the current value (`Flats.PlannedAnnualSpend` decimal); an edit control allows the user to update it; saving updates the value and takes effect immediately on future budget pressure alert evaluations (FR-7, FR-37).
+**Then** a "Planned Annual Spend" field shows the current value (`Flats.PlannedAnnualSpend` decimal); an edit control allows the user to update it; saving calls `PATCH /api/v1/flats/{flatId}` (existing `PatchFlatFunction`, which already accepts `plannedAnnualSpend`) and takes effect immediately on future budget pressure alert evaluations (FR-7, FR-37).
+
+**Given** `PatchFlatValidator`,
+**When** `PlannedAnnualSpend` is provided,
+**Then** it must be `> 0` and `< 50000` (€/year); values outside this range return HTTP 400 Problem Details and the value is not saved — closing the gap where this field previously had no bound, per the numeric-bound convention established in the Epic 3 retrospective (2026-07-02).
 
 **Given** the Annual kWh Baseline or tariff price per kWh values,
 **When** shown alongside the Planned Annual Spend field,
