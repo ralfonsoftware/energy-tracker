@@ -4,6 +4,7 @@ using EnergyTracker.Api.Features.Dashboard;
 using EnergyTracker.Api.Features.Flats;
 using EnergyTracker.Api.Features.Readings;
 using EnergyTracker.Api.Features.Onboarding;
+using EnergyTracker.Api.Features.Tariffs;
 using EnergyTracker.Api.Shared;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Builder;
@@ -33,6 +34,8 @@ builder.Services.AddSingleton<OnboardingValidator>();
 builder.Services.AddSingleton<PatchFlatValidator>();
 builder.Services.AddSingleton<ReadingValidator>();
 builder.Services.AddSingleton<PatchReadingValidator>();
+builder.Services.AddSingleton<TariffValidator>();
+builder.Services.AddSingleton<PatchTariffValidator>();
 builder.Services.AddScoped<TariffResolver>();
 builder.Services.AddSingleton<KpiCalculator>();
 
