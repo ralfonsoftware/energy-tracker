@@ -117,6 +117,17 @@ export function FlatSettingsCard({ settings }: FlatSettingsCardProps) {
         >
           {t('flat.kwhBaselineLink')}
         </button>
+        <button
+          onClick={() => navigate('/settings/tariffs')}
+          className="px-3 py-1.5 text-xs font-medium rounded-full"
+          style={{
+            background: 'rgba(255,255,255,0.10)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: 'rgba(255,255,255,0.75)',
+          }}
+        >
+          {t('flat.tariffLink')}
+        </button>
       </div>
     </div>
   )

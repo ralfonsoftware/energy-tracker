@@ -1,1 +1,34 @@
-{}
+{
+  "list": {
+    "title": "Tariffs",
+    "back": "Back",
+    "addButton": "Add Tariff",
+    "loadError": "Couldn't load tariffs — please try again.",
+    "retry": "Retry",
+    "empty": "No tariffs yet. Add your first tariff to track your energy costs.",
+    "upcomingLabel": "From {{date}}",
+    "kwhUnit": "/kWh",
+    "monthUnit": "/mo"
+  },
+  "form": {
+    "title": "Add Tariff",
+    "effectiveDate": "Effective Date",
+    "pricePerKwh": "Price per kWh",
+    "priceSuffix": "€/kWh",
+    "monthlyBaseFee": "Monthly Base Fee",
+    "baseFeeSuffix": "€/mo",
+    "providerName": "Provider",
+    "providerPlaceholder": "e.g. E.ON",
+    "contractStartDate": "Contract Start Date",
+    "contractDuration": "Contract Duration",
+    "duration1": "1 month",
+    "duration6": "6 months",
+    "duration12": "12 months",
+    "duration24": "24 months",
+    "optional": "optional",
+    "invalidNumber": "Enter a valid number",
+    "errorMessage": "Couldn't save tariff — please try again.",
+    "saveButton": "Save",
+    "saving": "Saving…"
+  }
+}

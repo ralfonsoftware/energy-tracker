@@ -1,1 +1,34 @@
-{}
+{
+  "list": {
+    "title": "Tarife",
+    "back": "Zurück",
+    "addButton": "Tarif hinzufügen",
+    "loadError": "Tarife konnten nicht geladen werden — bitte erneut versuchen.",
+    "retry": "Erneut versuchen",
+    "empty": "Noch keine Tarife. Füge deinen ersten Tarif hinzu, um deine Energiekosten zu verfolgen.",
+    "upcomingLabel": "Ab {{date}}",
+    "kwhUnit": "/kWh",
+    "monthUnit": "/mo"
+  },
+  "form": {
+    "title": "Tarif hinzufügen",
+    "effectiveDate": "Gültig ab",
+    "pricePerKwh": "Preis pro kWh",
+    "priceSuffix": "€/kWh",
+    "monthlyBaseFee": "Monatliche Grundgebühr",
+    "baseFeeSuffix": "€/mo",
+    "providerName": "Anbieter",
+    "providerPlaceholder": "z. B. E.ON",
+    "contractStartDate": "Vertragsbeginn",
+    "contractDuration": "Vertragslaufzeit",
+    "duration1": "1 Monat",
+    "duration6": "6 Monate",
+    "duration12": "12 Monate",
+    "duration24": "24 Monate",
+    "optional": "optional",
+    "invalidNumber": "Bitte eine gültige Zahl eingeben",
+    "errorMessage": "Tarif konnte nicht gespeichert werden — bitte erneut versuchen.",
+    "saveButton": "Speichern",
+    "saving": "Speichern…"
+  }
+}

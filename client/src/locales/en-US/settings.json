@@ -4,6 +4,7 @@
   "flat": {
     "sectionTitle": "My Flats",
     "kwhBaselineLink": "kWh Baseline",
+    "tariffLink": "Tariff",
     "saveError": "Couldn't save changes — please try again.",
     "namePlaceholder": "Flat name",
     "save": "Save"

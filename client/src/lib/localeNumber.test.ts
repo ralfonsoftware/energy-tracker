@@ -13,6 +13,22 @@ describe('parseLocaleNumber', () => {
     it('parses combined thousands and decimal', () => {
       expect(parseLocaleNumber('1.500,27', 'de-DE')).toBe(1500.27)
     })
+
+    it('returns NaN for multi-comma input instead of silently truncating', () => {
+      expect(parseLocaleNumber('1,234,56', 'de-DE')).toBeNaN()
+    })
+
+    it('returns NaN for a lone dot used as a decimal separator instead of silently stripping it', () => {
+      expect(parseLocaleNumber('0.28', 'de-DE')).toBeNaN()
+    })
+
+    it('returns NaN when a dot appears after the decimal comma instead of silently stripping it', () => {
+      expect(parseLocaleNumber('1,234.56', 'de-DE')).toBeNaN()
+    })
+
+    it('still parses a thousands dot followed by only 1-2 digits as invalid, not a truncated group', () => {
+      expect(parseLocaleNumber('12.34', 'de-DE')).toBeNaN()
+    })
   })
 
   describe('en-US locale', () => {

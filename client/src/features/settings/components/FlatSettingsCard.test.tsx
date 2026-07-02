@@ -85,6 +85,13 @@ describe('FlatSettingsCard', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/settings/flat')
   })
 
+  it('Tariff pill navigates to /settings/tariffs', () => {
+    renderCard()
+    const pill = screen.getByText('flat.tariffLink')
+    fireEvent.click(pill)
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/tariffs')
+  })
+
   it('shows error message and keeps editing on PATCH failure', () => {
     renderCard()
     fireEvent.click(screen.getByText('My Flat'))

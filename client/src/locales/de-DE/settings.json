@@ -4,6 +4,7 @@
   "flat": {
     "sectionTitle": "Meine Wohnungen",
     "kwhBaselineLink": "kWh-Baseline",
+    "tariffLink": "Tarif",
     "saveError": "Änderungen konnten nicht gespeichert werden — bitte erneut versuchen.",
     "namePlaceholder": "Wohnungsname",
     "save": "Speichern"
