@@ -23,6 +23,7 @@ public class TariffConfiguration : IEntityTypeConfiguration<Tariff>
             .HasForeignKey(t => t.FlatId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(t => new { t.FlatId, t.EffectiveDate })
+            .IsUnique()
             .HasDatabaseName("IX_Tariffs_FlatId_EffectiveDate");
     }
 }

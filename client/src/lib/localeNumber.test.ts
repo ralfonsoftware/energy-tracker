@@ -1,4 +1,4 @@
-import { parseLocaleNumber } from './localeNumber'
+import { parseLocaleNumber, formatNumberForInput } from './localeNumber'
 
 describe('parseLocaleNumber', () => {
   describe('de-DE locale', () => {
@@ -41,5 +41,30 @@ describe('parseLocaleNumber', () => {
     it('returns 0 for zero', () => {
       expect(parseLocaleNumber('0', 'de-DE')).toBe(0)
     })
+  })
+})
+
+describe('formatNumberForInput', () => {
+  it('formats a fractional value with a comma for de-DE', () => {
+    expect(formatNumberForInput(120.5, 'de-DE')).toBe('120,5')
+  })
+
+  it('formats a fractional value with a dot for en-US', () => {
+    expect(formatNumberForInput(120.5, 'en-US')).toBe('120.5')
+  })
+
+  it('formats an integer value unchanged for both locales', () => {
+    expect(formatNumberForInput(3500, 'de-DE')).toBe('3500')
+    expect(formatNumberForInput(3500, 'en-US')).toBe('3500')
+  })
+
+  it('round-trips through parseLocaleNumber without precision loss for de-DE', () => {
+    const formatted = formatNumberForInput(120.53, 'de-DE')
+    expect(parseLocaleNumber(formatted, 'de-DE')).toBe(120.53)
+  })
+
+  it('round-trips through parseLocaleNumber without precision loss for en-US', () => {
+    const formatted = formatNumberForInput(120.53, 'en-US')
+    expect(parseLocaleNumber(formatted, 'en-US')).toBe(120.53)
   })
 })

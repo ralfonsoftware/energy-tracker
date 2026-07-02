@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { parseLocaleNumber } from '@/lib/localeNumber'
+import { useSubmitGuard } from '@/lib/useSubmitGuard'
 import { SheetContent } from '@/components/ui/sheet'
 import { useSubmitReading } from '@/features/readings/hooks/useSubmitReading'
 import { readingSheetSchema, type ReadingSheetFormValues } from '@/features/readings/schemas/readingSchema'
@@ -26,7 +27,7 @@ export function EnterReadingSheet({ flatId, lastKwhValue, open, onOpenChange, on
   const { mutate, isPending, isError } = useSubmitReading(flatId, onSubmitSuccess)
   const [submitError, setSubmitError] = useState(false)
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const submittingRef = useRef(false)
+  const tryAcquire = useSubmitGuard(isPending)
 
   const { control, handleSubmit, watch, reset } = useForm<ReadingSheetFormValues>({
     resolver: zodResolver(readingSheetSchema),
@@ -46,25 +47,18 @@ export function EnterReadingSheet({ flatId, lastKwhValue, open, onOpenChange, on
   const isSaveEnabled = !isNaN(kwhParsed) && kwhParsed > 0 && !isPending && flatId !== undefined
 
   const onSubmit = (data: ReadingSheetFormValues) => {
-    if (submittingRef.current) return
     const parsed = parseLocaleNumber(data.kwhValue, i18n.language)
     if (isNaN(parsed) || parsed <= 0) return
     const readingDate = new Date(data.readingDate)
     if (isNaN(readingDate.getTime())) return
+    if (!tryAcquire()) return
 
-    submittingRef.current = true
     setSubmitError(false)
     mutate(
       { kwhValue: parsed, readingDate: readingDate.toISOString() },
       {
-        onSuccess: () => {
-          submittingRef.current = false
-          onOpenChange(false)
-        },
-        onError: () => {
-          submittingRef.current = false
-          setSubmitError(true)
-        },
+        onSuccess: () => onOpenChange(false),
+        onError: () => setSubmitError(true),
       }
     )
   }

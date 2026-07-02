@@ -5,3 +5,8 @@ export function parseLocaleNumber(value: string, locale: string): number {
     : value.replace(/,/g, '')
   return parseFloat(normalized)
 }
+
+export function formatNumberForInput(value: number, locale: string): string {
+  const isDE = locale.startsWith('de')
+  return isDE ? String(value).replace('.', ',') : String(value)
+}

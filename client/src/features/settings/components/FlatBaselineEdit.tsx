@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
-import { parseLocaleNumber } from '@/lib/localeNumber'
+import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import { useUserSettings } from '../hooks/useUserSettings'
 import { usePatchFlat } from '../hooks/usePatchFlat'
 import { baselineEditSchema, type BaselineEditFormValues } from '../schemas/settingsSchema'
@@ -42,10 +42,10 @@ export default function FlatBaselineEdit() {
     resolver: zodResolver(baselineEditSchema),
     defaultValues: {
       annualKwhBaseline: settings?.annualKwhBaseline != null
-        ? String(settings.annualKwhBaseline)
+        ? formatNumberForInput(settings.annualKwhBaseline, i18n.language)
         : '',
       plannedAnnualSpend: settings?.plannedAnnualSpend != null
-        ? String(settings.plannedAnnualSpend)
+        ? formatNumberForInput(settings.plannedAnnualSpend, i18n.language)
         : '',
     },
   })

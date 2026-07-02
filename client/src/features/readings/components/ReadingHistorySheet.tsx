@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
-import { parseLocaleNumber } from '@/lib/localeNumber'
+import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
+import { useSubmitGuard } from '@/lib/useSubmitGuard'
 import { useReadingHistory } from '@/features/readings/hooks/useReadingHistory'
 import { usePatchReading } from '@/features/readings/hooks/usePatchReading'
 import type { ReadingResponse } from '@/features/readings/api/readingApi'
@@ -15,9 +16,6 @@ const formatKwh = (value: number) => `${formatNumber(value)} kWh`
 
 const formatDateTime = (isoDate: string) =>
   new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(isoDate))
-
-const toLocaleInputString = (value: number) =>
-  i18n.language.startsWith('de') ? String(value).replace('.', ',') : String(value)
 
 export function ReadingHistorySheet({ flatId }: Props) {
   const { t } = useTranslation('readings')
@@ -108,23 +106,18 @@ type EditViewProps = {
 function ReadingEditView({ reading, isPending, isError, onBack, onSave }: EditViewProps) {
   const { t } = useTranslation('readings')
   const inputRef = useRef<HTMLInputElement | null>(null)
-  const submittingRef = useRef(false)
-  const [kwhRaw, setKwhRaw] = useState(toLocaleInputString(reading.kwhValue))
+  const tryAcquire = useSubmitGuard(isPending)
+  const [kwhRaw, setKwhRaw] = useState(formatNumberForInput(reading.kwhValue, i18n.language))
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
 
-  useEffect(() => {
-    if (!isPending) submittingRef.current = false
-  }, [isPending])
-
   const parsed = parseLocaleNumber(kwhRaw, i18n.language)
   const isSaveEnabled = !isNaN(parsed) && parsed > 0 && !isPending
 
   const handleSave = () => {
-    if (submittingRef.current) return
-    submittingRef.current = true
+    if (!tryAcquire()) return
     onSave(parsed)
   }
 
