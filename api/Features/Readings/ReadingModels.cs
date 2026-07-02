@@ -2,6 +2,8 @@ namespace EnergyTracker.Api.Features.Readings;
 
 public record SubmitReadingRequest(decimal KwhValue, DateTimeOffset? ReadingDate);
 
+public record PatchReadingRequest(decimal KwhValue);
+
 public record ReadingResponse(
     Guid ReadingId,
     decimal KwhValue,

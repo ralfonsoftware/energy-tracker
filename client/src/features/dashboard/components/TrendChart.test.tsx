@@ -8,6 +8,14 @@ vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }))
 
+vi.mock('@/features/readings/hooks/useReadingHistory', () => ({
+  useReadingHistory: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+}))
+
+vi.mock('@/features/readings/hooks/usePatchReading', () => ({
+  usePatchReading: () => ({ mutate: vi.fn(), isPending: false, isError: false }),
+}))
+
 const sevenDays: DashboardSummary['dailyConsumption'] = [
   { date: '2026-06-24', kwhValue: 5 },
   { date: '2026-06-25', kwhValue: 6 },

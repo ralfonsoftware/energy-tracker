@@ -162,3 +162,15 @@
 - `TimeZoneInfo.ConvertTime` can throw for a `ReadingDate` near `DateTimeOffset.MaxValue` (previous `.Date` truncation silently produced a wrong date instead); same root cause as the already-deferred "no upper bound on ReadingDate" gap, negligible reachability. `api/Features/Dashboard/KpiCalculator.cs`
 - `perDayKwh = periodKwh / spanDays` has no rounding — harmless today, worth rounding before any future tooltip/label surfaces the raw value. `api/Features/Dashboard/KpiCalculator.cs:BuildDailySeries`
 - `TrendChart` flickers away on every background refetch that resolves to a 0/1-reading state (not just initial load), extending the already-accepted cold-open-hides-entry-point decision. `client/src/features/dashboard/DashboardPage.tsx`, `client/src/features/dashboard/components/TrendChart.tsx`
+
+## Deferred from: code review of story-3.6 (2026-07-02)
+
+- No validation of corrected value against adjacent readings (monotonicity/plausibility) — pre-existing gap shared with original `SubmitReadingFunction`/`ReadingValidator`, out of scope for this story's AC. `api/Features/Readings/PatchReadingFunction.cs`
+- No optimistic-concurrency protection on PATCH (races between overlapping corrections) — consistent with rest of codebase (no `RowVersion`/ETag pattern anywhere; documented known gap). `api/Features/Readings/PatchReadingFunction.cs`
+- `SaveChangesAsync` not wrapped in try/catch — consistent with existing Functions relying on host-level exception handling. `api/Features/Readings/PatchReadingFunction.cs:928`
+- No time/business-window restriction on correcting old readings — architectural/product question not addressed by any AC or architecture doc. `api/Features/Readings/PatchReadingFunction.cs`
+- `GetReadingHistoryFunction` has no pagination/limit — consistent with "no caching layer, keep queries simple" and no other list endpoint paginates. `api/Features/Readings/GetReadingHistoryFunction.cs:826`
+- `usePatchReading`'s `Promise.all` invalidation could theoretically surface a false "save failed" state if one `invalidateQueries` call rejects — exact code mandated verbatim by story Dev Notes; low real-world likelihood. `client/src/features/readings/hooks/usePatchReading.ts:14`
+- Missing negative/malformed-input backend test coverage (negative kwhValue, missing property, non-numeric payload) — nice-to-have beyond the story's mandated test list. `api.Tests/Features/Readings/PatchReadingFunctionTests.cs`
+- Test setup duplication (`MakeDb`/`MakeFunctionContext`/`SeedFlatAsync`) across test files — pre-existing convention already used in 4+ other test files. `api.Tests/Features/Readings/GetReadingHistoryFunctionTests.cs`, `PatchReadingFunctionTests.cs`
+- Frontend test couples to DOM ordering via `getAllByRole('button')[0]` instead of a more specific query — minor test-robustness nitpick. `client/src/features/readings/components/ReadingHistorySheet.test.tsx:206`

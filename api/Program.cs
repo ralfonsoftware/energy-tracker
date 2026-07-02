@@ -32,6 +32,7 @@ builder.Services.AddSingleton<LocaleResolver>();
 builder.Services.AddSingleton<OnboardingValidator>();
 builder.Services.AddSingleton<PatchFlatValidator>();
 builder.Services.AddSingleton<ReadingValidator>();
+builder.Services.AddSingleton<PatchReadingValidator>();
 builder.Services.AddScoped<TariffResolver>();
 builder.Services.AddSingleton<KpiCalculator>();
 

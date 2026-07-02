@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-02 (Story 3.5 done — code review complete, 3 patches applied)
+last_updated: 2026-07-02 (Story 3.6 done — code review complete, 6 patches applied)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -67,7 +67,7 @@ development_status:
   3-3-kpi-dashboard-frontend-euro-burn-design-and-grid: done
   3-4-enter-reading-cta-bottom-sheet-and-immediate-dashboard-update: done
   3-5-trend-chart-and-spike-detection: done
-  3-6-reading-history-view-and-correction: backlog
+  3-6-reading-history-view-and-correction: done
   epic-3-retrospective: optional
 
   # Epic 4: Tariff Management

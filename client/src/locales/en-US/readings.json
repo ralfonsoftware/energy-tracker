@@ -8,6 +8,12 @@
   },
   "history": {
     "title": "Reading History",
-    "comingSoon": "Coming soon."
+    "loadError": "Couldn't load reading history.",
+    "retry": "Retry",
+    "empty": "No readings yet.",
+    "correctedNote": "Original value was {{value}} kWh",
+    "editSaveButton": "Save",
+    "editSaveError": "Couldn't save — try again.",
+    "backToList": "Back"
   }
 }

@@ -8,6 +8,12 @@
   },
   "history": {
     "title": "Ablesehistorie",
-    "comingSoon": "Demnächst verfügbar."
+    "loadError": "Ablesehistorie konnte nicht geladen werden.",
+    "retry": "Erneut versuchen",
+    "empty": "Noch keine Ablesungen.",
+    "correctedNote": "Ursprünglicher Wert war {{value}} kWh",
+    "editSaveButton": "Speichern",
+    "editSaveError": "Konnte nicht gespeichert werden — versuch's noch mal.",
+    "backToList": "Zurück"
   }
 }
