@@ -19,9 +19,15 @@ So that my tariff history is accurate and locked rates cannot be accidentally ch
 **Then** a new `Tariff` record is created with all fields stored locale-neutrally (`EffectiveDate` as datetimeoffset, `PricePerKwh` and `MonthlyBaseFee` as `decimal`); HTTP 201 with `Location` header; ≤ 2s response time.
 **And** a future `EffectiveDate` is accepted without affecting any past cost calculations (FR-12).
 
+**Given** `POST /api/v1/flats/{flatId}/tariffs` with an `EffectiveDate` that already has a Tariff entry for this Flat,
+**When** `CreateTariffFunction.RunAsync` executes,
+**Then** HTTP 409 Problem Details (`type: "https://tools.ietf.org/html/rfc9110#section-15.5.10"`, `title: "Conflict"`) is returned; no record is created.
+**And** this relies on the `IX_Tariffs_FlatId_EffectiveDate` unique index (added via migration `MakeTariffEffectiveDateUnique` ahead of this epic) — the function checks for an existing entry before insert so the collision never surfaces as an unhandled DB-constraint 500.
+
 **Given** `TariffValidator` (FluentValidation),
-**When** `PricePerKwh ≤ 0`, `MonthlyBaseFee < 0`, or `EffectiveDate` is missing,
+**When** `PricePerKwh ≤ 0` or `≥ 10`, `MonthlyBaseFee < 0` or `≥ 1000`, or `EffectiveDate` is missing,
 **Then** HTTP 400 Problem Details is returned; no record is created.
+**And** the upper bounds match the project-wide numeric-bound convention established in `OnboardingValidator` and `PatchFlatValidator` during the Epic 3 retrospective (2026-07-02).
 
 **Given** `PATCH /api/v1/flats/{flatId}/tariffs/{tariffId}` attempting to update `PricePerKwh` or `MonthlyBaseFee`,
 **When** the Tariff entry has `ContractStartDate` in the past AND `ContractDurationMonths` is not null,
