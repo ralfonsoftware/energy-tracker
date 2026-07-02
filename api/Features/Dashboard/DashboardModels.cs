@@ -18,5 +18,8 @@ public record DashboardSummary(
     DateTimeOffset? LastReadingDate,
     string[] SpikeDays,
     CostSummary? Cost,
-    decimal? LastKwhValue
+    decimal? LastKwhValue,
+    DailyConsumptionPoint[] DailyConsumption
 );
+
+public record DailyConsumptionPoint(string Date, decimal KwhValue);

@@ -10,6 +10,8 @@ export type CostSummary = {
   costDetailAvailable: boolean
 }
 
+export type DailyConsumptionPoint = { date: string; kwhValue: number }
+
 export type DashboardSummary = {
   dailyAvgKwh: number
   weeklyAvgKwh: number
@@ -19,6 +21,7 @@ export type DashboardSummary = {
   spikeDays: string[]
   cost: CostSummary | null
   lastKwhValue: number | null
+  dailyConsumption: DailyConsumptionPoint[]
 }
 
 export const getDashboard = (flatId: string) =>

@@ -18,5 +18,9 @@
   "lastRead": {
     "label": "Last read:",
     "never": "never"
+  },
+  "trend": {
+    "cardTitle": "Last 7 Days",
+    "historyIconLabel": "View reading history"
   }
 }

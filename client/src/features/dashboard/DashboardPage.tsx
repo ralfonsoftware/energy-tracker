@@ -4,6 +4,7 @@ import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { useDashboard } from '@/features/dashboard/hooks/useDashboard'
 import { EuroBurnGradient } from '@/features/dashboard/components/EuroBurnGradient'
 import { DashboardGrid } from '@/features/dashboard/components/DashboardGrid'
+import { TrendChart } from '@/features/dashboard/components/TrendChart'
 import { EnterReadingCta } from '@/features/readings/components/EnterReadingCta'
 
 export default function DashboardPage() {
@@ -38,11 +39,14 @@ export default function DashboardPage() {
           {t('errors.networkError')}
         </p>
       ) : (
-        <DashboardGrid
-          dashboard={isPending ? undefined : dashboard}
-          annualKwhBaseline={settings?.annualKwhBaseline}
-          animateArmedRef={animateArmedRef}
-        />
+        <>
+          <DashboardGrid
+            dashboard={isPending ? undefined : dashboard}
+            annualKwhBaseline={settings?.annualKwhBaseline}
+            animateArmedRef={animateArmedRef}
+          />
+          <TrendChart dashboard={isPending ? undefined : dashboard} flatId={settings?.flatId} />
+        </>
       )}
     </div>
   )

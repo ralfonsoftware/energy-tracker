@@ -24,6 +24,7 @@ const sampleDashboard: DashboardSummary = {
   spikeDays: [],
   cost: null,
   lastKwhValue: 100,
+  dailyConsumption: [],
 }
 
 describe('useDashboard', () => {

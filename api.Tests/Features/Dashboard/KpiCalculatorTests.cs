@@ -9,8 +9,8 @@ public class KpiCalculatorTests
     private readonly KpiCalculator _calculator = new();
     private static readonly DateTimeOffset Now = new DateTimeOffset(2026, 6, 30, 12, 0, 0, TimeSpan.Zero);
 
-    private static Flat MakeFlat(decimal baseline = 3650m) =>
-        new() { FlatId = Guid.NewGuid(), UserId = "u", Name = "F", AnnualKwhBaseline = baseline, SpikeThreshold = 2.0m };
+    private static Flat MakeFlat(decimal baseline = 3650m, decimal spikeThreshold = 2.0m) =>
+        new() { FlatId = Guid.NewGuid(), UserId = "u", Name = "F", AnnualKwhBaseline = baseline, SpikeThreshold = spikeThreshold };
 
     private static MeterReading MakeReading(DateTimeOffset date, decimal kwh) =>
         new() { ReadingId = Guid.NewGuid(), FlatId = Guid.NewGuid(), ReadingDate = date, KwhValue = kwh, IsCorrected = false };
@@ -32,6 +32,7 @@ public class KpiCalculatorTests
         result.SpikeDays.ShouldBeEmpty();
         result.Cost.ShouldBeNull();
         result.LastKwhValue.ShouldBeNull();
+        result.DailyConsumption.ShouldBeEmpty();
     }
 
     [Fact]
@@ -48,6 +49,7 @@ public class KpiCalculatorTests
         result.LastReadingDate.ShouldBe(readingDate);
         result.Cost.ShouldBeNull();
         result.LastKwhValue.ShouldBe(100m);
+        result.DailyConsumption.ShouldBeEmpty();
     }
 
     [Fact]
@@ -271,5 +273,126 @@ public class KpiCalculatorTests
         result.Cost.ShouldNotBeNull();
         result.Cost!.CoveredDays.ShouldBe(7);
         result.Cost!.CostDetailAvailable.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Compute_MultipleReadings_DailyConsumption_HasSevenEntriesEndingAtNowDate()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(10);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 150m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.DailyConsumption.Length.ShouldBe(7);
+        result.DailyConsumption[0].Date.ShouldBe("2026-06-24");
+        result.DailyConsumption[^1].Date.ShouldBe("2026-06-30");
+    }
+
+    [Fact]
+    public void Compute_TwoReadingsWithinWindow_DistributesKwhEvenlyAcrossSpannedDays()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 27, 0, 0, 0, TimeSpan.Zero);
+        var date2 = new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 106m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.DailyConsumption.First(d => d.Date == "2026-06-27").KwhValue.ShouldBe(0m);
+        result.DailyConsumption.First(d => d.Date == "2026-06-28").KwhValue.ShouldBe(3m);
+        result.DailyConsumption.First(d => d.Date == "2026-06-29").KwhValue.ShouldBe(3m);
+    }
+
+    [Fact]
+    public void Compute_DaySpikeAboveThreshold_IsFlaggedInSpikeDays()
+    {
+        var flat = MakeFlat();
+        var readings = new List<MeterReading>
+        {
+            MakeReading(new DateTimeOffset(2026, 6, 22, 0, 0, 0, TimeSpan.Zero), 100m),
+            MakeReading(new DateTimeOffset(2026, 6, 23, 0, 0, 0, TimeSpan.Zero), 101m),
+            MakeReading(new DateTimeOffset(2026, 6, 24, 0, 0, 0, TimeSpan.Zero), 102m),
+            MakeReading(new DateTimeOffset(2026, 6, 25, 0, 0, 0, TimeSpan.Zero), 103m),
+            MakeReading(new DateTimeOffset(2026, 6, 26, 0, 0, 0, TimeSpan.Zero), 104m),
+            MakeReading(new DateTimeOffset(2026, 6, 27, 0, 0, 0, TimeSpan.Zero), 105m),
+            MakeReading(new DateTimeOffset(2026, 6, 28, 0, 0, 0, TimeSpan.Zero), 106m),
+            MakeReading(new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero), 107m),
+            MakeReading(new DateTimeOffset(2026, 6, 30, 0, 0, 0, TimeSpan.Zero), 110m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.SpikeDays.ShouldContain("2026-06-30");
+    }
+
+    [Fact]
+    public void Compute_DayExactlyAtThreshold_IsNotFlaggedAsSpike()
+    {
+        var flat = MakeFlat();
+        var readings = new List<MeterReading>
+        {
+            MakeReading(new DateTimeOffset(2026, 6, 22, 0, 0, 0, TimeSpan.Zero), 100m),
+            MakeReading(new DateTimeOffset(2026, 6, 23, 0, 0, 0, TimeSpan.Zero), 101m),
+            MakeReading(new DateTimeOffset(2026, 6, 24, 0, 0, 0, TimeSpan.Zero), 102m),
+            MakeReading(new DateTimeOffset(2026, 6, 25, 0, 0, 0, TimeSpan.Zero), 103m),
+            MakeReading(new DateTimeOffset(2026, 6, 26, 0, 0, 0, TimeSpan.Zero), 104m),
+            MakeReading(new DateTimeOffset(2026, 6, 27, 0, 0, 0, TimeSpan.Zero), 105m),
+            MakeReading(new DateTimeOffset(2026, 6, 28, 0, 0, 0, TimeSpan.Zero), 106m),
+            MakeReading(new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero), 107m),
+            MakeReading(new DateTimeOffset(2026, 6, 30, 0, 0, 0, TimeSpan.Zero), 109m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.SpikeDays.ShouldNotContain("2026-06-30");
+    }
+
+    [Fact]
+    public void Compute_CustomSpikeThreshold_UsesConfiguredValueNotDefault()
+    {
+        var flat = MakeFlat(spikeThreshold: 1.2m);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(new DateTimeOffset(2026, 6, 22, 0, 0, 0, TimeSpan.Zero), 100m),
+            MakeReading(new DateTimeOffset(2026, 6, 23, 0, 0, 0, TimeSpan.Zero), 110m),
+            MakeReading(new DateTimeOffset(2026, 6, 24, 0, 0, 0, TimeSpan.Zero), 120m),
+            MakeReading(new DateTimeOffset(2026, 6, 25, 0, 0, 0, TimeSpan.Zero), 130m),
+            MakeReading(new DateTimeOffset(2026, 6, 26, 0, 0, 0, TimeSpan.Zero), 140m),
+            MakeReading(new DateTimeOffset(2026, 6, 27, 0, 0, 0, TimeSpan.Zero), 150m),
+            MakeReading(new DateTimeOffset(2026, 6, 28, 0, 0, 0, TimeSpan.Zero), 160m),
+            MakeReading(new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero), 170m),
+            MakeReading(new DateTimeOffset(2026, 6, 30, 0, 0, 0, TimeSpan.Zero), 183m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.SpikeDays.ShouldContain("2026-06-30");
+    }
+
+    [Fact]
+    public void Compute_FirstDayInWindowNoPriorData_IsNotFlaggedAsSpike()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero);
+        var date2 = new DateTimeOffset(2026, 6, 30, 0, 0, 0, TimeSpan.Zero);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 1100m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.SpikeDays.ShouldNotContain("2026-06-30");
     }
 }

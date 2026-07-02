@@ -130,6 +130,7 @@ public class GetDashboardFunctionTests
         summary.Cost!.DailyAvgCost.ShouldBe(1.5m);
         summary.Cost!.HasCostGap.ShouldBeFalse();
         summary.LastKwhValue.ShouldBe(150m);
+        summary.DailyConsumption.Length.ShouldBe(7);
     }
 
     [Fact]

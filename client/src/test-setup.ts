@@ -13,3 +13,20 @@ if (!window.matchMedia) {
     dispatchEvent: () => false,
   })
 }
+
+if (!window.ResizeObserver) {
+  window.ResizeObserver = class {
+    private callback: ResizeObserverCallback
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback
+    }
+    observe(target: Element) {
+      this.callback(
+        [{ target, contentRect: { width: 320, height: 90 } } as ResizeObserverEntry],
+        this as unknown as ResizeObserver
+      )
+    }
+    unobserve() {}
+    disconnect() {}
+  }
+}

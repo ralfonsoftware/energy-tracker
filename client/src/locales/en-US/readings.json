@@ -5,5 +5,9 @@
     "lowerWarning": "Lower than your last reading ({{value}} kWh) — is this correct?",
     "saveButton": "Save",
     "saveError": "Couldn't save — try again."
+  },
+  "history": {
+    "title": "Reading History",
+    "comingSoon": "Coming soon."
   }
 }

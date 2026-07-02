@@ -6,6 +6,26 @@ public class KpiCalculator
 {
     private const int MinCostDetailDays = 7;
 
+    // Single-market app (Germany) with no per-Flat/User timezone field today — day-bucketing for
+    // the trend chart and spike detection must agree on one timezone, so both BuildDailySeries and
+    // the window computation below convert through this fixed zone rather than mixing UTC and
+    // each reading's own stored offset. Falls back to UTC if the runtime lacks IANA tzdata (e.g.
+    // InvariantGlobalization or a minimal container image) so a missing timezone database doesn't
+    // permanently fail every dashboard request for the process lifetime.
+    private static readonly TimeZoneInfo AppTimeZone = ResolveAppTimeZone();
+
+    private static TimeZoneInfo ResolveAppTimeZone()
+    {
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById("Europe/Berlin");
+        }
+        catch (Exception ex) when (ex is TimeZoneNotFoundException or InvalidTimeZoneException)
+        {
+            return TimeZoneInfo.Utc;
+        }
+    }
+
     public DashboardSummary Compute(
         Flat flat,
         IReadOnlyList<MeterReading> readings,
@@ -18,14 +38,15 @@ public class KpiCalculator
             return new DashboardSummary(
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
-                LastReadingDate: null, SpikeDays: [], Cost: null, LastKwhValue: null);
+                LastReadingDate: null, SpikeDays: [], Cost: null, LastKwhValue: null,
+                DailyConsumption: []);
 
         if (readings.Count == 1)
             return new DashboardSummary(
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
                 LastReadingDate: readings[0].ReadingDate, SpikeDays: [], Cost: null,
-                LastKwhValue: readings[0].KwhValue);
+                LastKwhValue: readings[0].KwhValue, DailyConsumption: []);
 
         // readings is pre-sorted ascending by ReadingDate
         var totalDays = (readings[^1].ReadingDate - readings[0].ReadingDate).TotalDays;
@@ -36,7 +57,7 @@ public class KpiCalculator
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
                 LastReadingDate: readings[^1].ReadingDate, SpikeDays: [], Cost: null,
-                LastKwhValue: readings[^1].KwhValue);
+                LastKwhValue: readings[^1].KwhValue, DailyConsumption: []);
 
         // Single pass computes both total consumption and (when tariffed) total cost from the
         // same per-interval clamped deltas, so DailyAvgKwh and cost figures never diverge.
@@ -97,15 +118,24 @@ public class KpiCalculator
             );
         }
 
+        var dailySeries = BuildDailySeries(readings);
+        var windowEnd = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, AppTimeZone).Date);
+        var windowStart = windowEnd.AddDays(-6);
+        var dailyConsumption = new List<DailyConsumptionPoint>();
+        for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
+            dailyConsumption.Add(new DailyConsumptionPoint(date.ToString("yyyy-MM-dd"), dailySeries.GetValueOrDefault(date)));
+        var spikeDays = DetectSpikes(dailySeries, windowStart, windowEnd, flat.SpikeThreshold);
+
         return new DashboardSummary(
             DailyAvgKwh: dailyAvgKwh,
             WeeklyAvgKwh: weeklyAvgKwh,
             TodayKwh: todayKwh,
             DailyBudgetKwh: dailyBudgetKwh,
             LastReadingDate: readings[^1].ReadingDate,
-            SpikeDays: [],
+            SpikeDays: spikeDays,
             Cost: cost,
-            LastKwhValue: readings[^1].KwhValue
+            LastKwhValue: readings[^1].KwhValue,
+            DailyConsumption: dailyConsumption.ToArray()
         );
     }
 
@@ -118,5 +148,51 @@ public class KpiCalculator
                 best = t;
         }
         return best;
+    }
+
+    private static Dictionary<DateOnly, decimal> BuildDailySeries(IReadOnlyList<MeterReading> readings)
+    {
+        var series = new Dictionary<DateOnly, decimal>();
+        for (var i = 0; i < readings.Count - 1; i++)
+        {
+            var start = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(readings[i].ReadingDate, AppTimeZone).Date);
+            var end = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(readings[i + 1].ReadingDate, AppTimeZone).Date);
+            var periodKwh = Math.Max(0m, readings[i + 1].KwhValue - readings[i].KwhValue);
+            var spanDays = Math.Max(1, end.DayNumber - start.DayNumber);
+            var perDayKwh = periodKwh / spanDays;
+            // Two readings on the same calendar day: attribute the whole delta to that one day.
+            var firstDay = end.DayNumber > start.DayNumber ? start.DayNumber + 1 : end.DayNumber;
+            for (var d = firstDay; d <= end.DayNumber; d++)
+            {
+                var date = DateOnly.FromDayNumber(d);
+                series[date] = series.GetValueOrDefault(date) + perDayKwh;
+            }
+        }
+        return series;
+    }
+
+    private static string[] DetectSpikes(
+        Dictionary<DateOnly, decimal> dailySeries, DateOnly windowStart, DateOnly windowEnd, decimal threshold)
+    {
+        var spikes = new List<string>();
+        for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
+        {
+            var dayKwh = dailySeries.GetValueOrDefault(date);
+            decimal rollingSum = 0m;
+            var priorDaysWithData = 0;
+            for (var lookback = 1; lookback <= 7; lookback++)
+            {
+                if (dailySeries.TryGetValue(date.AddDays(-lookback), out var priorKwh))
+                {
+                    rollingSum += priorKwh;
+                    priorDaysWithData++;
+                }
+            }
+            if (priorDaysWithData == 0 || threshold <= 0m) continue;
+            var rollingAvg = rollingSum / priorDaysWithData;
+            if (rollingAvg > 0m && dayKwh > threshold * rollingAvg)
+                spikes.Add(date.ToString("yyyy-MM-dd"));
+        }
+        return spikes.ToArray();
     }
 }
