@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-03 (Story 4.4 code review complete, done)
+last_updated: 2026-07-03 (Epic 4 complete — all stories + retrospective done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -71,7 +71,7 @@ development_status:
   epic-3-retrospective: done
 
   # Epic 4: Tariff Management
-  epic-4: in-progress
+  epic-4: done
   4-1-tariff-crud-backend-list-create-and-contract-lock-enforcement: done
   4-2-tariff-management-ui-list-and-add-form-in-settings: done
   4-3-tariff-lock-indicator-and-planned-annual-spend-settings: done

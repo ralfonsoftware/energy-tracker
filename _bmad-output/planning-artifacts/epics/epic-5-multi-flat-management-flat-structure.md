@@ -22,6 +22,7 @@ So that I can manage multiple dwellings independently with complete data isolati
 **When** `DeleteFlatFunction.RunAsync` executes,
 **Then** `TenantResolver` verifies `flatId` belongs to the resolved `UserId` (HTTP 403 otherwise); the Flat and all associated data are permanently deleted: all `MeterReadings`, `Tariffs`, `SmartPlugDailyData`, `SmartPlugIntervalData`, `ImportJobs`, `Rooms` (and their `PowerPoints`, `Devices`), `InsightRuns`, `Insights`; HTTP 204; no orphaned records remain.
 **And** cascade delete is enforced at the database level via `OnDelete(DeleteBehavior.Cascade)` in Fluent API on all FK relationships from `Flats` — not application-side loops.
+**And** `DeleteFlatFunctionTests` (HTTP-level, `api.Tests/Features/Flats/`) is a hard requirement for Story 5.1 to reach `done` — not optional polish — and must assert: (1) cascade completeness — zero rows remain in `MeterReadings`, `Tariffs`, `SmartPlugDailyData`, `SmartPlugIntervalData`, `ImportJobs`, `Rooms`, `PowerPoints`, `Devices`, `InsightRuns`, `Insights` for the deleted `flatId`; (2) wrong-owner rejection — a `DELETE` for a `flatId` not owned by the resolved `UserId` returns HTTP 403 and performs no deletion; (3) no-orphaned-records / sibling isolation — deleting one Flat leaves all data belonging to any other Flat (same or different owner) untouched.
 
 **Given** `GET /api/v1/user/settings` and `PUT /api/v1/user/settings`,
 **When** called,
