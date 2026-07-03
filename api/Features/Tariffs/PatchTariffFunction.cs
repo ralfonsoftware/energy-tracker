@@ -76,12 +76,6 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         else if (obj.ContainsKey("providerName") && obj["providerName"] is not null)
             return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "providerName must be a string or null." });
 
-        DateTimeOffset? contractStartDate = null;
-        if (obj["contractStartDate"] is JsonValue startVal && startVal.TryGetValue<DateTimeOffset>(out var startDate))
-            contractStartDate = startDate;
-        else if (obj.ContainsKey("contractStartDate") && obj["contractStartDate"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "contractStartDate must be a date or null." });
-
         int? contractDurationMonths = null;
         if (obj["contractDurationMonths"] is JsonValue durVal && durVal.TryGetValue<int>(out var duration))
             contractDurationMonths = duration;
@@ -99,8 +93,6 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
             MonthlyBaseFee: monthlyBaseFee,
             ProviderNameProvided: obj.ContainsKey("providerName"),
             ProviderName: providerName,
-            ContractStartDateProvided: obj.ContainsKey("contractStartDate"),
-            ContractStartDate: contractStartDate,
             ContractDurationMonthsProvided: obj.ContainsKey("contractDurationMonths"),
             ContractDurationMonths: contractDurationMonths,
             LockOverride: lockOverride);
@@ -117,33 +109,9 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         }
 
         var priceFieldsRequested = request.PricePerKwh is not null || request.MonthlyBaseFee is not null;
-        var contractTermFieldsRequested = request.ContractStartDateProvided || request.ContractDurationMonthsProvided;
-        if (priceFieldsRequested && contractTermFieldsRequested)
-            return new BadRequestObjectResult(new
-            {
-                title = "Bad Request", status = 400,
-                detail = "Cannot update price fields and contract terms in the same request."
-            });
 
-        var isLocked = TariffLockPolicy.IsLocked(tariff.ContractStartDate, tariff.ContractDurationMonths);
+        var isLocked = TariffLockPolicy.IsLocked(tariff.ContractStartDate);
         var lockBlocksPriceUpdate = priceFieldsRequested && isLocked && !request.LockOverride;
-
-        if (request.ProviderNameProvided)
-            tariff.ProviderName = request.ProviderName;
-        if (request.ContractStartDateProvided)
-            tariff.ContractStartDate = request.ContractStartDate;
-        if (request.ContractDurationMonthsProvided)
-            tariff.ContractDurationMonths = request.ContractDurationMonths;
-
-        if (!lockBlocksPriceUpdate)
-        {
-            if (request.PricePerKwh is not null)
-                tariff.PricePerKwh = request.PricePerKwh.Value;
-            if (request.MonthlyBaseFee is not null)
-                tariff.MonthlyBaseFee = request.MonthlyBaseFee.Value;
-        }
-
-        await db.SaveChangesAsync(ct);
 
         if (lockBlocksPriceUpdate)
             return new ObjectResult(new
@@ -154,15 +122,25 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
             })
             { StatusCode = 422 };
 
+        if (request.ProviderNameProvided)
+            tariff.ProviderName = request.ProviderName;
+        if (request.ContractDurationMonthsProvided)
+            tariff.ContractDurationMonths = request.ContractDurationMonths;
+        if (request.PricePerKwh is not null)
+            tariff.PricePerKwh = request.PricePerKwh.Value;
+        if (request.MonthlyBaseFee is not null)
+            tariff.MonthlyBaseFee = request.MonthlyBaseFee.Value;
+
+        await db.SaveChangesAsync(ct);
+
         var response = new TariffResponse(
             tariff.TariffId,
-            tariff.EffectiveDate,
+            tariff.ContractStartDate,
             tariff.PricePerKwh,
             tariff.MonthlyBaseFee,
             tariff.ProviderName,
-            tariff.ContractStartDate,
             tariff.ContractDurationMonths,
-            TariffLockPolicy.IsLocked(tariff.ContractStartDate, tariff.ContractDurationMonths));
+            TariffLockPolicy.IsLocked(tariff.ContractStartDate));
 
         return new OkObjectResult(response);
     }

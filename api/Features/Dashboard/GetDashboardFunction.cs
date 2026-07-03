@@ -42,7 +42,7 @@ public class GetDashboardFunction(AppDbContext db, KpiCalculator calculator)
 
         var tariffs = await db.Tariffs.AsNoTracking()
             .Where(t => t.FlatId == flatGuid)
-            .OrderBy(t => t.EffectiveDate)
+            .OrderBy(t => t.ContractStartDate)
             .ToListAsync(ct);
 
         var summary = calculator.Compute(flat, readings, tariffs, DateTimeOffset.UtcNow);

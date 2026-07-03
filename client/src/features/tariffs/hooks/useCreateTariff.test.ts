@@ -11,11 +11,10 @@ const mockCreateTariff = vi.mocked(createTariff)
 
 const sampleResponse: TariffResponse = {
   tariffId: 'tariff-1',
-  effectiveDate: '2026-07-02T00:00:00Z',
+  contractStartDate: '2026-07-02T00:00:00Z',
   pricePerKwh: 0.28,
   monthlyBaseFee: 10,
   providerName: null,
-  contractStartDate: null,
   contractDurationMonths: null,
   isLocked: false,
 }
@@ -38,7 +37,7 @@ describe('useCreateTariff', () => {
     const { wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => useCreateTariff('flat-1'), { wrapper })
 
-    result.current.mutate({ effectiveDate: '2026-07-02T00:00:00Z', pricePerKwh: 0.28, monthlyBaseFee: 10 })
+    result.current.mutate({ contractStartDate: '2026-07-02T00:00:00Z', pricePerKwh: 0.28, monthlyBaseFee: 10 })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['tariffs', 'flat-1'] })
@@ -49,7 +48,7 @@ describe('useCreateTariff', () => {
     const { wrapper } = createWrapper()
     const { result } = renderHook(() => useCreateTariff(undefined), { wrapper })
 
-    result.current.mutate({ effectiveDate: '2026-07-02T00:00:00Z', pricePerKwh: 0.28, monthlyBaseFee: 10 })
+    result.current.mutate({ contractStartDate: '2026-07-02T00:00:00Z', pricePerKwh: 0.28, monthlyBaseFee: 10 })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(mockCreateTariff).not.toHaveBeenCalled()

@@ -2,21 +2,19 @@ import { apiClient } from '@/lib/apiClient'
 
 export type TariffResponse = {
   tariffId: string
-  effectiveDate: string
+  contractStartDate: string
   pricePerKwh: number
   monthlyBaseFee: number
   providerName: string | null
-  contractStartDate: string | null
   contractDurationMonths: number | null
   isLocked: boolean
 }
 
 export type CreateTariffRequest = {
-  effectiveDate: string
+  contractStartDate: string
   pricePerKwh: number
   monthlyBaseFee: number
   providerName?: string
-  contractStartDate?: string
   contractDurationMonths?: number
 }
 
@@ -24,7 +22,6 @@ export type PatchTariffRequest = {
   pricePerKwh?: number
   monthlyBaseFee?: number
   providerName?: string | null
-  contractStartDate?: string | null
   contractDurationMonths?: number | null
   lockOverride?: boolean
 }

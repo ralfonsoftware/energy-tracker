@@ -210,7 +210,7 @@ Flat deletion cascades all child data (FR-23). Meter Readings are edited in-plac
 |---|---|
 | `Users` | `UserId` (string, OIDC `sub` claim PK), `LocaleOverride` (nullable) |
 | `Flats` | `FlatId` (guid), `UserId` FK, `Name`, `AnnualKwhBaseline` (decimal), `SpikeThreshold` (decimal), `PlannedAnnualSpend` (nullable decimal) |
-| `Tariffs` | `TariffId` (guid), `FlatId` FK, `EffectiveDate` (datetimeoffset), `PricePerKwh` (decimal), `MonthlyBaseFee` (decimal), `ContractStartDate` (nullable), `ContractDurationMonths` (nullable int), `ProviderName` (nullable) |
+| `Tariffs` | `TariffId` (guid), `FlatId` FK, `ContractStartDate` (datetimeoffset, required — sole temporal anchor for cost-period resolution and price locking; unique per Flat), `PricePerKwh` (decimal), `MonthlyBaseFee` (decimal), `ContractDurationMonths` (nullable int, informational renewal reminder only — no locking effect), `ProviderName` (nullable) |
 | `MeterReadings` | `ReadingId` (guid), `FlatId` FK, `ReadingDate` (datetimeoffset), `KwhValue` (decimal), `IsCorrected` (bool), `OriginalKwhValue` (nullable decimal) |
 | `Rooms` | `RoomId` (guid), `FlatId` FK, `Name`, `SortOrder` (int) |
 | `PowerPoints` | `PowerPointId` (guid), `RoomId` FK, `Name`, `PlugId` (string, nullable — assigned smart plug identifier) |
@@ -329,7 +329,7 @@ Attached to the Functions app. Free tier sufficient for personal-project invocat
 - Columns: PascalCase (`UserId`, `FlatId`, `KwhValue`, `IsInterpolated`)
 - Primary keys: `{Entity}Id` pattern (`FlatId`, `ReadingId`, `TariffId`)
 - Foreign keys: `{Referenced Entity}Id` on the dependent table (`FlatId` on `Tariff`)
-- Indexes: `IX_{Table}_{Column(s)}` (e.g., `IX_Tariff_FlatId_EffectiveDate`)
+- Indexes: `IX_{Table}_{Column(s)}` (e.g., `IX_Tariffs_FlatId_ContractStartDate`)
 - JSON columns: `nvarchar(max)` in Fluent API, named naturally (`Data` on `Insight`)
 
 **API endpoints:**
@@ -448,6 +448,7 @@ Set in `api/energy-tracker-api.csproj`. Enables C# 13 on .NET 10. All agents use
 // Primary constructor (C# 12+)
 public class TariffResolver(AppDbContext db)
 {
+    // Resolves by ContractStartDate — the sole temporal anchor (see Tariffs data model)
     public async Task<Tariff?> ResolveAsync(Guid flatId, DateTimeOffset date, CancellationToken ct) ...
 }
 

@@ -12,11 +12,10 @@ const mockGetTariffs = vi.mocked(getTariffs)
 const sampleResponse: TariffResponse[] = [
   {
     tariffId: 'tariff-1',
-    effectiveDate: '2026-06-01T00:00:00Z',
+    contractStartDate: '2026-06-01T00:00:00Z',
     pricePerKwh: 0.2285,
     monthlyBaseFee: 12,
     providerName: 'E.ON',
-    contractStartDate: null,
     contractDurationMonths: null,
     isLocked: false,
   },

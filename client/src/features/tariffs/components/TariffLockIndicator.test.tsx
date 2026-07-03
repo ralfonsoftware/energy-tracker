@@ -33,4 +33,14 @@ describe('TariffLockIndicator', () => {
     expect(screen.getByText(/January 2026/)).toBeInTheDocument()
     expect(screen.queryByText(/February 2026/)).not.toBeInTheDocument()
   })
+
+  it('TariffLockIndicator_NoDuration_RendersLockedSinceLabelUsingContractStartDate', () => {
+    // Same local-date-parts computation as the duration-provided case — no getUTC*/toISOString.
+    vi.stubEnv('TZ', 'America/Sao_Paulo')
+
+    render(<TariffLockIndicator contractStartDate="2026-01-01T02:00:00Z" contractDurationMonths={null} />)
+
+    expect(screen.getByText(/form.lockedSinceLabel/)).toBeInTheDocument()
+    expect(screen.getByText(/December 2025/)).toBeInTheDocument()
+  })
 })

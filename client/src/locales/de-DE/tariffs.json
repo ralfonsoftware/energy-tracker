@@ -13,8 +13,7 @@
   "form": {
     "title": "Tarif hinzufügen",
     "editTitle": "Tarif bearbeiten",
-    "effectiveDate": "Gültig ab",
-    "effectiveDateReadonly": "Gültig ab {{date}}",
+    "contractStartDateReadonly": "Vertragsbeginn {{date}}",
     "pricePerKwh": "Preis pro kWh",
     "priceSuffix": "€/kWh",
     "monthlyBaseFee": "Monatliche Grundgebühr",
@@ -33,6 +32,7 @@
     "saveButton": "Speichern",
     "saving": "Speichern…",
     "lockedLabel": "Gesperrt — Vertrag aktiv bis {{date}}",
+    "lockedSinceLabel": "Gesperrt — Vertrag aktiv seit {{date}}",
     "editAnywayButton": "Trotzdem bearbeiten",
     "overrideDialogTitle": "Gesperrten Tarif überschreiben?",
     "overrideDialogDescription": "Das Überschreiben ändert den gesperrten Vertragspreis. Dies kann nicht rückgängig gemacht werden.",

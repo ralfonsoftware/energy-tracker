@@ -72,24 +72,23 @@ public class CreateTariffFunction(AppDbContext db, TariffValidator validator)
             });
         }
 
-        var effectiveDate = request.EffectiveDate!.Value;
+        var contractStartDate = request.ContractStartDate!.Value;
 
-        if (await db.Tariffs.AnyAsync(t => t.FlatId == flatGuid && t.EffectiveDate == effectiveDate, ct))
+        if (await db.Tariffs.AnyAsync(t => t.FlatId == flatGuid && t.ContractStartDate == contractStartDate, ct))
             return new ConflictObjectResult(new
             {
                 type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
-                detail = "A tariff with this effective date already exists for this flat."
+                detail = "A tariff with this contract start date already exists for this flat."
             });
 
         var tariff = new Tariff
         {
             FlatId = flatGuid,
-            EffectiveDate = effectiveDate,
+            ContractStartDate = contractStartDate,
             PricePerKwh = request.PricePerKwh,
             MonthlyBaseFee = request.MonthlyBaseFee,
             ProviderName = request.ProviderName,
-            ContractStartDate = request.ContractStartDate,
             ContractDurationMonths = request.ContractDurationMonths
         };
 
@@ -104,19 +103,18 @@ public class CreateTariffFunction(AppDbContext db, TariffValidator validator)
             {
                 type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
-                detail = "A tariff with this effective date already exists for this flat."
+                detail = "A tariff with this contract start date already exists for this flat."
             });
         }
 
         var response = new TariffResponse(
             tariff.TariffId,
-            tariff.EffectiveDate,
+            tariff.ContractStartDate,
             tariff.PricePerKwh,
             tariff.MonthlyBaseFee,
             tariff.ProviderName,
-            tariff.ContractStartDate,
             tariff.ContractDurationMonths,
-            TariffLockPolicy.IsLocked(tariff.ContractStartDate, tariff.ContractDurationMonths));
+            TariffLockPolicy.IsLocked(tariff.ContractStartDate));
 
         return new CreatedResult(
             $"/api/v1/flats/{flatId}/tariffs/{tariff.TariffId}",

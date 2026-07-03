@@ -37,18 +37,17 @@ public class GetTariffsFunction(AppDbContext db)
 
         var tariffs = await db.Tariffs.AsNoTracking()
             .Where(t => t.FlatId == flatGuid)
-            .OrderByDescending(t => t.EffectiveDate)
+            .OrderByDescending(t => t.ContractStartDate)
             .ToListAsync(ct);
 
         var responses = tariffs.Select(t => new TariffResponse(
             t.TariffId,
-            t.EffectiveDate,
+            t.ContractStartDate,
             t.PricePerKwh,
             t.MonthlyBaseFee,
             t.ProviderName,
-            t.ContractStartDate,
             t.ContractDurationMonths,
-            TariffLockPolicy.IsLocked(t.ContractStartDate, t.ContractDurationMonths)))
+            TariffLockPolicy.IsLocked(t.ContractStartDate)))
             .ToList();
 
         return new OkObjectResult(responses);

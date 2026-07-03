@@ -59,8 +59,8 @@ Opens the insights page at month end. Sees the rolling monthly projection agains
 - **Flat** — A single European-style dwelling unit (apartment or house) tracked in the app. One user may manage multiple Flats. All data (Readings, Tariffs, Smart Plug Data, Flat Structure) is scoped to a Flat.
 - **Main Meter** — The electricity meter for a Flat, read manually by the user.
 - **Meter Reading** — A single manually-entered kWh value from the Main Meter, timestamped to a specific date and time.
-- **Tariff** — A pricing configuration for a Flat: fixed monthly base fee + price per kWh, with an effective date. Multiple Tariff entries form a history; each covers its period until the next entry's effective date.
-- **Contract Period** — An optional duration (1, 6, 12, or 24 months) attached to a Tariff entry. While the Contract Period is active, that Tariff's prices are locked.
+- **Tariff** — A pricing configuration for a Flat: fixed monthly base fee + price per kWh, with a required contract start date. Multiple Tariff entries form a history; each covers its period until the next entry's contract start date.
+- **Contract Period** — An optional duration (1, 6, 12, or 24 months) attached to a Tariff entry, stored as a reminder to review the tariff around contract renewal — it has no effect on price locking (FR-11).
 - **Smart Plug** — A WiFi-connected outlet (single-outlet; for multi-outlet strips, see Smart Power Strip) that tracks per-plug energy consumption and exports data as a file (Eve Home: Excel; Meross: CSV).
 - **Smart Power Strip** — A WiFi-connected multi-outlet power strip that tracks total per-strip energy consumption and exports data as a file (Eve Home: Excel; Meross: CSV). Unlike a Smart Plug, a Smart Power Strip exports the combined consumption of all connected outlets; per-device attribution within a strip requires device-level estimates.
 - **Strip Outlet** — A single outlet on a Smart Power Strip, to which one Device is assigned. Strip Outlet consumption cannot be directly measured; it is estimated proportionally from the device's EU label or self-measured value relative to the strip's measured total.
@@ -168,27 +168,27 @@ The user can enter a Meter Reading for a past date. Retroactive Readings are cos
 
 ### 4.4 Tariff Management
 
-**Description:** The user maintains a Tariff history for each Flat. Each Tariff entry has an effective date, a fixed monthly base fee, and a price per kWh; provider name, contract start date, and contract duration are optional. When a Contract Period is specified and has started, that entry's prices are locked. Future Tariff changes — including provider switches — can be pre-entered with an effective date. Historical cost figures are always calculated at the Tariff active during the period in question.
+**Description:** The user maintains a Tariff history for each Flat. Each Tariff entry has a required contract start date, a fixed monthly base fee, and a price per kWh; provider name and contract duration are optional. The contract start date is the sole anchor for both cost-period resolution and price locking: once it has passed, that entry's prices are locked pending an explicit override. Future Tariff changes — including provider switches — can be pre-entered with a future contract start date. Historical cost figures are always calculated at the Tariff active during the period in question. Dynamic/variable-rate tariffs with no fixed price per kWh are explicitly out of scope.
 
 **Functional Requirements:**
 
 #### FR-10: Tariff configuration
-The user can create a Tariff entry for the active Flat specifying: effective date (required), fixed monthly base fee in the active Locale's currency (required), price per kWh (required), provider name (optional), contract start date (optional), and contract duration in months — 1, 6, 12, or 24 (optional).
+The user can create a Tariff entry for the active Flat specifying: contract start date (required) — the date this price takes effect, whether in the past, present, or future — fixed monthly base fee in the active Locale's currency (required), price per kWh (required), provider name (optional), and contract duration in months — 1, 6, 12, or 24 (optional, informational reminder only — see FR-11).
 
 **Consequences (testable):**
-- A Tariff entry is stored with all provided fields and its effective date.
+- A Tariff entry is stored with all provided fields and its contract start date.
 
 #### FR-11: Period-locked Tariff prices
-When a Tariff entry includes a contract start date and contract duration, the entry's prices cannot be modified once the Contract Period has started (i.e., the contract start date is in the past).
+Every Tariff entry's contract start date determines whether its price fields are locked. If the contract start date is on or before today, price fields (price per kWh, monthly base fee) require explicit override confirmation before they can be modified. If the contract start date is in the future, price fields remain freely editable — no consumption has been costed against them yet. Contract duration, if provided, does not affect this lock; it is stored only as a reminder to review the tariff around contract renewal.
 
 **Consequences (testable):**
-- An attempt to edit the price fields of a Tariff entry whose Contract Period has started is rejected.
+- An attempt to edit the price fields of a Tariff entry whose contract start date has passed, without an explicit override, is rejected.
 
 #### FR-12: Future Tariff pre-entry
-The user can create a Tariff entry with a future effective date. This does not alter any cost calculations for periods before that effective date.
+The user can create a Tariff entry with a future contract start date. This does not alter any cost calculations for periods before that date, and its price fields remain freely editable per FR-11 until the date arrives.
 
 **Consequences (testable):**
-- A Tariff entry with a future effective date has no effect on cost figures for any past period.
+- A Tariff entry with a future contract start date has no effect on cost figures for any past period.
 
 #### FR-13: Period-accurate historical costing
 All cost calculations — KPI Dashboard figures, Decomposition costs, budget projections — use the Tariff active on the date of the relevant consumption, not the current Tariff.

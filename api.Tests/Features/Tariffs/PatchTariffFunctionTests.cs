@@ -54,11 +54,10 @@ public class PatchTariffFunctionTests
         {
             TariffId = Guid.NewGuid(),
             FlatId = flatId,
-            EffectiveDate = DateTimeOffset.UtcNow,
+            ContractStartDate = contractStartDate ?? DateTimeOffset.UtcNow,
             PricePerKwh = pricePerKwh,
             MonthlyBaseFee = monthlyBaseFee,
             ProviderName = providerName,
-            ContractStartDate = contractStartDate,
             ContractDurationMonths = contractDurationMonths
         };
         db.Tariffs.Add(tariff);
@@ -70,7 +69,6 @@ public class PatchTariffFunctionTests
     {
         TariffId = Guid.NewGuid(),
         FlatId = flatId,
-        EffectiveDate = DateTimeOffset.UtcNow,
         PricePerKwh = 0.30m,
         MonthlyBaseFee = 10m,
         ContractStartDate = DateTimeOffset.UtcNow.AddMonths(-3),
@@ -126,7 +124,7 @@ public class PatchTariffFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_LockedTariff_MixedPatchNoOverride_Returns422ButPersistsNonPriceField()
+    public async Task RunAsync_LockedTariff_MixedPatchNoOverride_Returns422AndPersistsNothing()
     {
         var (flat, db) = await SeedFlatAsync();
         var tariff = LockedTariff(flat.FlatId);
@@ -142,7 +140,7 @@ public class PatchTariffFunctionTests
         objectResult.StatusCode.ShouldBe(422);
         var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
         persisted.PricePerKwh.ShouldBe(0.30m);
-        persisted.ProviderName.ShouldBe("NewCo");
+        persisted.ProviderName.ShouldBeNull();
     }
 
     [Fact]
@@ -165,47 +163,12 @@ public class PatchTariffFunctionTests
         persisted.PricePerKwh.ShouldBe(0.5m);
     }
 
-    [Theory]
-    [MemberData(nameof(PriceAndContractTermCombinations))]
-    public async Task RunAsync_PriceFieldAndContractTermFieldInSameRequest_Returns400(
-        decimal? pricePerKwh, decimal? monthlyBaseFee,
-        DateTimeOffset? contractStartDate, int? contractDurationMonths)
-    {
-        var (flat, db) = await SeedFlatAsync();
-        var tariff = await SeedTariffAsync(db, flat.FlatId);
-        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
-        var req = MakeRequest(new
-        {
-            pricePerKwh,
-            monthlyBaseFee,
-            contractStartDate = contractStartDate ?? DateTimeOffset.UtcNow.AddMonths(1),
-            contractDurationMonths
-        });
-        var ctx = MakeFunctionContext();
-
-        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
-        persisted.PricePerKwh.ShouldBe(0.30m);
-        persisted.ContractStartDate.ShouldBeNull();
-    }
-
-    public static IEnumerable<object?[]> PriceAndContractTermCombinations()
-    {
-        yield return [0.5m, null, null, null];
-        yield return [null, 15.0m, null, null];
-        yield return [0.5m, null, null, 12];
-    }
-
-    [Theory]
-    [MemberData(nameof(NonLockedTariffCases))]
-    public async Task RunAsync_NonLockedTariff_PricePatchNoOverride_Returns200(
-        DateTimeOffset? contractStartDate, int? contractDurationMonths)
+    [Fact]
+    public async Task RunAsync_NonLockedTariff_PricePatchNoOverride_Returns200()
     {
         var (flat, db) = await SeedFlatAsync();
         var tariff = await SeedTariffAsync(db, flat.FlatId,
-            contractStartDate: contractStartDate, contractDurationMonths: contractDurationMonths);
+            contractStartDate: DateTimeOffset.UtcNow.AddMonths(1), contractDurationMonths: 12);
         var fn = new PatchTariffFunction(db, new PatchTariffValidator());
         var req = MakeRequest(new { pricePerKwh = 0.5m });
         var ctx = MakeFunctionContext();
@@ -217,11 +180,24 @@ public class PatchTariffFunctionTests
         response.PricePerKwh.ShouldBe(0.5m);
     }
 
-    public static IEnumerable<object?[]> NonLockedTariffCases()
+    [Fact]
+    public async Task RunAsync_PastContractStartNoDuration_PricePatchNoOverride_Returns422()
     {
-        yield return [null, null];
-        yield return [DateTimeOffset.UtcNow.AddMonths(1), 12];
-        yield return [DateTimeOffset.UtcNow.AddMonths(-1), null];
+        // Regression case for this story: a past ContractStartDate with no ContractDurationMonths
+        // is now locked (TariffLockPolicy.IsLocked no longer depends on ContractDurationMonths).
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId,
+            contractStartDate: DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: null);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.5m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        var objectResult = result.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(422);
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.PricePerKwh.ShouldBe(0.30m);
     }
 
     [Fact]
@@ -339,20 +315,18 @@ public class PatchTariffFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_ExplicitNullContractStartDateAndDuration_ClearsContractTerms()
+    public async Task RunAsync_ExplicitNullContractDurationMonths_ClearsContractDurationMonths()
     {
         var (flat, db) = await SeedFlatAsync();
-        var tariff = await SeedTariffAsync(db, flat.FlatId,
-            contractStartDate: DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: 12);
+        var tariff = await SeedTariffAsync(db, flat.FlatId, contractDurationMonths: 12);
         var fn = new PatchTariffFunction(db, new PatchTariffValidator());
-        var req = MakeRequest(new { contractStartDate = (DateTimeOffset?)null, contractDurationMonths = (int?)null });
+        var req = MakeRequest(new { contractDurationMonths = (int?)null });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
 
         result.ShouldBeOfType<OkObjectResult>();
         var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
-        persisted.ContractStartDate.ShouldBeNull();
         persisted.ContractDurationMonths.ShouldBeNull();
     }
 
@@ -360,7 +334,8 @@ public class PatchTariffFunctionTests
     public async Task RunAsync_ProviderNameNotInBody_LeavesExistingProviderNameUnchanged()
     {
         var (flat, db) = await SeedFlatAsync();
-        var tariff = await SeedTariffAsync(db, flat.FlatId, providerName: "OldCo");
+        var tariff = await SeedTariffAsync(db, flat.FlatId, providerName: "OldCo",
+            contractStartDate: DateTimeOffset.UtcNow.AddMonths(1));
         var fn = new PatchTariffFunction(db, new PatchTariffValidator());
         var req = MakeRequest(new { pricePerKwh = 0.5m });
         var ctx = MakeFunctionContext();

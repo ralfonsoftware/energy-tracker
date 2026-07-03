@@ -62,8 +62,7 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [overrideConfirmed, setOverrideConfirmed] = useState(false)
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
-  const [isEditSequenceSubmitting, setIsEditSequenceSubmitting] = useState(false)
-  const isPending = isEditMode ? isPatchPending || isEditSequenceSubmitting : isCreatePending
+  const isPending = isEditMode ? isPatchPending : isCreatePending
   const tryAcquire = useSubmitGuard(isPending)
 
   useEffect(() => {
@@ -82,24 +81,22 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
     mode: 'onBlur',
     defaultValues: tariff
       ? {
-          effectiveDate: toLocalDateInputValue(tariff.effectiveDate),
+          contractStartDate: toLocalDateInputValue(tariff.contractStartDate),
           pricePerKwh: formatNumberForInput(tariff.pricePerKwh, i18n.language),
           monthlyBaseFee: formatNumberForInput(tariff.monthlyBaseFee, i18n.language),
           providerName: tariff.providerName ?? '',
-          contractStartDate: tariff.contractStartDate ? toLocalDateInputValue(tariff.contractStartDate) : '',
           contractDurationMonths: tariff.contractDurationMonths ?? null,
         }
       : {
-          effectiveDate: todayIsoDate(),
+          contractStartDate: todayIsoDate(),
           pricePerKwh: '',
           monthlyBaseFee: '',
           providerName: '',
-          contractStartDate: '',
           contractDurationMonths: null,
         },
   })
 
-  const effectiveDateRaw = watch('effectiveDate') ?? ''
+  const contractStartDateRaw = watch('contractStartDate') ?? ''
   const priceRaw = watch('pricePerKwh') ?? ''
   const feeRaw = watch('monthlyBaseFee') ?? ''
   const selectedDuration = watch('contractDurationMonths')
@@ -107,12 +104,11 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
   const isLockedAndNotOverridden = isEditMode && tariff.isLocked && !overrideConfirmed
 
   const priceFieldsDirty = !!dirtyFields.pricePerKwh || !!dirtyFields.monthlyBaseFee
-  const contractFieldsDirty =
-    !!dirtyFields.providerName || !!dirtyFields.contractStartDate || !!dirtyFields.contractDurationMonths
+  const contractFieldsDirty = !!dirtyFields.providerName || !!dirtyFields.contractDurationMonths
   const isAnyFieldDirty = priceFieldsDirty || contractFieldsDirty
 
   const isCreateSaveEnabled =
-    effectiveDateRaw.trim() !== '' &&
+    contractStartDateRaw.trim() !== '' &&
     isValidPrice(priceRaw, i18n.language) &&
     isValidFee(feeRaw, i18n.language) &&
     !isPending
@@ -141,11 +137,10 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
     setSubmitError(null)
     createMutate(
       {
-        effectiveDate: `${data.effectiveDate}T00:00:00Z`,
+        contractStartDate: `${data.contractStartDate}T00:00:00Z`,
         pricePerKwh: priceParsed,
         monthlyBaseFee: feeParsed,
         providerName: data.providerName || undefined,
-        contractStartDate: data.contractStartDate ? `${data.contractStartDate}T00:00:00Z` : undefined,
         contractDurationMonths: data.contractDurationMonths ?? undefined,
       },
       {
@@ -157,52 +152,31 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
 
   const onSubmitEdit = async (data: TariffFormValues) => {
     if (!tariff) return
-
     const priceParsed = parseLocaleNumber(data.pricePerKwh, i18n.language)
     const feeParsed = parseLocaleNumber(data.monthlyBaseFee, i18n.language)
 
     if (priceFieldsDirty) {
-      if (!isValidPrice(data.pricePerKwh, i18n.language)) {
-        setError('pricePerKwh', { message: t('form.invalidNumber') })
-        return
-      }
-      if (!isValidFee(data.monthlyBaseFee, i18n.language)) {
-        setError('monthlyBaseFee', { message: t('form.invalidNumber') })
-        return
-      }
+      if (!isValidPrice(data.pricePerKwh, i18n.language)) { setError('pricePerKwh', { message: t('form.invalidNumber') }); return }
+      if (!isValidFee(data.monthlyBaseFee, i18n.language)) { setError('monthlyBaseFee', { message: t('form.invalidNumber') }); return }
     }
-
-    if (!priceFieldsDirty && !contractFieldsDirty) return
+    if (!isAnyFieldDirty) return
     if (!tryAcquire()) return
 
     setSubmitError(null)
-    setIsEditSequenceSubmitting(true)
     try {
-      if (priceFieldsDirty) {
-        await patchMutateAsync({
-          tariffId: tariff.tariffId,
-          body: {
-            pricePerKwh: priceParsed,
-            monthlyBaseFee: feeParsed,
-            lockOverride: overrideConfirmed || undefined,
-          },
-        })
-      }
-      if (contractFieldsDirty) {
-        await patchMutateAsync({
-          tariffId: tariff.tariffId,
-          body: {
-            providerName: data.providerName ? data.providerName : null,
-            contractStartDate: data.contractStartDate ? `${data.contractStartDate}T00:00:00Z` : null,
-            contractDurationMonths: data.contractDurationMonths ?? null,
-          },
-        })
-      }
+      await patchMutateAsync({
+        tariffId: tariff.tariffId,
+        body: {
+          pricePerKwh: priceFieldsDirty ? priceParsed : undefined,
+          monthlyBaseFee: priceFieldsDirty ? feeParsed : undefined,
+          providerName: dirtyFields.providerName ? (data.providerName || null) : undefined,
+          contractDurationMonths: dirtyFields.contractDurationMonths ? (data.contractDurationMonths ?? null) : undefined,
+          lockOverride: overrideConfirmed || undefined,
+        },
+      })
       onClose()
     } catch {
       setSubmitError(t('form.errorMessage'))
-    } finally {
-      setIsEditSequenceSubmitting(false)
     }
   }
 
@@ -227,24 +201,24 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
       <div aria-hidden="true" className="mx-auto mb-1 h-1 w-9 rounded-full bg-white/25" />
       <h2 className="text-lg font-semibold text-white">{t(isEditMode ? 'form.editTitle' : 'form.title')}</h2>
 
-      {/* Effective date */}
+      {/* Contract start date */}
       <div className="flex flex-col gap-1.5">
-        <label className={sectionLabelClass}>{t('form.effectiveDate')}</label>
+        <label className={sectionLabelClass}>{t('form.contractStartDate')}</label>
         {isEditMode ? (
-          <p className="text-sm text-white/70">{t('form.effectiveDateReadonly', { date: formatDate(tariff.effectiveDate) })}</p>
+          <p className="text-sm text-white/70">{t('form.contractStartDateReadonly', { date: formatDate(tariff.contractStartDate) })}</p>
         ) : (
           <>
             <input
               type="date"
               style={{
-                borderColor: errors.effectiveDate ? 'var(--color-accent-error)' : 'rgba(255,255,255,0.15)',
+                borderColor: errors.contractStartDate ? 'var(--color-accent-error)' : 'rgba(255,255,255,0.15)',
                 colorScheme: 'dark',
               }}
               className={inputClass}
-              {...register('effectiveDate')}
+              {...register('contractStartDate')}
             />
-            {touchedFields.effectiveDate && errors.effectiveDate && (
-              <span className="text-xs text-accent-error">{errors.effectiveDate.message}</span>
+            {touchedFields.contractStartDate && errors.contractStartDate && (
+              <span className="text-xs text-accent-error">{errors.contractStartDate.message}</span>
             )}
           </>
         )}
@@ -294,7 +268,7 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
         )}
       </div>
 
-      {isLockedAndNotOverridden && tariff?.contractStartDate && tariff.contractDurationMonths && (
+      {isLockedAndNotOverridden && tariff?.contractStartDate && (
         <div className="-mt-2">
           <button
             type="button"
@@ -326,22 +300,6 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
           style={{ borderColor: 'rgba(255,255,255,0.15)' }}
           className={inputClass}
           {...register('providerName')}
-        />
-      </div>
-
-      {/* Contract start date — optional */}
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <label className={sectionLabelClass}>{t('form.contractStartDate')}</label>
-          <span className={optionalTagClass} style={optionalTagStyle}>
-            {t('form.optional')}
-          </span>
-        </div>
-        <input
-          type="date"
-          style={{ borderColor: 'rgba(255,255,255,0.15)', colorScheme: 'dark' }}
-          className={inputClass}
-          {...register('contractStartDate')}
         />
       </div>
 

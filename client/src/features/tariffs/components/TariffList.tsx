@@ -47,7 +47,7 @@ const todayLocalDateString = () => {
   return `${y}-${m}-${day}`
 }
 
-const isUpcoming = (effectiveDate: string) => toUtcDateString(effectiveDate) > todayLocalDateString()
+const isUpcoming = (contractStartDate: string) => toUtcDateString(contractStartDate) > todayLocalDateString()
 
 const sectionLabelClass = 'text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45'
 
@@ -67,7 +67,7 @@ export function TariffList({
   const [formPending, setFormPending] = useState(false)
   const handleFormPendingChange = useCallback((pending: boolean) => setFormPending(pending), [])
 
-  const activeTariff = (data ?? []).find(tariff => !isUpcoming(tariff.effectiveDate))
+  const activeTariff = (data ?? []).find(tariff => !isUpcoming(tariff.contractStartDate))
 
   const closeSheet = () => {
     setAddOpen(false)
@@ -174,7 +174,7 @@ export function TariffList({
 
 function TariffRow({ tariff, onEdit }: { tariff: TariffResponse; onEdit: () => void }) {
   const { t } = useTranslation('tariffs')
-  const upcoming = isUpcoming(tariff.effectiveDate)
+  const upcoming = isUpcoming(tariff.contractStartDate)
 
   return (
     <li
@@ -185,8 +185,8 @@ function TariffRow({ tariff, onEdit }: { tariff: TariffResponse; onEdit: () => v
         <div className="flex items-center justify-between">
           <span className="text-sm text-white">
             {upcoming
-              ? t('list.upcomingLabel', { date: formatDate(tariff.effectiveDate) })
-              : formatDate(tariff.effectiveDate)}
+              ? t('list.upcomingLabel', { date: formatDate(tariff.contractStartDate) })
+              : formatDate(tariff.contractStartDate)}
           </span>
           <span className="text-sm text-white">
             {formatPricePerKwh(tariff.pricePerKwh)}

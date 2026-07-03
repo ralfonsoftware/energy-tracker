@@ -20,22 +20,20 @@ type MutateOptions = { onSuccess?: () => void; onError?: () => void }
 
 const lockedTariff: TariffResponse = {
   tariffId: 'tariff-locked',
-  effectiveDate: '2025-01-01T00:00:00Z',
+  contractStartDate: '2025-01-01T00:00:00Z',
   pricePerKwh: 0.28,
   monthlyBaseFee: 10,
   providerName: 'E.ON',
-  contractStartDate: '2025-01-01T00:00:00Z',
   contractDurationMonths: 12,
   isLocked: true,
 }
 
 const unlockedTariff: TariffResponse = {
   tariffId: 'tariff-unlocked',
-  effectiveDate: '2025-01-01T00:00:00Z',
+  contractStartDate: '2099-01-01T00:00:00Z',
   pricePerKwh: 0.28,
   monthlyBaseFee: 10,
   providerName: 'E.ON',
-  contractStartDate: null,
   contractDurationMonths: null,
   isLocked: false,
 }
@@ -56,7 +54,7 @@ function setup(options?: { isPending?: boolean }) {
 
   const priceInput = document.querySelector('input[name="pricePerKwh"]') as HTMLInputElement
   const feeInput = document.querySelector('input[name="monthlyBaseFee"]') as HTMLInputElement
-  const dateInput = document.querySelector('input[name="effectiveDate"]') as HTMLInputElement
+  const dateInput = document.querySelector('input[name="contractStartDate"]') as HTMLInputElement
   const saveButton = screen.getByRole('button', { name: 'form.saveButton' })
 
   return { mutate, onClose, priceInput, feeInput, dateInput, saveButton }
@@ -89,7 +87,7 @@ describe('TariffForm', () => {
     mockUseCreateTariff.mockReset()
   })
 
-  it('TariffForm_EffectiveDatePrefilledWithToday', () => {
+  it('TariffForm_ContractStartDatePrefilledWithToday', () => {
     const { dateInput } = setup()
     const now = new Date()
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
@@ -288,12 +286,12 @@ describe('TariffForm edit mode', () => {
 
     await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1))
     const [call] = mutateAsync.mock.calls[0] as [{ body: Record<string, unknown> }]
-    expect(call.body).not.toHaveProperty('pricePerKwh')
-    expect(call.body).not.toHaveProperty('monthlyBaseFee')
+    expect(call.body.pricePerKwh).toBeUndefined()
+    expect(call.body.monthlyBaseFee).toBeUndefined()
     expect(call.body.providerName).toBe('Vattenfall')
   })
 
-  it('TariffForm_PriceAndContractTermBothDirty_SendsTwoSequentialCallsEachOwnCategory', async () => {
+  it('TariffForm_PriceAndContractTermBothDirty_SendsSingleCallWithBothCategories', async () => {
     const user = userEvent.setup()
     const { priceInput, providerInput, saveButton, mutateAsync } = setupEdit(unlockedTariff)
 
@@ -303,13 +301,10 @@ describe('TariffForm edit mode', () => {
     await user.type(providerInput, 'Vattenfall')
     await user.click(saveButton)
 
-    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2))
-    const [firstCall, secondCall] = mutateAsync.mock.calls as [{ body: Record<string, unknown> }][]
-    expect(firstCall[0].body).toHaveProperty('pricePerKwh')
-    expect(firstCall[0].body).not.toHaveProperty('providerName')
-    expect(secondCall[0].body).toHaveProperty('providerName')
-    expect(secondCall[0].body).not.toHaveProperty('pricePerKwh')
-    expect(secondCall[0].body).not.toHaveProperty('monthlyBaseFee')
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1))
+    const [call] = mutateAsync.mock.calls[0] as [{ body: Record<string, unknown> }]
+    expect(call.body).toHaveProperty('pricePerKwh', 0.35)
+    expect(call.body).toHaveProperty('providerName', 'Vattenfall')
   })
 
   it('TariffForm_ClearingProviderName_SendsExplicitNullNotUndefined', async () => {

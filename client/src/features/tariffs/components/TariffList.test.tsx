@@ -34,22 +34,20 @@ const mockUsePatchTariff = vi.mocked(usePatchTariff)
 
 const pastTariff: TariffResponse = {
   tariffId: 'tariff-past',
-  effectiveDate: '2020-01-01T00:00:00Z',
+  contractStartDate: '2020-01-01T00:00:00Z',
   pricePerKwh: 0.2285,
   monthlyBaseFee: 12,
   providerName: 'E.ON',
-  contractStartDate: null,
   contractDurationMonths: null,
   isLocked: false,
 }
 
 const futureTariff: TariffResponse = {
   tariffId: 'tariff-future',
-  effectiveDate: '2099-01-01T00:00:00Z',
+  contractStartDate: '2099-01-01T00:00:00Z',
   pricePerKwh: 0.31,
   monthlyBaseFee: 15,
   providerName: null,
-  contractStartDate: null,
   contractDurationMonths: null,
   isLocked: false,
 }

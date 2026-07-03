@@ -11,11 +11,10 @@ const mockPatchTariff = vi.mocked(patchTariff)
 
 const sampleResponse: TariffResponse = {
   tariffId: 'tariff-1',
-  effectiveDate: '2026-07-02T00:00:00Z',
+  contractStartDate: '2026-07-02T00:00:00Z',
   pricePerKwh: 0.28,
   monthlyBaseFee: 10,
   providerName: null,
-  contractStartDate: null,
   contractDurationMonths: null,
   isLocked: false,
 }

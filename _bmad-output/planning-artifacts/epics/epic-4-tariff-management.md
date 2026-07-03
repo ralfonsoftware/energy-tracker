@@ -4,6 +4,8 @@ A user can maintain a full tariff history with effective dates, optional contrac
 
 ## Story 4.1: Tariff CRUD Backend — List, Create & Contract Lock Enforcement
 
+> **Amended 2026-07-03** (`sprint-change-proposal-2026-07-03.md`): the original AC below used `EffectiveDate` as the required temporal field, separate from optional `ContractStartDate`/`ContractDurationMonths`-gated locking. Live testing during the Epic 4 retrospective showed this split doesn't match how users enter real contracts. `ContractStartDate` is now the sole required temporal anchor for both cost-period resolution and price locking; `EffectiveDate` is retired; `ContractDurationMonths` becomes informational only. The AC below reflects the corrected model — implementation lives in **Story 4.4**, not a rewrite of this already-`done` story.
+
 As a user,
 I want to add new tariff entries, list my tariff history, and have the app prevent me from editing price fields on active contracts,
 So that my tariff history is accurate and locked rates cannot be accidentally changed.
@@ -12,27 +14,27 @@ So that my tariff history is accurate and locked rates cannot be accidentally ch
 
 **Given** `GET /api/v1/flats/{flatId}/tariffs`,
 **When** called,
-**Then** `GetTariffsFunction` returns all Tariff entries in descending effective-date order as `TariffResponse` records (`TariffId`, `EffectiveDate` datetimeoffset, `PricePerKwh` decimal, `MonthlyBaseFee` decimal, `ProviderName` nullable string, `ContractStartDate` nullable datetimeoffset, `ContractDurationMonths` nullable int, `IsLocked` bool derived from: ContractStartDate is not null AND in the past AND ContractDurationMonths is not null); HTTP 200; ≤ 2s response time.
+**Then** `GetTariffsFunction` returns all Tariff entries in descending contract-start-date order as `TariffResponse` records (`TariffId`, `ContractStartDate` datetimeoffset (required), `PricePerKwh` decimal, `MonthlyBaseFee` decimal, `ProviderName` nullable string, `ContractDurationMonths` nullable int (informational only), `IsLocked` bool derived from: `ContractStartDate` is on or before today); HTTP 200; ≤ 2s response time.
 
 **Given** `POST /api/v1/flats/{flatId}/tariffs` with a valid request body,
 **When** `CreateTariffFunction.RunAsync` executes,
-**Then** a new `Tariff` record is created with all fields stored locale-neutrally (`EffectiveDate` as datetimeoffset, `PricePerKwh` and `MonthlyBaseFee` as `decimal`); HTTP 201 with `Location` header; ≤ 2s response time.
-**And** a future `EffectiveDate` is accepted without affecting any past cost calculations (FR-12).
+**Then** a new `Tariff` record is created with all fields stored locale-neutrally (`ContractStartDate` as datetimeoffset, `PricePerKwh` and `MonthlyBaseFee` as `decimal`); HTTP 201 with `Location` header; ≤ 2s response time.
+**And** a future `ContractStartDate` is accepted without affecting any past cost calculations, and its price fields remain freely editable until that date arrives (FR-12).
 
-**Given** `POST /api/v1/flats/{flatId}/tariffs` with an `EffectiveDate` that already has a Tariff entry for this Flat,
+**Given** `POST /api/v1/flats/{flatId}/tariffs` with a `ContractStartDate` that already has a Tariff entry for this Flat,
 **When** `CreateTariffFunction.RunAsync` executes,
 **Then** HTTP 409 Problem Details (`type: "https://tools.ietf.org/html/rfc9110#section-15.5.10"`, `title: "Conflict"`) is returned; no record is created.
-**And** this relies on the `IX_Tariffs_FlatId_EffectiveDate` unique index (added via migration `MakeTariffEffectiveDateUnique` ahead of this epic) — the function checks for an existing entry before insert so the collision never surfaces as an unhandled DB-constraint 500.
+**And** this relies on the `IX_Tariffs_FlatId_ContractStartDate` unique index (moved from `EffectiveDate` by Story 4.4's migration) — the function checks for an existing entry before insert so the collision never surfaces as an unhandled DB-constraint 500.
 
 **Given** `TariffValidator` (FluentValidation),
-**When** `PricePerKwh ≤ 0` or `≥ 10`, `MonthlyBaseFee < 0` or `≥ 1000`, or `EffectiveDate` is missing,
+**When** `PricePerKwh ≤ 0` or `≥ 10`, `MonthlyBaseFee < 0` or `≥ 1000`, or `ContractStartDate` is missing,
 **Then** HTTP 400 Problem Details is returned; no record is created.
 **And** the upper bounds match the project-wide numeric-bound convention established in `OnboardingValidator` and `PatchFlatValidator` during the Epic 3 retrospective (2026-07-02).
 
 **Given** `PATCH /api/v1/flats/{flatId}/tariffs/{tariffId}` attempting to update `PricePerKwh` or `MonthlyBaseFee`,
-**When** the Tariff entry has `ContractStartDate` in the past AND `ContractDurationMonths` is not null, AND the request's optional `LockOverride` boolean is not `true` (missing or `false`),
+**When** the Tariff entry's `ContractStartDate` is on or before today, AND the request's optional `LockOverride` boolean is not `true` (missing or `false`),
 **Then** HTTP 422 Problem Details with `type: "tariff-locked"` is returned; the price fields are not modified.
-**And** non-price fields (`ProviderName`, `ContractStartDate`, `ContractDurationMonths`) are updated successfully regardless of lock status.
+**And** non-price fields (`ProviderName`, `ContractDurationMonths`) are updated successfully regardless of lock status, and — since `ContractStartDate` is now immutable via PATCH (it is the natural key) — may be combined with a price-field change in the **same** request; the mutual-exclusion rule from this story's original code review no longer applies.
 
 **Given** the same locked-tariff `PATCH` request but with `LockOverride: true` in the request body,
 **When** `PatchTariffFunction` processes it,
@@ -40,7 +42,7 @@ So that my tariff history is accurate and locked rates cannot be accidentally ch
 
 **Given** the `Tariffs` EF Core entity and `TariffConfiguration`,
 **When** reviewed,
-**Then** all column mappings use Fluent API; `PricePerKwh` and `MonthlyBaseFee` are `decimal`; `EffectiveDate` and `ContractStartDate` are `datetimeoffset`; index `IX_Tariffs_FlatId_EffectiveDate` exists; zero Data Annotation attributes on the entity class.
+**Then** all column mappings use Fluent API; `PricePerKwh` and `MonthlyBaseFee` are `decimal`; `ContractStartDate` is `datetimeoffset` and required; index `IX_Tariffs_FlatId_ContractStartDate` exists (unique); zero Data Annotation attributes on the entity class.
 
 ---
 
@@ -80,15 +82,17 @@ So that I can track my full contract history and pre-enter upcoming rate changes
 
 ## Story 4.3: Tariff Lock Indicator & Planned Annual Spend Settings
 
+> **Amended 2026-07-03** (`sprint-change-proposal-2026-07-03.md`): AC1's lock condition no longer requires `ContractDurationMonths` — see the amendment note on Story 4.1. Implementation lives in Story 4.4.
+
 As a user,
 I want price fields on active contracts to be visibly locked and uneditable, and I want to update my planned annual spend near the tariff configuration,
 So that locked rates cannot be accidentally modified and my budget target is easy to find.
 
 **Acceptance Criteria:**
 
-**Given** a tariff entry with an active contract period,
+**Given** a tariff entry whose `ContractStartDate` is on or before today,
 **When** its edit form opens,
-**Then** `PricePerKwh` and `MonthlyBaseFee` render as read-only and visually greyed out, each with an inline lock icon (`accent-tariff-locked` #d97706) and the label "Locked — contract active until {month year}"; non-price fields remain fully editable; the lock state is immediately visible on form open — no dialog or tap-to-reveal.
+**Then** `PricePerKwh` and `MonthlyBaseFee` render as read-only and visually greyed out, each with an inline lock icon (`accent-tariff-locked` #d97706) and the label "Locked — contract active since {month year}" when `ContractDurationMonths` is absent, or "Locked — contract active until {month year}" (contract start + duration) when it is provided; non-price fields remain fully editable; the lock state is immediately visible on form open — no dialog or tap-to-reveal.
 
 **Given** the locked price fields,
 **When** the user taps the lock icon or an adjacent "Edit anyway" affordance,
@@ -113,5 +117,61 @@ So that locked rates cannot be accidentally modified and my budget target is eas
 **Given** all monetary values in the tariff forms,
 **When** displayed,
 **Then** they are formatted via `Intl.NumberFormat` for the active locale; stored values in the database remain locale-neutral fixed-decimal.
+
+---
+
+## Story 4.4: Tariff Contract-Date Consolidation
+
+> **Added 2026-07-03** (`sprint-change-proposal-2026-07-03.md`), from the Epic 4 retrospective's Action Item #1. Live testing found that the `EffectiveDate`/`ContractStartDate` split doesn't match how users enter real contracts — a backdated real tariff showed "0 days covered" because `EffectiveDate` (not `ContractStartDate`) drove cost-period resolution and defaulted to "today" with no way to correct it after creation. This story consolidates the two fields into one, fixing the class of bug directly (`deferred-work.md` item W4, flagged before Epic 4 started and never resolved) and simplifying `PatchTariffFunction` as a side effect.
+
+As a user,
+I want my tariff's contract start date to be the one field that determines both its cost period and its price lock, without a separate hidden "effective date" I can silently get wrong,
+so that entering a pre-existing real contract — including one I'm backdating — produces correct cost coverage from day one, with no unrecoverable mistake possible.
+
+**Acceptance Criteria:**
+
+**Given** the `Tariffs` table and its existing rows,
+**When** the migration for this story runs,
+**Then** `ContractStartDate` becomes non-nullable; for any existing row where `ContractStartDate` was null, it is backfilled from that row's `EffectiveDate` before the column is dropped; the unique index moves from `IX_Tariffs_FlatId_EffectiveDate` to `IX_Tariffs_FlatId_ContractStartDate`; `EffectiveDate` is removed from the entity and schema entirely.
+
+**Given** `TariffResolver.ResolveAsync(flatId, date, ct)` and `KpiCalculator.ResolveTariff` (the second, independently-implemented resolver flagged for logic duplication in the Epic 3 retrospective),
+**When** either resolves the tariff active on a given date,
+**Then** both select the Tariff with the latest `ContractStartDate` at or before that date; their public signatures are unchanged, so no caller in Epics 6/7 requires modification.
+
+**Given** `TariffLockPolicy.IsLocked`,
+**When** evaluated,
+**Then** it returns `ContractStartDate <= DateTimeOffset.UtcNow` — `ContractDurationMonths` is no longer a factor.
+
+**Given** `CreateTariffFunction` and `TariffValidator`,
+**When** a request is submitted,
+**Then** `ContractStartDate` is required (`NotNull`); the duplicate-date 409 check and unique-index backstop operate on `ContractStartDate`; price/fee bounds are unchanged.
+
+**Given** `PatchTariffFunction` and `PatchTariffRequest`,
+**When** implemented,
+**Then** `ContractStartDate` is removed from the patchable fields entirely (immutable, same treatment `EffectiveDate` previously had); the mutual-exclusion 400 rule added in Story 4.1's review is removed, since the field it protected can no longer be mutated; a single request may combine price fields with `ProviderName`/`ContractDurationMonths` freely, gated only by the existing lock/`LockOverride` rule on the price fields.
+
+**Given** `CompleteOnboardingFunction` (Onboarding, unaffected in user-facing behavior per FR-6),
+**When** the user leaves contract start date blank during Onboarding,
+**Then** it continues to default the (renamed) field to `DateTimeOffset.UtcNow`, identical to its current default-to-insertion-time behavior — only the target field name changes.
+
+**Given** `TariffForm.tsx` in edit mode,
+**When** rendered,
+**Then** `contractStartDate` renders as a read-only label (reusing the pattern already built for the retired `effectiveDate` field); the two-sequential-PATCH-call branching introduced in Story 4.3 (the direct cause of that story's round-2 submit-guard-gap finding) is removed — edit-mode submission is a single `patchTariff` call.
+
+**Given** `TariffForm.tsx` in create mode and `TariffList.tsx`,
+**When** rendered,
+**Then** the field labelled "Gültig ab"/"Effective date" is relabelled to reflect `ContractStartDate` as the single required date field (pre-filled today, editable); `TariffList`'s "upcoming" label and ordering logic key off `ContractStartDate` instead of the retired `EffectiveDate`.
+
+**Given** the one real affected tariff record (Ralf's, `ContractStartDate` = 2024-10-01, previously non-authoritative),
+**When** the migration and backfill complete,
+**Then** the KPI Dashboard's tariff-coverage figures for that Flat show correct coverage for the historical reading period, verified manually post-deploy.
+
+**Given** `deferred-work.md`,
+**When** this story completes,
+**Then** item **W4** and the Story 4.1 cross-field-validation-gap note are marked resolved.
+
+**Given** the existing test suites (`GetTariffsFunctionTests`, `CreateTariffFunctionTests`, `PatchTariffFunctionTests`, `TariffResolverTests`, any `KpiCalculator` tests exercising tariff resolution, `TariffForm.test.tsx`, `TariffList.test.tsx`, `TariffLockIndicator.test.tsx`),
+**When** updated for this story,
+**Then** all references to `EffectiveDate` are replaced with `ContractStartDate`; tests for the removed PATCH mutual-exclusion rule are removed; a new test covers the migration backfill rule (`ContractStartDate = ContractStartDate ?? EffectiveDate` for pre-existing rows); full backend and frontend suites remain green.
 
 ---

@@ -1,11 +1,10 @@
 namespace EnergyTracker.Api.Features.Tariffs;
 
 public record CreateTariffRequest(
-    DateTimeOffset? EffectiveDate,
+    DateTimeOffset? ContractStartDate,
     decimal PricePerKwh,
     decimal MonthlyBaseFee,
     string? ProviderName,
-    DateTimeOffset? ContractStartDate,
     int? ContractDurationMonths);
 
 public record PatchTariffRequest(
@@ -13,24 +12,21 @@ public record PatchTariffRequest(
     decimal? MonthlyBaseFee,
     bool ProviderNameProvided,
     string? ProviderName,
-    bool ContractStartDateProvided,
-    DateTimeOffset? ContractStartDate,
     bool ContractDurationMonthsProvided,
     int? ContractDurationMonths,
     bool LockOverride);
 
 public record TariffResponse(
     Guid TariffId,
-    DateTimeOffset EffectiveDate,
+    DateTimeOffset ContractStartDate,
     decimal PricePerKwh,
     decimal MonthlyBaseFee,
     string? ProviderName,
-    DateTimeOffset? ContractStartDate,
     int? ContractDurationMonths,
     bool IsLocked);
 
 public static class TariffLockPolicy
 {
-    public static bool IsLocked(DateTimeOffset? contractStartDate, int? contractDurationMonths) =>
-        contractStartDate.HasValue && contractStartDate.Value < DateTimeOffset.UtcNow && contractDurationMonths.HasValue;
+    public static bool IsLocked(DateTimeOffset contractStartDate) =>
+        contractStartDate <= DateTimeOffset.UtcNow;
 }

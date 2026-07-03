@@ -54,11 +54,10 @@ public class CompleteOnboardingFunction(AppDbContext db, OnboardingValidator val
         var tariff = new Tariff
         {
             FlatId = flat.FlatId,
-            EffectiveDate = DateTimeOffset.UtcNow,
+            ContractStartDate = body.ContractStartDate ?? DateTimeOffset.UtcNow,
             PricePerKwh = body.PricePerKwh,
             MonthlyBaseFee = body.MonthlyBaseFee,
             ProviderName = body.ProviderName,
-            ContractStartDate = body.ContractStartDate,
             ContractDurationMonths = body.ContractDurationMonths,
         };
         db.Tariffs.Add(tariff);

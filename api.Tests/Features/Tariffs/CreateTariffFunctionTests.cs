@@ -45,14 +45,14 @@ public class CreateTariffFunctionTests
     }
 
     private static async Task<Tariff> SeedTariffAsync(
-        AppDbContext db, Guid flatId, DateTimeOffset effectiveDate,
+        AppDbContext db, Guid flatId, DateTimeOffset contractStartDate,
         decimal pricePerKwh = 0.30m, decimal monthlyBaseFee = 10m)
     {
         var tariff = new Tariff
         {
             TariffId = Guid.NewGuid(),
             FlatId = flatId,
-            EffectiveDate = effectiveDate,
+            ContractStartDate = contractStartDate,
             PricePerKwh = pricePerKwh,
             MonthlyBaseFee = monthlyBaseFee
         };
@@ -75,8 +75,8 @@ public class CreateTariffFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new CreateTariffFunction(db, new TariffValidator());
-        var effectiveDate = DateTimeOffset.UtcNow;
-        var req = MakeRequest(new { effectiveDate, pricePerKwh = 0.345679m, monthlyBaseFee = 12.3456m });
+        var contractStartDate = DateTimeOffset.UtcNow;
+        var req = MakeRequest(new { contractStartDate, pricePerKwh = 0.345679m, monthlyBaseFee = 12.3456m });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -92,13 +92,13 @@ public class CreateTariffFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_DuplicateEffectiveDate_Returns409AndDoesNotCreate()
+    public async Task RunAsync_DuplicateContractStartDate_Returns409AndDoesNotCreate()
     {
         var (flat, db) = await SeedFlatAsync();
-        var effectiveDate = DateTimeOffset.UtcNow;
-        await SeedTariffAsync(db, flat.FlatId, effectiveDate);
+        var contractStartDate = DateTimeOffset.UtcNow;
+        await SeedTariffAsync(db, flat.FlatId, contractStartDate);
         var fn = new CreateTariffFunction(db, new TariffValidator());
-        var req = MakeRequest(new { effectiveDate, pricePerKwh = 0.35m, monthlyBaseFee = 10m });
+        var req = MakeRequest(new { contractStartDate, pricePerKwh = 0.35m, monthlyBaseFee = 10m });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -117,7 +117,7 @@ public class CreateTariffFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new CreateTariffFunction(db, new TariffValidator());
-        var req = MakeRequest(new { effectiveDate = DateTimeOffset.UtcNow, pricePerKwh = price, monthlyBaseFee = fee });
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = price, monthlyBaseFee = fee });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -133,7 +133,7 @@ public class CreateTariffFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new CreateTariffFunction(db, new TariffValidator());
-        var req = MakeRequest(new { effectiveDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = fee });
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = fee });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -142,7 +142,7 @@ public class CreateTariffFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_MissingEffectiveDate_Returns400()
+    public async Task RunAsync_MissingContractStartDate_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new CreateTariffFunction(db, new TariffValidator());
@@ -155,12 +155,12 @@ public class CreateTariffFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_FutureEffectiveDate_Accepted()
+    public async Task RunAsync_FutureContractStartDate_Accepted()
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new CreateTariffFunction(db, new TariffValidator());
         var futureDate = DateTimeOffset.UtcNow.AddMonths(6);
-        var req = MakeRequest(new { effectiveDate = futureDate, pricePerKwh = 0.3m, monthlyBaseFee = 10m });
+        var req = MakeRequest(new { contractStartDate = futureDate, pricePerKwh = 0.3m, monthlyBaseFee = 10m });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -173,7 +173,7 @@ public class CreateTariffFunctionTests
     {
         var (flat, db) = await SeedFlatAsync(userId: "owner");
         var fn = new CreateTariffFunction(db, new TariffValidator());
-        var req = MakeRequest(new { effectiveDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = 10m });
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = 10m });
         var ctx = MakeFunctionContext(userId: "intruder");
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -187,7 +187,7 @@ public class CreateTariffFunctionTests
     {
         var (_, db) = await SeedFlatAsync();
         var fn = new CreateTariffFunction(db, new TariffValidator());
-        var req = MakeRequest(new { effectiveDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = 10m });
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = 10m });
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, "not-a-guid", ctx, CancellationToken.None);

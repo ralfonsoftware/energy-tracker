@@ -23,7 +23,7 @@ public class TariffResolverTests
             {
                 TariffId = Guid.NewGuid(),
                 FlatId = flatId,
-                EffectiveDate = date,
+                ContractStartDate = date,
                 PricePerKwh = price,
                 MonthlyBaseFee = 10m
             });
@@ -56,7 +56,7 @@ public class TariffResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_DateOnEffectiveDate_ReturnsTariff()
+    public async Task ResolveAsync_DateOnContractStartDate_ReturnsTariff()
     {
         var t1Date = new DateTimeOffset(2025, 1, 1, 0, 0, 0, TimeSpan.Zero);
         var (flatId, db) = await SeedAsync((t1Date, 0.30m));
@@ -96,5 +96,22 @@ public class TariffResolverTests
 
         result.ShouldNotBeNull();
         result!.PricePerKwh.ShouldBe(0.35m);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_BackfilledContractStartDate_ResolvesCorrectly()
+    {
+        // The migration backfill rule (ContractStartDate = ContractStartDate ?? EffectiveDate) cannot
+        // be exercised by InMemory EF Core (no migrations run against it). This asserts the resolver
+        // behaves correctly for a Tariff row shaped exactly as the backfill would produce one — there
+        // is no separate EffectiveDate concept left on the entity for a backfilled row to diverge from.
+        var contractStartDate = new DateTimeOffset(2024, 10, 1, 0, 0, 0, TimeSpan.Zero);
+        var (flatId, db) = await SeedAsync((contractStartDate, 0.32m));
+        var resolver = new TariffResolver(db);
+
+        var result = await resolver.ResolveAsync(flatId, contractStartDate.AddMonths(6), CancellationToken.None);
+
+        result.ShouldNotBeNull();
+        result!.PricePerKwh.ShouldBe(0.32m);
     }
 }

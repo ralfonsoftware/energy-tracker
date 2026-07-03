@@ -144,7 +144,7 @@ public class KpiCalculator
         Tariff? best = null;
         foreach (var t in tariffs)
         {
-            if (t.EffectiveDate <= date && (best is null || t.EffectiveDate > best.EffectiveDate))
+            if (t.ContractStartDate <= date && (best is null || t.ContractStartDate > best.ContractStartDate))
                 best = t;
         }
         return best;

@@ -6,7 +6,7 @@ public class TariffValidator : AbstractValidator<CreateTariffRequest>
 {
     public TariffValidator()
     {
-        RuleFor(r => r.EffectiveDate).NotNull().WithMessage("effectiveDate is required.");
+        RuleFor(r => r.ContractStartDate).NotNull().WithMessage("contractStartDate is required.");
         RuleFor(r => r.PricePerKwh).GreaterThan(0m).LessThan(10m)
             .WithMessage("pricePerKwh must be less than 10.");
         RuleFor(r => r.MonthlyBaseFee).GreaterThanOrEqualTo(0m).LessThan(1000m)

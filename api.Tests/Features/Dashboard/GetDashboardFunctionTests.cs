@@ -112,7 +112,7 @@ public class GetDashboardFunctionTests
         db.Tariffs.Add(new Tariff
         {
             TariffId = Guid.NewGuid(), FlatId = flat.FlatId,
-            EffectiveDate = date1.AddDays(-1), PricePerKwh = 0.30m, MonthlyBaseFee = 10m
+            ContractStartDate = date1.AddDays(-1), PricePerKwh = 0.30m, MonthlyBaseFee = 10m
         });
         await db.SaveChangesAsync();
 
@@ -159,7 +159,7 @@ public class GetDashboardFunctionTests
         db.Tariffs.Add(new Tariff
         {
             TariffId = Guid.NewGuid(), FlatId = flat.FlatId,
-            EffectiveDate = dateB, PricePerKwh = 0.30m, MonthlyBaseFee = 10m
+            ContractStartDate = dateB, PricePerKwh = 0.30m, MonthlyBaseFee = 10m
         });
         await db.SaveChangesAsync();
 

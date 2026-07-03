@@ -13,8 +13,7 @@
   "form": {
     "title": "Add Tariff",
     "editTitle": "Edit Tariff",
-    "effectiveDate": "Effective Date",
-    "effectiveDateReadonly": "Effective {{date}}",
+    "contractStartDateReadonly": "Contract start {{date}}",
     "pricePerKwh": "Price per kWh",
     "priceSuffix": "€/kWh",
     "monthlyBaseFee": "Monthly Base Fee",
@@ -33,6 +32,7 @@
     "saveButton": "Save",
     "saving": "Saving…",
     "lockedLabel": "Locked — contract active until {{date}}",
+    "lockedSinceLabel": "Locked — contract active since {{date}}",
     "editAnywayButton": "Edit anyway",
     "overrideDialogTitle": "Override locked rate?",
     "overrideDialogDescription": "Overriding will change the contract's locked rate. This cannot be undone.",

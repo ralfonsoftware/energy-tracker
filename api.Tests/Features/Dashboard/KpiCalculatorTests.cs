@@ -15,8 +15,8 @@ public class KpiCalculatorTests
     private static MeterReading MakeReading(DateTimeOffset date, decimal kwh) =>
         new() { ReadingId = Guid.NewGuid(), FlatId = Guid.NewGuid(), ReadingDate = date, KwhValue = kwh, IsCorrected = false };
 
-    private static Tariff MakeTariff(DateTimeOffset effectiveDate, decimal pricePerKwh) =>
-        new() { TariffId = Guid.NewGuid(), FlatId = Guid.NewGuid(), EffectiveDate = effectiveDate, PricePerKwh = pricePerKwh, MonthlyBaseFee = 10m };
+    private static Tariff MakeTariff(DateTimeOffset contractStartDate, decimal pricePerKwh) =>
+        new() { TariffId = Guid.NewGuid(), FlatId = Guid.NewGuid(), ContractStartDate = contractStartDate, PricePerKwh = pricePerKwh, MonthlyBaseFee = 10m };
 
     [Fact]
     public void Compute_NoReadings_ReturnsAllZerosAndNullLastReadingDate()

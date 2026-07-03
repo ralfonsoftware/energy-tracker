@@ -43,20 +43,18 @@ public class GetTariffsFunctionTests
     }
 
     private static async Task<Tariff> SeedTariffAsync(
-        AppDbContext db, Guid flatId, DateTimeOffset effectiveDate,
+        AppDbContext db, Guid flatId, DateTimeOffset contractStartDate,
         decimal pricePerKwh = 0.30m, decimal monthlyBaseFee = 10m,
-        string? providerName = null, DateTimeOffset? contractStartDate = null,
-        int? contractDurationMonths = null)
+        string? providerName = null, int? contractDurationMonths = null)
     {
         var tariff = new Tariff
         {
             TariffId = Guid.NewGuid(),
             FlatId = flatId,
-            EffectiveDate = effectiveDate,
+            ContractStartDate = contractStartDate,
             PricePerKwh = pricePerKwh,
             MonthlyBaseFee = monthlyBaseFee,
             ProviderName = providerName,
-            ContractStartDate = contractStartDate,
             ContractDurationMonths = contractDurationMonths
         };
         db.Tariffs.Add(tariff);
@@ -86,7 +84,7 @@ public class GetTariffsFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_MultipleTariffs_ReturnsDescendingByEffectiveDate()
+    public async Task RunAsync_MultipleTariffs_ReturnsDescendingByContractStartDate()
     {
         var (flat, db) = await SeedFlatAsync();
         var oldest = await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow.AddYears(-2));
@@ -110,8 +108,7 @@ public class GetTariffsFunctionTests
     public async Task RunAsync_PastContractStartWithDuration_IsLockedTrue()
     {
         var (flat, db) = await SeedFlatAsync();
-        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow,
-            contractStartDate: DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: 12);
+        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: 12);
         var fn = new GetTariffsFunction(db);
         var req = MakeRequest();
         var ctx = MakeFunctionContext();
@@ -127,8 +124,7 @@ public class GetTariffsFunctionTests
     public async Task RunAsync_FutureContractStart_IsLockedFalse()
     {
         var (flat, db) = await SeedFlatAsync();
-        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow,
-            contractStartDate: DateTimeOffset.UtcNow.AddMonths(1), contractDurationMonths: 12);
+        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow.AddMonths(1), contractDurationMonths: 12);
         var fn = new GetTariffsFunction(db);
         var req = MakeRequest();
         var ctx = MakeFunctionContext();
@@ -141,11 +137,10 @@ public class GetTariffsFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_PastContractStartNoDuration_IsLockedFalse()
+    public async Task RunAsync_PastContractStartNoDuration_IsLockedTrue()
     {
         var (flat, db) = await SeedFlatAsync();
-        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow,
-            contractStartDate: DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: null);
+        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: null);
         var fn = new GetTariffsFunction(db);
         var req = MakeRequest();
         var ctx = MakeFunctionContext();
@@ -154,24 +149,7 @@ public class GetTariffsFunctionTests
 
         var ok = result.ShouldBeOfType<OkObjectResult>();
         var response = ok.Value.ShouldBeOfType<List<TariffResponse>>();
-        response.Single().IsLocked.ShouldBeFalse();
-    }
-
-    [Fact]
-    public async Task RunAsync_NoContractStartDate_IsLockedFalse()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        await SeedTariffAsync(db, flat.FlatId, DateTimeOffset.UtcNow,
-            contractStartDate: null, contractDurationMonths: 12);
-        var fn = new GetTariffsFunction(db);
-        var req = MakeRequest();
-        var ctx = MakeFunctionContext();
-
-        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
-
-        var ok = result.ShouldBeOfType<OkObjectResult>();
-        var response = ok.Value.ShouldBeOfType<List<TariffResponse>>();
-        response.Single().IsLocked.ShouldBeFalse();
+        response.Single().IsLocked.ShouldBeTrue();
     }
 
     [Fact]
