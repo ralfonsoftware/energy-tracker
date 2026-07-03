@@ -161,6 +161,38 @@ describe('TariffList', () => {
     expect(screen.queryByText(/list\.upcomingLabel/)).not.toBeInTheDocument()
   })
 
+  it('TariffList_ContractStartsTodayViewedWestOfUtc_DoesNotShowUpcomingLabel', () => {
+    // Frozen "now" = 2026-06-15T01:00:00Z, which is 2026-06-14 22:00 local in
+    // America/Sao_Paulo (UTC-3) — local "today" is 2026-06-14, UTC "today" is 2026-06-15.
+    // A tariff whose contractStartDate is "2026-06-15T00:00:00Z" (local calendar date
+    // 2026-06-14, i.e. active today) must NOT be labeled upcoming. The old UTC-extraction
+    // comparison would wrongly compare UTC "2026-06-15" against local "2026-06-14" and
+    // label it upcoming.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-15T01:00:00Z'))
+    vi.stubEnv('TZ', 'America/Sao_Paulo')
+
+    try {
+      const todayTariff: TariffResponse = {
+        tariffId: 'tariff-today',
+        contractStartDate: '2026-06-15T00:00:00Z',
+        pricePerKwh: 0.25,
+        monthlyBaseFee: 10,
+        providerName: 'Vattenfall',
+        contractDurationMonths: null,
+        isLocked: false,
+      }
+      setupTariffs({ data: [todayTariff] })
+
+      renderList('flat-1')
+
+      expect(screen.queryByText(/list\.upcomingLabel/)).not.toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('TariffList_AddTariffButton_OpensSheetWithTariffForm', async () => {
     const user = userEvent.setup()
     setupTariffs({ data: [] })

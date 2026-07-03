@@ -1,5 +1,6 @@
 import { Lock } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { parseLocalDate, addMonths } from '@/lib/localDate'
 
 type Props = {
   contractStartDate: string
@@ -9,11 +10,10 @@ type Props = {
 export function TariffLockIndicator({ contractStartDate, contractDurationMonths }: Props) {
   const { t, i18n } = useTranslation('tariffs')
 
-  const start = new Date(contractStartDate)
+  const start = parseLocalDate(contractStartDate)
 
   if (contractDurationMonths != null) {
-    const lockedUntil = new Date(start.getFullYear(), start.getMonth(), start.getDate())
-    lockedUntil.setMonth(lockedUntil.getMonth() + contractDurationMonths)
+    const lockedUntil = addMonths(start, contractDurationMonths)
 
     const formattedDate = new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric' }).format(
       lockedUntil
@@ -27,9 +27,7 @@ export function TariffLockIndicator({ contractStartDate, contractDurationMonths 
     )
   }
 
-  const formattedStart = new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric' }).format(
-    new Date(start.getFullYear(), start.getMonth(), start.getDate())
-  )
+  const formattedStart = new Intl.DateTimeFormat(i18n.language, { month: 'long', year: 'numeric' }).format(start)
 
   return (
     <div className="flex items-center gap-2 text-xs" style={{ color: '#d97706' }}>

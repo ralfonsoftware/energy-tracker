@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
+import { parseLocalDate, isFutureLocalDate } from '@/lib/localDate'
 import { Sheet, SheetTrigger, SheetContent } from '@/components/ui/sheet'
 import { useTariffs } from '@/features/tariffs/hooks/useTariffs'
 import { TariffForm } from '@/features/tariffs/components/TariffForm'
@@ -18,7 +19,7 @@ type Props = {
 }
 
 const formatDate = (isoDate: string) =>
-  new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(isoDate))
+  new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(parseLocalDate(isoDate))
 
 const formatPricePerKwh = (value: number) =>
   new Intl.NumberFormat(i18n.language, {
@@ -30,24 +31,6 @@ const formatPricePerKwh = (value: number) =>
 
 const formatCurrency = (value: number) =>
   new Intl.NumberFormat(i18n.language, { style: 'currency', currency: 'EUR' }).format(value)
-
-const toUtcDateString = (isoDate: string) => {
-  const d = new Date(isoDate)
-  const y = d.getUTCFullYear()
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(d.getUTCDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-const todayLocalDateString = () => {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
-
-const isUpcoming = (contractStartDate: string) => toUtcDateString(contractStartDate) > todayLocalDateString()
 
 const sectionLabelClass = 'text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45'
 
@@ -67,7 +50,7 @@ export function TariffList({
   const [formPending, setFormPending] = useState(false)
   const handleFormPendingChange = useCallback((pending: boolean) => setFormPending(pending), [])
 
-  const activeTariff = (data ?? []).find(tariff => !isUpcoming(tariff.contractStartDate))
+  const activeTariff = (data ?? []).find(tariff => !isFutureLocalDate(tariff.contractStartDate))
 
   const closeSheet = () => {
     setAddOpen(false)
@@ -174,7 +157,7 @@ export function TariffList({
 
 function TariffRow({ tariff, onEdit }: { tariff: TariffResponse; onEdit: () => void }) {
   const { t } = useTranslation('tariffs')
-  const upcoming = isUpcoming(tariff.contractStartDate)
+  const upcoming = isFutureLocalDate(tariff.contractStartDate)
 
   return (
     <li

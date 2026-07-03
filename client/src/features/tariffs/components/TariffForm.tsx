@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import { useSubmitGuard } from '@/lib/useSubmitGuard'
+import { toLocalDateString, parseLocalDate } from '@/lib/localDate'
 import { useCreateTariff } from '@/features/tariffs/hooks/useCreateTariff'
 import { usePatchTariff } from '@/features/tariffs/hooks/usePatchTariff'
 import { TariffLockIndicator } from '@/features/tariffs/components/TariffLockIndicator'
@@ -27,22 +28,6 @@ type Props = {
 }
 
 const DURATIONS = [1, 6, 12, 24] as const
-
-function todayIsoDate() {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function toLocalDateInputValue(iso: string) {
-  const d = new Date(iso)
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
 
 function isValidPrice(raw: string, locale: string) {
   const parsed = parseLocaleNumber(raw, locale)
@@ -81,14 +66,14 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
     mode: 'onBlur',
     defaultValues: tariff
       ? {
-          contractStartDate: toLocalDateInputValue(tariff.contractStartDate),
+          contractStartDate: toLocalDateString(parseLocalDate(tariff.contractStartDate)),
           pricePerKwh: formatNumberForInput(tariff.pricePerKwh, i18n.language),
           monthlyBaseFee: formatNumberForInput(tariff.monthlyBaseFee, i18n.language),
           providerName: tariff.providerName ?? '',
           contractDurationMonths: tariff.contractDurationMonths ?? null,
         }
       : {
-          contractStartDate: todayIsoDate(),
+          contractStartDate: toLocalDateString(new Date()),
           pricePerKwh: '',
           monthlyBaseFee: '',
           providerName: '',
@@ -191,10 +176,8 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
   const suffixClass = 'absolute right-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none'
   const suffixStyle = { color: 'rgba(255,255,255,0.40)' }
 
-  const formatDate = (isoDate: string) => {
-    const [year, month, day] = toLocalDateInputValue(isoDate).split('-').map(Number)
-    return new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(year, month - 1, day))
-  }
+  const formatDate = (isoDate: string) =>
+    new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(parseLocalDate(isoDate))
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 overflow-y-auto">
