@@ -1,13 +1,21 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
+import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import { Sheet, SheetTrigger, SheetContent } from '@/components/ui/sheet'
 import { useTariffs } from '@/features/tariffs/hooks/useTariffs'
 import { TariffForm } from '@/features/tariffs/components/TariffForm'
 import type { TariffResponse } from '@/features/tariffs/api/tariffApi'
 
-type Props = { flatId: string | undefined }
+type Props = {
+  flatId: string | undefined
+  annualKwhBaseline?: number
+  plannedAnnualSpend?: number | null
+  onSavePlannedAnnualSpend: (value: number) => void
+  isSavingPlannedAnnualSpend: boolean
+  isPlannedAnnualSpendSaveError: boolean
+}
 
 const formatDate = (isoDate: string) =>
   new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(isoDate))
@@ -41,11 +49,30 @@ const todayLocalDateString = () => {
 
 const isUpcoming = (effectiveDate: string) => toUtcDateString(effectiveDate) > todayLocalDateString()
 
-export function TariffList({ flatId }: Props) {
+const sectionLabelClass = 'text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45'
+
+export function TariffList({
+  flatId,
+  annualKwhBaseline,
+  plannedAnnualSpend,
+  onSavePlannedAnnualSpend,
+  isSavingPlannedAnnualSpend,
+  isPlannedAnnualSpendSaveError,
+}: Props) {
   const { t } = useTranslation('tariffs')
   const navigate = useNavigate()
   const { data, isLoading, isError, refetch } = useTariffs(flatId)
   const [addOpen, setAddOpen] = useState(false)
+  const [editingTariff, setEditingTariff] = useState<TariffResponse | null>(null)
+  const [formPending, setFormPending] = useState(false)
+  const handleFormPendingChange = useCallback((pending: boolean) => setFormPending(pending), [])
+
+  const activeTariff = (data ?? []).find(tariff => !isUpcoming(tariff.effectiveDate))
+
+  const closeSheet = () => {
+    setAddOpen(false)
+    setEditingTariff(null)
+  }
 
   return (
     <div className="flex-1 flex flex-col" style={{ background: '#111827', minHeight: '100vh' }}>
@@ -60,11 +87,18 @@ export function TariffList({ flatId }: Props) {
 
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-[22px] font-semibold text-white tracking-tight">{t('list.title')}</h1>
-          <Sheet open={addOpen} onOpenChange={setAddOpen}>
+          <Sheet
+            open={addOpen || editingTariff !== null}
+            onOpenChange={open => {
+              if (!open && formPending) return
+              if (!open) closeSheet()
+            }}
+          >
             <SheetTrigger asChild>
               <button
                 type="button"
                 disabled={!flatId}
+                onClick={() => setAddOpen(true)}
                 className="px-3 py-1.5 text-xs font-medium rounded-full disabled:opacity-40"
                 style={{
                   background: 'rgba(255,255,255,0.10)',
@@ -79,7 +113,12 @@ export function TariffList({ flatId }: Props) {
               side="bottom"
               className="rounded-t-sheet border-t border-white/[0.14] bg-[rgba(10,15,25,0.92)] backdrop-blur-[20px] backdrop-saturate-[1.8] px-6 pb-8 pt-3 [&>button]:right-2 [&>button]:top-2 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center"
             >
-              <TariffForm flatId={flatId} onClose={() => setAddOpen(false)} />
+              <TariffForm
+                flatId={flatId}
+                tariff={editingTariff ?? undefined}
+                onClose={closeSheet}
+                onPendingChange={handleFormPendingChange}
+              />
             </SheetContent>
           </Sheet>
         </div>
@@ -113,42 +152,161 @@ export function TariffList({ flatId }: Props) {
         {!isLoading && !isError && (data ?? []).length > 0 && (
           <ul className="flex flex-col gap-2">
             {(data ?? []).map(tariff => (
-              <TariffRow key={tariff.tariffId} tariff={tariff} />
+              <TariffRow key={tariff.tariffId} tariff={tariff} onEdit={() => setEditingTariff(tariff)} />
             ))}
           </ul>
+        )}
+
+        {!isLoading && !isError && (
+          <PlannedAnnualSpendSection
+            plannedAnnualSpend={plannedAnnualSpend}
+            activeTariff={activeTariff}
+            annualKwhBaseline={annualKwhBaseline}
+            onSave={onSavePlannedAnnualSpend}
+            isSaving={isSavingPlannedAnnualSpend}
+            isSaveError={isPlannedAnnualSpendSaveError}
+          />
         )}
       </div>
     </div>
   )
 }
 
-function TariffRow({ tariff }: { tariff: TariffResponse }) {
+function TariffRow({ tariff, onEdit }: { tariff: TariffResponse; onEdit: () => void }) {
   const { t } = useTranslation('tariffs')
   const upcoming = isUpcoming(tariff.effectiveDate)
 
   return (
     <li
-      className="p-4 rounded-2xl"
+      className="rounded-2xl"
       style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
     >
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-white">
-          {upcoming
-            ? t('list.upcomingLabel', { date: formatDate(tariff.effectiveDate) })
-            : formatDate(tariff.effectiveDate)}
-        </span>
-        <span className="text-sm text-white">
-          {formatPricePerKwh(tariff.pricePerKwh)}
-          {t('list.kwhUnit')}
-        </span>
-      </div>
-      <div className="flex items-center justify-between mt-1">
-        <span className="text-xs text-white/50">{tariff.providerName}</span>
-        <span className="text-xs text-white/50">
-          {formatCurrency(tariff.monthlyBaseFee)}
-          {t('list.monthUnit')}
-        </span>
-      </div>
+      <button type="button" onClick={onEdit} className="w-full p-4 text-left">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-white">
+            {upcoming
+              ? t('list.upcomingLabel', { date: formatDate(tariff.effectiveDate) })
+              : formatDate(tariff.effectiveDate)}
+          </span>
+          <span className="text-sm text-white">
+            {formatPricePerKwh(tariff.pricePerKwh)}
+            {t('list.kwhUnit')}
+          </span>
+        </div>
+        <div className="flex items-center justify-between mt-1">
+          <span className="text-xs text-white/50">{tariff.providerName}</span>
+          <span className="text-xs text-white/50">
+            {formatCurrency(tariff.monthlyBaseFee)}
+            {t('list.monthUnit')}
+          </span>
+        </div>
+      </button>
     </li>
+  )
+}
+
+type PlannedAnnualSpendSectionProps = {
+  plannedAnnualSpend?: number | null
+  activeTariff?: TariffResponse
+  annualKwhBaseline?: number
+  onSave: (value: number) => void
+  isSaving: boolean
+  isSaveError: boolean
+}
+
+function PlannedAnnualSpendSection({
+  plannedAnnualSpend,
+  activeTariff,
+  annualKwhBaseline,
+  onSave,
+  isSaving,
+  isSaveError,
+}: PlannedAnnualSpendSectionProps) {
+  const { t, i18n } = useTranslation('tariffs')
+  const [raw, setRaw] = useState(
+    plannedAnnualSpend != null ? formatNumberForInput(plannedAnnualSpend, i18n.language) : ''
+  )
+  const [dirty, setDirty] = useState(false)
+  const wasSavingRef = useRef(false)
+  const submittedValueRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!dirty) {
+      setRaw(plannedAnnualSpend != null ? formatNumberForInput(plannedAnnualSpend, i18n.language) : '')
+    }
+  }, [plannedAnnualSpend, i18n.language, dirty])
+
+  const parsed = parseLocaleNumber(raw, i18n.language)
+
+  useEffect(() => {
+    if (wasSavingRef.current && !isSaving && !isSaveError && submittedValueRef.current === parsed) {
+      setDirty(false)
+    }
+    wasSavingRef.current = isSaving
+  }, [isSaving, isSaveError, parsed])
+
+  const isSaveEnabled = dirty && Number.isFinite(parsed) && parsed > 0 && !isSaving
+
+  const handleSave = () => {
+    if (!isSaveEnabled) return
+    submittedValueRef.current = parsed
+    onSave(parsed)
+  }
+
+  const helperText =
+    activeTariff && annualKwhBaseline != null
+      ? t('budget.helperText', {
+          kwh: new Intl.NumberFormat(i18n.language).format(annualKwhBaseline),
+          price: formatPricePerKwh(activeTariff.pricePerKwh),
+          fee: formatCurrency(activeTariff.monthlyBaseFee),
+          total: formatCurrency(annualKwhBaseline * activeTariff.pricePerKwh + activeTariff.monthlyBaseFee * 12),
+        })
+      : null
+
+  return (
+    <div
+      className="mt-6 p-4 rounded-2xl"
+      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.10)' }}
+    >
+      <h2 className={sectionLabelClass}>{t('budget.title')}</h2>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            inputMode="decimal"
+            placeholder="0"
+            value={raw}
+            onChange={e => {
+              setRaw(e.target.value)
+              setDirty(true)
+            }}
+            aria-label={t('budget.title')}
+            className="w-full h-[52px] px-4 rounded-[12px] bg-white/[0.08] border text-white text-base placeholder:text-white/30 outline-none focus:border-white/60"
+            style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+          />
+          <span
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none"
+            style={{ color: 'rgba(255,255,255,0.40)' }}
+          >
+            {t('budget.spendSuffix')}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!isSaveEnabled}
+          className="h-[52px] px-4 rounded-full text-sm font-semibold text-white disabled:opacity-40"
+          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)' }}
+        >
+          {isSaving ? t('budget.savingLabel') : t('budget.saveButton')}
+        </button>
+      </div>
+      {helperText && <p className="mt-2 text-xs text-white/40">{helperText}</p>}
+      {isSaveError && (
+        <p role="alert" className="mt-2 text-xs text-accent-error">
+          {t('budget.errorMessage')}
+        </p>
+      )}
+    </div>
   )
 }

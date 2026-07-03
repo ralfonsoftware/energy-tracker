@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import SettingsRoot from './components/SettingsRoot'
 import { useUserSettings } from './hooks/useUserSettings'
+import { usePatchFlat } from './hooks/usePatchFlat'
 
 const FlatBaselineEdit = lazy(() => import('./components/FlatBaselineEdit'))
 const TariffList = lazy(() =>
@@ -10,8 +11,26 @@ const TariffList = lazy(() =>
 
 function TariffSettingsRoute() {
   const { settings, isLoading, isError } = useUserSettings()
+  const { mutate: patchFlat, isPending: isSavingSpend, isError: isSpendSaveError } = usePatchFlat()
+  const [missingFlatIdError, setMissingFlatIdError] = useState(false)
   if (isLoading || isError) return null
-  return <TariffList flatId={settings?.flatId} />
+  return (
+    <TariffList
+      flatId={settings?.flatId}
+      annualKwhBaseline={settings?.annualKwhBaseline}
+      plannedAnnualSpend={settings?.plannedAnnualSpend}
+      onSavePlannedAnnualSpend={value => {
+        if (!settings?.flatId) {
+          setMissingFlatIdError(true)
+          return
+        }
+        setMissingFlatIdError(false)
+        patchFlat({ flatId: settings.flatId, body: { plannedAnnualSpend: value } })
+      }}
+      isSavingPlannedAnnualSpend={isSavingSpend}
+      isPlannedAnnualSpendSaveError={isSpendSaveError || (missingFlatIdError && !settings?.flatId)}
+    />
+  )
 }
 
 export default function SettingsPage() {

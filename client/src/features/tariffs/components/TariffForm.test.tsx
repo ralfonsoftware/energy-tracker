@@ -1,7 +1,8 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { TariffForm } from '@/features/tariffs/components/TariffForm'
+import type { TariffResponse } from '@/features/tariffs/api/tariffApi'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k, i18n: { language: 'en-US' } }),
@@ -11,7 +12,33 @@ vi.mock('@/features/tariffs/hooks/useCreateTariff')
 import { useCreateTariff } from '@/features/tariffs/hooks/useCreateTariff'
 const mockUseCreateTariff = vi.mocked(useCreateTariff)
 
+vi.mock('@/features/tariffs/hooks/usePatchTariff')
+import { usePatchTariff } from '@/features/tariffs/hooks/usePatchTariff'
+const mockUsePatchTariff = vi.mocked(usePatchTariff)
+
 type MutateOptions = { onSuccess?: () => void; onError?: () => void }
+
+const lockedTariff: TariffResponse = {
+  tariffId: 'tariff-locked',
+  effectiveDate: '2025-01-01T00:00:00Z',
+  pricePerKwh: 0.28,
+  monthlyBaseFee: 10,
+  providerName: 'E.ON',
+  contractStartDate: '2025-01-01T00:00:00Z',
+  contractDurationMonths: 12,
+  isLocked: true,
+}
+
+const unlockedTariff: TariffResponse = {
+  tariffId: 'tariff-unlocked',
+  effectiveDate: '2025-01-01T00:00:00Z',
+  pricePerKwh: 0.28,
+  monthlyBaseFee: 10,
+  providerName: 'E.ON',
+  contractStartDate: null,
+  contractDurationMonths: null,
+  isLocked: false,
+}
 
 function setup(options?: { isPending?: boolean }) {
   const mutate = vi.fn<(variables: unknown, opts?: MutateOptions) => void>()
@@ -19,6 +46,10 @@ function setup(options?: { isPending?: boolean }) {
     mutate,
     isPending: options?.isPending ?? false,
   } as unknown as ReturnType<typeof useCreateTariff>)
+  mockUsePatchTariff.mockReturnValue({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  } as unknown as ReturnType<typeof usePatchTariff>)
 
   const onClose = vi.fn()
   render(<TariffForm flatId="flat-1" onClose={onClose} />)
@@ -29,6 +60,28 @@ function setup(options?: { isPending?: boolean }) {
   const saveButton = screen.getByRole('button', { name: 'form.saveButton' })
 
   return { mutate, onClose, priceInput, feeInput, dateInput, saveButton }
+}
+
+function setupEdit(tariff: TariffResponse, options?: { isPending?: boolean }) {
+  mockUseCreateTariff.mockReturnValue({
+    mutate: vi.fn(),
+    isPending: false,
+  } as unknown as ReturnType<typeof useCreateTariff>)
+  const mutateAsync = vi.fn<(variables: unknown) => Promise<unknown>>().mockResolvedValue(undefined)
+  mockUsePatchTariff.mockReturnValue({
+    mutateAsync,
+    isPending: options?.isPending ?? false,
+  } as unknown as ReturnType<typeof usePatchTariff>)
+
+  const onClose = vi.fn()
+  render(<TariffForm flatId="flat-1" tariff={tariff} onClose={onClose} />)
+
+  const priceInput = document.querySelector('input[name="pricePerKwh"]') as HTMLInputElement
+  const feeInput = document.querySelector('input[name="monthlyBaseFee"]') as HTMLInputElement
+  const providerInput = document.querySelector('input[name="providerName"]') as HTMLInputElement
+  const saveButton = screen.getByRole('button', { name: 'form.saveButton' })
+
+  return { mutateAsync, onClose, priceInput, feeInput, providerInput, saveButton }
 }
 
 describe('TariffForm', () => {
@@ -146,5 +199,139 @@ describe('TariffForm', () => {
     await user.click(twelveMonthButton)
     await user.click(twelveMonthButton)
     // no assertion error means selecting/deselecting doesn't throw; value verified via submit test below
+  })
+})
+
+describe('TariffForm edit mode', () => {
+  beforeEach(() => {
+    mockUseCreateTariff.mockReset()
+    mockUsePatchTariff.mockReset()
+  })
+
+  it('TariffForm_EditModeLocked_PriceInputsDisabledAndLockIndicatorVisible', () => {
+    const { priceInput, feeInput } = setupEdit(lockedTariff)
+
+    expect(priceInput).toBeDisabled()
+    expect(feeInput).toBeDisabled()
+    expect(screen.getByText('form.lockedLabel')).toBeInTheDocument()
+  })
+
+  it('TariffForm_EditModeUnlocked_PriceInputsEnabledAndNoLockIndicator', () => {
+    const { priceInput, feeInput } = setupEdit(unlockedTariff)
+
+    expect(priceInput).toBeEnabled()
+    expect(feeInput).toBeEnabled()
+    expect(screen.queryByText('form.lockedLabel')).not.toBeInTheDocument()
+  })
+
+  it('TariffForm_TapEditAnyway_OpensConfirmationDialog', async () => {
+    const user = userEvent.setup()
+    setupEdit(lockedTariff)
+
+    await user.click(screen.getByRole('button', { name: /form.editAnywayButton/ }))
+
+    expect(screen.getByText('form.overrideDialogTitle')).toBeInTheDocument()
+  })
+
+  it('TariffForm_ConfirmOverride_EnablesPriceInputsWithoutCallingMutation', async () => {
+    const user = userEvent.setup()
+    const { priceInput, feeInput, mutateAsync } = setupEdit(lockedTariff)
+
+    await user.click(screen.getByRole('button', { name: /form.editAnywayButton/ }))
+    await user.click(screen.getByRole('button', { name: 'form.overrideDialogConfirm' }))
+
+    expect(priceInput).toBeEnabled()
+    expect(feeInput).toBeEnabled()
+    expect(mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('TariffForm_CancelOverride_KeepsFieldsLockedWithoutCallingMutation', async () => {
+    const user = userEvent.setup()
+    const { priceInput, feeInput, mutateAsync } = setupEdit(lockedTariff)
+
+    await user.click(screen.getByRole('button', { name: /form.editAnywayButton/ }))
+    await user.click(screen.getByRole('button', { name: 'form.overrideDialogCancel' }))
+
+    expect(priceInput).toBeDisabled()
+    expect(feeInput).toBeDisabled()
+    expect(mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it('TariffForm_SubmitAfterOverrideConfirmed_SendsLockOverrideTrue', async () => {
+    const user = userEvent.setup()
+    const { priceInput, saveButton, mutateAsync } = setupEdit(lockedTariff)
+
+    await user.click(screen.getByRole('button', { name: /form.editAnywayButton/ }))
+    await user.click(screen.getByRole('button', { name: 'form.overrideDialogConfirm' }))
+
+    await user.clear(priceInput)
+    await user.type(priceInput, '0.35')
+    await user.click(saveButton)
+
+    await waitFor(() =>
+      expect(mutateAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tariffId: 'tariff-locked',
+          body: expect.objectContaining({ pricePerKwh: 0.35, lockOverride: true }),
+        })
+      )
+    )
+  })
+
+  it('TariffForm_OnlyNonPriceFieldDirty_SendsSingleCallWithNoPriceFields', async () => {
+    const user = userEvent.setup()
+    const { providerInput, saveButton, mutateAsync } = setupEdit(unlockedTariff)
+
+    await user.clear(providerInput)
+    await user.type(providerInput, 'Vattenfall')
+    await user.click(saveButton)
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1))
+    const [call] = mutateAsync.mock.calls[0] as [{ body: Record<string, unknown> }]
+    expect(call.body).not.toHaveProperty('pricePerKwh')
+    expect(call.body).not.toHaveProperty('monthlyBaseFee')
+    expect(call.body.providerName).toBe('Vattenfall')
+  })
+
+  it('TariffForm_PriceAndContractTermBothDirty_SendsTwoSequentialCallsEachOwnCategory', async () => {
+    const user = userEvent.setup()
+    const { priceInput, providerInput, saveButton, mutateAsync } = setupEdit(unlockedTariff)
+
+    await user.clear(priceInput)
+    await user.type(priceInput, '0.35')
+    await user.clear(providerInput)
+    await user.type(providerInput, 'Vattenfall')
+    await user.click(saveButton)
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2))
+    const [firstCall, secondCall] = mutateAsync.mock.calls as [{ body: Record<string, unknown> }][]
+    expect(firstCall[0].body).toHaveProperty('pricePerKwh')
+    expect(firstCall[0].body).not.toHaveProperty('providerName')
+    expect(secondCall[0].body).toHaveProperty('providerName')
+    expect(secondCall[0].body).not.toHaveProperty('pricePerKwh')
+    expect(secondCall[0].body).not.toHaveProperty('monthlyBaseFee')
+  })
+
+  it('TariffForm_ClearingProviderName_SendsExplicitNullNotUndefined', async () => {
+    const user = userEvent.setup()
+    const { providerInput, saveButton, mutateAsync } = setupEdit(unlockedTariff)
+
+    await user.clear(providerInput)
+    await user.click(saveButton)
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1))
+    const [call] = mutateAsync.mock.calls[0] as [{ body: Record<string, unknown> }]
+    expect(call.body).toHaveProperty('providerName', null)
+  })
+
+  it('TariffForm_EditModeSubmit_OnSuccessCallsOnClose', async () => {
+    const user = userEvent.setup()
+    const { providerInput, saveButton, onClose } = setupEdit(unlockedTariff)
+
+    await user.clear(providerInput)
+    await user.type(providerInput, 'Vattenfall')
+    await user.click(saveButton)
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled())
   })
 })

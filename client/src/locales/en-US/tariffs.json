@@ -12,7 +12,9 @@
   },
   "form": {
     "title": "Add Tariff",
+    "editTitle": "Edit Tariff",
     "effectiveDate": "Effective Date",
+    "effectiveDateReadonly": "Effective {{date}}",
     "pricePerKwh": "Price per kWh",
     "priceSuffix": "€/kWh",
     "monthlyBaseFee": "Monthly Base Fee",
@@ -29,6 +31,20 @@
     "invalidNumber": "Enter a valid number",
     "errorMessage": "Couldn't save tariff — please try again.",
     "saveButton": "Save",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "lockedLabel": "Locked — contract active until {{date}}",
+    "editAnywayButton": "Edit anyway",
+    "overrideDialogTitle": "Override locked rate?",
+    "overrideDialogDescription": "Overriding will change the contract's locked rate. This cannot be undone.",
+    "overrideDialogConfirm": "Edit anyway",
+    "overrideDialogCancel": "Cancel"
+  },
+  "budget": {
+    "title": "Planned Annual Spend",
+    "spendSuffix": "€/yr",
+    "saveButton": "Save",
+    "savingLabel": "Saving…",
+    "errorMessage": "Couldn't save planned annual spend — please try again.",
+    "helperText": "({{kwh}} kWh × {{price}}/kWh) + ({{fee}} × 12) = {{total}}"
   }
 }

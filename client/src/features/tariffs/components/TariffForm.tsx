@@ -1,15 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { parseLocaleNumber } from '@/lib/localeNumber'
+import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import { useSubmitGuard } from '@/lib/useSubmitGuard'
 import { useCreateTariff } from '@/features/tariffs/hooks/useCreateTariff'
+import { usePatchTariff } from '@/features/tariffs/hooks/usePatchTariff'
+import { TariffLockIndicator } from '@/features/tariffs/components/TariffLockIndicator'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog'
 import { tariffFormSchema, type TariffFormValues } from '@/features/tariffs/schemas/tariffSchema'
+import type { TariffResponse } from '@/features/tariffs/api/tariffApi'
 
 type Props = {
   flatId: string | undefined
+  tariff?: TariffResponse
   onClose: () => void
+  onPendingChange?: (isPending: boolean) => void
 }
 
 const DURATIONS = [1, 6, 12, 24] as const
@@ -19,6 +33,14 @@ function todayIsoDate() {
   const year = now.getFullYear()
   const month = String(now.getMonth() + 1).padStart(2, '0')
   const day = String(now.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function toLocalDateInputValue(iso: string) {
+  const d = new Date(iso)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
@@ -32,11 +54,21 @@ function isValidFee(raw: string, locale: string) {
   return Number.isFinite(parsed) && parsed >= 0
 }
 
-export function TariffForm({ flatId, onClose }: Props) {
+export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) {
   const { t, i18n } = useTranslation('tariffs')
-  const { mutate, isPending } = useCreateTariff(flatId)
+  const isEditMode = tariff !== undefined
+  const { mutate: createMutate, isPending: isCreatePending } = useCreateTariff(flatId)
+  const { mutateAsync: patchMutateAsync, isPending: isPatchPending } = usePatchTariff(flatId)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [overrideConfirmed, setOverrideConfirmed] = useState(false)
+  const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
+  const [isEditSequenceSubmitting, setIsEditSequenceSubmitting] = useState(false)
+  const isPending = isEditMode ? isPatchPending || isEditSequenceSubmitting : isCreatePending
   const tryAcquire = useSubmitGuard(isPending)
+
+  useEffect(() => {
+    onPendingChange?.(isPending)
+  }, [isPending, onPendingChange])
 
   const {
     register,
@@ -44,18 +76,27 @@ export function TariffForm({ flatId, onClose }: Props) {
     watch,
     setValue,
     setError,
-    formState: { errors, touchedFields },
+    formState: { errors, touchedFields, dirtyFields },
   } = useForm<TariffFormValues>({
     resolver: zodResolver(tariffFormSchema),
     mode: 'onBlur',
-    defaultValues: {
-      effectiveDate: todayIsoDate(),
-      pricePerKwh: '',
-      monthlyBaseFee: '',
-      providerName: '',
-      contractStartDate: '',
-      contractDurationMonths: null,
-    },
+    defaultValues: tariff
+      ? {
+          effectiveDate: toLocalDateInputValue(tariff.effectiveDate),
+          pricePerKwh: formatNumberForInput(tariff.pricePerKwh, i18n.language),
+          monthlyBaseFee: formatNumberForInput(tariff.monthlyBaseFee, i18n.language),
+          providerName: tariff.providerName ?? '',
+          contractStartDate: tariff.contractStartDate ? toLocalDateInputValue(tariff.contractStartDate) : '',
+          contractDurationMonths: tariff.contractDurationMonths ?? null,
+        }
+      : {
+          effectiveDate: todayIsoDate(),
+          pricePerKwh: '',
+          monthlyBaseFee: '',
+          providerName: '',
+          contractStartDate: '',
+          contractDurationMonths: null,
+        },
   })
 
   const effectiveDateRaw = watch('effectiveDate') ?? ''
@@ -63,13 +104,27 @@ export function TariffForm({ flatId, onClose }: Props) {
   const feeRaw = watch('monthlyBaseFee') ?? ''
   const selectedDuration = watch('contractDurationMonths')
 
-  const isSaveEnabled =
+  const isLockedAndNotOverridden = isEditMode && tariff.isLocked && !overrideConfirmed
+
+  const priceFieldsDirty = !!dirtyFields.pricePerKwh || !!dirtyFields.monthlyBaseFee
+  const contractFieldsDirty =
+    !!dirtyFields.providerName || !!dirtyFields.contractStartDate || !!dirtyFields.contractDurationMonths
+  const isAnyFieldDirty = priceFieldsDirty || contractFieldsDirty
+
+  const isCreateSaveEnabled =
     effectiveDateRaw.trim() !== '' &&
     isValidPrice(priceRaw, i18n.language) &&
     isValidFee(feeRaw, i18n.language) &&
     !isPending
 
-  const onSubmit = (data: TariffFormValues) => {
+  const isEditSaveEnabled =
+    isAnyFieldDirty &&
+    (!priceFieldsDirty || (isValidPrice(priceRaw, i18n.language) && isValidFee(feeRaw, i18n.language))) &&
+    !isPending
+
+  const isSaveEnabled = isEditMode ? isEditSaveEnabled : isCreateSaveEnabled
+
+  const onSubmitCreate = (data: TariffFormValues) => {
     const priceParsed = parseLocaleNumber(data.pricePerKwh, i18n.language)
     const feeParsed = parseLocaleNumber(data.monthlyBaseFee, i18n.language)
 
@@ -84,7 +139,7 @@ export function TariffForm({ flatId, onClose }: Props) {
     if (!tryAcquire()) return
 
     setSubmitError(null)
-    mutate(
+    createMutate(
       {
         effectiveDate: `${data.effectiveDate}T00:00:00Z`,
         pricePerKwh: priceParsed,
@@ -100,8 +155,61 @@ export function TariffForm({ flatId, onClose }: Props) {
     )
   }
 
+  const onSubmitEdit = async (data: TariffFormValues) => {
+    if (!tariff) return
+
+    const priceParsed = parseLocaleNumber(data.pricePerKwh, i18n.language)
+    const feeParsed = parseLocaleNumber(data.monthlyBaseFee, i18n.language)
+
+    if (priceFieldsDirty) {
+      if (!isValidPrice(data.pricePerKwh, i18n.language)) {
+        setError('pricePerKwh', { message: t('form.invalidNumber') })
+        return
+      }
+      if (!isValidFee(data.monthlyBaseFee, i18n.language)) {
+        setError('monthlyBaseFee', { message: t('form.invalidNumber') })
+        return
+      }
+    }
+
+    if (!priceFieldsDirty && !contractFieldsDirty) return
+    if (!tryAcquire()) return
+
+    setSubmitError(null)
+    setIsEditSequenceSubmitting(true)
+    try {
+      if (priceFieldsDirty) {
+        await patchMutateAsync({
+          tariffId: tariff.tariffId,
+          body: {
+            pricePerKwh: priceParsed,
+            monthlyBaseFee: feeParsed,
+            lockOverride: overrideConfirmed || undefined,
+          },
+        })
+      }
+      if (contractFieldsDirty) {
+        await patchMutateAsync({
+          tariffId: tariff.tariffId,
+          body: {
+            providerName: data.providerName ? data.providerName : null,
+            contractStartDate: data.contractStartDate ? `${data.contractStartDate}T00:00:00Z` : null,
+            contractDurationMonths: data.contractDurationMonths ?? null,
+          },
+        })
+      }
+      onClose()
+    } catch {
+      setSubmitError(t('form.errorMessage'))
+    } finally {
+      setIsEditSequenceSubmitting(false)
+    }
+  }
+
+  const onSubmit = isEditMode ? onSubmitEdit : onSubmitCreate
+
   const inputClass =
-    'w-full h-[52px] px-4 rounded-[12px] bg-white/[0.08] border text-white text-base placeholder:text-white/30 outline-none focus:border-white/60 transition-[border-color,box-shadow]'
+    'w-full h-[52px] px-4 rounded-[12px] bg-white/[0.08] border text-white text-base placeholder:text-white/30 outline-none focus:border-white/60 transition-[border-color,box-shadow] disabled:opacity-40 disabled:cursor-not-allowed'
   const sectionLabelClass = 'text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45'
   const optionalTagClass =
     'text-[10px] font-medium tracking-[0.04em] uppercase border rounded px-1'
@@ -109,25 +217,36 @@ export function TariffForm({ flatId, onClose }: Props) {
   const suffixClass = 'absolute right-4 top-1/2 -translate-y-1/2 text-sm pointer-events-none'
   const suffixStyle = { color: 'rgba(255,255,255,0.40)' }
 
+  const formatDate = (isoDate: string) => {
+    const [year, month, day] = toLocalDateInputValue(isoDate).split('-').map(Number)
+    return new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium' }).format(new Date(year, month - 1, day))
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 overflow-y-auto">
       <div aria-hidden="true" className="mx-auto mb-1 h-1 w-9 rounded-full bg-white/25" />
-      <h2 className="text-lg font-semibold text-white">{t('form.title')}</h2>
+      <h2 className="text-lg font-semibold text-white">{t(isEditMode ? 'form.editTitle' : 'form.title')}</h2>
 
       {/* Effective date */}
       <div className="flex flex-col gap-1.5">
         <label className={sectionLabelClass}>{t('form.effectiveDate')}</label>
-        <input
-          type="date"
-          style={{
-            borderColor: errors.effectiveDate ? 'var(--color-accent-error)' : 'rgba(255,255,255,0.15)',
-            colorScheme: 'dark',
-          }}
-          className={inputClass}
-          {...register('effectiveDate')}
-        />
-        {touchedFields.effectiveDate && errors.effectiveDate && (
-          <span className="text-xs text-accent-error">{errors.effectiveDate.message}</span>
+        {isEditMode ? (
+          <p className="text-sm text-white/70">{t('form.effectiveDateReadonly', { date: formatDate(tariff.effectiveDate) })}</p>
+        ) : (
+          <>
+            <input
+              type="date"
+              style={{
+                borderColor: errors.effectiveDate ? 'var(--color-accent-error)' : 'rgba(255,255,255,0.15)',
+                colorScheme: 'dark',
+              }}
+              className={inputClass}
+              {...register('effectiveDate')}
+            />
+            {touchedFields.effectiveDate && errors.effectiveDate && (
+              <span className="text-xs text-accent-error">{errors.effectiveDate.message}</span>
+            )}
+          </>
         )}
       </div>
 
@@ -139,6 +258,7 @@ export function TariffForm({ flatId, onClose }: Props) {
             type="text"
             inputMode="numeric"
             placeholder="0"
+            disabled={isLockedAndNotOverridden}
             style={{ borderColor: errors.pricePerKwh ? 'var(--color-accent-error)' : 'rgba(255,255,255,0.15)' }}
             className={`${inputClass} pr-20`}
             {...register('pricePerKwh')}
@@ -160,6 +280,7 @@ export function TariffForm({ flatId, onClose }: Props) {
             type="text"
             inputMode="decimal"
             placeholder="0"
+            disabled={isLockedAndNotOverridden}
             style={{ borderColor: errors.monthlyBaseFee ? 'var(--color-accent-error)' : 'rgba(255,255,255,0.15)' }}
             className={`${inputClass} pr-16`}
             {...register('monthlyBaseFee')}
@@ -172,6 +293,24 @@ export function TariffForm({ flatId, onClose }: Props) {
           <span className="text-xs text-accent-error">{errors.monthlyBaseFee.message}</span>
         )}
       </div>
+
+      {isLockedAndNotOverridden && tariff?.contractStartDate && tariff.contractDurationMonths && (
+        <div className="-mt-2">
+          <button
+            type="button"
+            onClick={() => setOverrideDialogOpen(true)}
+            className="flex w-full items-center justify-between gap-2"
+          >
+            <TariffLockIndicator
+              contractStartDate={tariff.contractStartDate}
+              contractDurationMonths={tariff.contractDurationMonths}
+            />
+            <span className="text-xs underline shrink-0" style={{ color: '#d97706' }}>
+              {t('form.editAnywayButton')}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Provider name — optional */}
       <div className="flex flex-col gap-1.5">
@@ -221,7 +360,7 @@ export function TariffForm({ flatId, onClose }: Props) {
               <button
                 key={months}
                 type="button"
-                onClick={() => setValue('contractDurationMonths', isSelected ? null : months)}
+                onClick={() => setValue('contractDurationMonths', isSelected ? null : months, { shouldDirty: true })}
                 className="flex-1 h-10 rounded-full text-xs font-medium transition-all"
                 style={{
                   border: isSelected ? '1px solid #ffffff' : '1px solid rgba(255,255,255,0.20)',
@@ -254,6 +393,33 @@ export function TariffForm({ flatId, onClose }: Props) {
       >
         {isPending ? t('form.saving') : t('form.saveButton')}
       </button>
+
+      <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+        <DialogContent className="border border-white/[0.14] bg-[rgba(10,15,25,0.92)] backdrop-blur-[20px] backdrop-saturate-[1.8] text-white [&>button]:text-white/60 [&>button]:hover:text-white [&>button]:ring-offset-transparent [&>button]:focus:ring-white/40 [&>button]:data-[state=open]:bg-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-white">{t('form.overrideDialogTitle')}</DialogTitle>
+            <DialogDescription className="text-white/60">{t('form.overrideDialogDescription')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <button type="button" className="h-11 px-4 rounded-full text-sm text-white/70">
+                {t('form.overrideDialogCancel')}
+              </button>
+            </DialogClose>
+            <button
+              type="button"
+              onClick={() => {
+                setOverrideConfirmed(true)
+                setOverrideDialogOpen(false)
+              }}
+              className="h-11 px-4 rounded-full text-sm font-semibold text-white"
+              style={{ background: 'rgba(217,119,6,0.85)' }}
+            >
+              {t('form.overrideDialogConfirm')}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

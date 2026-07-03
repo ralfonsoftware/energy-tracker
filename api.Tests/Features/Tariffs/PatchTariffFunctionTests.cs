@@ -225,6 +225,36 @@ public class PatchTariffFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_PascalCasePropertyNames_AreMatchedCaseInsensitively()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { ProviderName = "PascalCo" });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<TariffResponse>();
+        response.ProviderName.ShouldBe("PascalCo");
+    }
+
+    [Fact]
+    public async Task RunAsync_LockOverrideWrongType_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.5m, lockOverride = "true" });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_TariffNotFound_Returns404()
     {
         var (flat, db) = await SeedFlatAsync();
@@ -290,6 +320,56 @@ public class PatchTariffFunctionTests
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
 
         result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_ExplicitNullProviderName_ClearsProviderName()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId, providerName: "OldCo");
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { providerName = (string?)null });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.ProviderName.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_ExplicitNullContractStartDateAndDuration_ClearsContractTerms()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId,
+            contractStartDate: DateTimeOffset.UtcNow.AddMonths(-1), contractDurationMonths: 12);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { contractStartDate = (DateTimeOffset?)null, contractDurationMonths = (int?)null });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.ContractStartDate.ShouldBeNull();
+        persisted.ContractDurationMonths.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_ProviderNameNotInBody_LeavesExistingProviderNameUnchanged()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId, providerName: "OldCo");
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.5m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.ProviderName.ShouldBe("OldCo");
     }
 
     [Fact]

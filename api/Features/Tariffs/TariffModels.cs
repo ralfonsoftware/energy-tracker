@@ -11,8 +11,11 @@ public record CreateTariffRequest(
 public record PatchTariffRequest(
     decimal? PricePerKwh,
     decimal? MonthlyBaseFee,
+    bool ProviderNameProvided,
     string? ProviderName,
+    bool ContractStartDateProvided,
     DateTimeOffset? ContractStartDate,
+    bool ContractDurationMonthsProvided,
     int? ContractDurationMonths,
     bool LockOverride);
 

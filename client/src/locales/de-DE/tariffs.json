@@ -12,7 +12,9 @@
   },
   "form": {
     "title": "Tarif hinzufügen",
+    "editTitle": "Tarif bearbeiten",
     "effectiveDate": "Gültig ab",
+    "effectiveDateReadonly": "Gültig ab {{date}}",
     "pricePerKwh": "Preis pro kWh",
     "priceSuffix": "€/kWh",
     "monthlyBaseFee": "Monatliche Grundgebühr",
@@ -29,6 +31,20 @@
     "invalidNumber": "Bitte eine gültige Zahl eingeben",
     "errorMessage": "Tarif konnte nicht gespeichert werden — bitte erneut versuchen.",
     "saveButton": "Speichern",
-    "saving": "Speichern…"
+    "saving": "Speichern…",
+    "lockedLabel": "Gesperrt — Vertrag aktiv bis {{date}}",
+    "editAnywayButton": "Trotzdem bearbeiten",
+    "overrideDialogTitle": "Gesperrten Tarif überschreiben?",
+    "overrideDialogDescription": "Das Überschreiben ändert den gesperrten Vertragspreis. Dies kann nicht rückgängig gemacht werden.",
+    "overrideDialogConfirm": "Trotzdem bearbeiten",
+    "overrideDialogCancel": "Abbrechen"
+  },
+  "budget": {
+    "title": "Geplante Jahresausgaben",
+    "spendSuffix": "€/Jahr",
+    "saveButton": "Speichern",
+    "savingLabel": "Speichern…",
+    "errorMessage": "Geplante Jahresausgaben konnten nicht gespeichert werden — bitte erneut versuchen.",
+    "helperText": "({{kwh}} kWh × {{price}}/kWh) + ({{fee}} × 12) = {{total}}"
   }
 }
