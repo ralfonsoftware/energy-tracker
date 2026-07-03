@@ -119,3 +119,23 @@ So that I have the physical hierarchy ready before importing smart plug data.
 **Then** an inline validation error appears: "This plug is already assigned to another power point"; Save is disabled until resolved.
 
 ---
+
+## Story 5.5: UX Polish — Bottom Tab Bar Safe Area & Tariff Sheet Close Affordance
+
+As a user,
+I want the bottom navigation to respect my device's safe area and the tariff edit sheet to have a clearly reachable close control,
+So that the app is comfortable to use on notched/home-indicator iOS devices and I can reliably dismiss the tariff edit sheet.
+
+**Acceptance Criteria:**
+
+**Given** `BottomTabBar` on an iOS device with a home indicator (e.g. Safari/iOS),
+**When** rendered,
+**Then** its bottom padding accounts for `env(safe-area-inset-bottom)` so the home indicator no longer overlaps the bar's content; the spec's exact 72px height is preserved as the content height with the safe-area inset added on top; the related scroll/layout quirk observed on tab-switch on Safari/iOS is also fixed.
+
+**Given** the Tariff edit sheet (`TariffForm.tsx` in edit mode),
+**When** rendered,
+**Then** the close ("✕") affordance is resized/repositioned so it is easy to notice and reach (adequate tap target, clear visual placement); no change to the sheet's submission behavior.
+
+[Source: _bmad-output/implementation-artifacts/epic-4-retro-2026-07-03.md#Action Items — items 6 and 7, "Epic 5 backlog, minor"]
+
+---
