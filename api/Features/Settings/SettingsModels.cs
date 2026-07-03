@@ -6,7 +6,6 @@ public record UserSettingsResponse(
     Guid? FlatId,
     string? FlatName,
     decimal? AnnualKwhBaseline,
-    decimal? PlannedAnnualSpend
+    decimal? PlannedAnnualSpend,
+    Guid? ActiveFlatId
 );
-
-public record UpdateUserSettingsRequest(string Locale);

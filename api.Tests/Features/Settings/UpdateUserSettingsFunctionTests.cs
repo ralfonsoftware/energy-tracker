@@ -104,4 +104,143 @@ public class UpdateUserSettingsFunctionTests
         user.ShouldNotBeNull();
         user.LocaleOverride.ShouldBe("en-US");
     }
+
+    [Fact]
+    public async Task RunAsync_ActiveFlatIdOmitted_LeavesExistingStoredValueUnchanged()
+    {
+        using var db = MakeDb();
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-omit",
+            Name = "Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        db.Flats.Add(flat);
+        db.Users.Add(new User { UserId = "user-omit", ActiveFlatId = flat.FlatId });
+        await db.SaveChangesAsync();
+
+        var fn = MakeFn(db);
+        var req = MakeRequest("""{"locale":"de-DE"}""");
+        var ctx = MakeFunctionContext("user-omit");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<UserSettingsResponse>();
+        response.ActiveFlatId.ShouldBe(flat.FlatId);
+
+        var persisted = await db.Users.SingleAsync(u => u.UserId == "user-omit");
+        persisted.ActiveFlatId.ShouldBe(flat.FlatId);
+    }
+
+    [Fact]
+    public async Task RunAsync_ActiveFlatIdProvidedAndOwnedByUser_PersistsIt()
+    {
+        using var db = MakeDb();
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-owns",
+            Name = "Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        db.Flats.Add(flat);
+        db.Users.Add(new User { UserId = "user-owns" });
+        await db.SaveChangesAsync();
+
+        var fn = MakeFn(db);
+        var req = MakeRequest($$"""{"locale":"de-DE","activeFlatId":"{{flat.FlatId}}"}""");
+        var ctx = MakeFunctionContext("user-owns");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<UserSettingsResponse>();
+        response.ActiveFlatId.ShouldBe(flat.FlatId);
+
+        var persisted = await db.Users.SingleAsync(u => u.UserId == "user-owns");
+        persisted.ActiveFlatId.ShouldBe(flat.FlatId);
+    }
+
+    [Fact]
+    public async Task RunAsync_ActiveFlatIdProvidedButNotOwnedByUser_Returns403AndPersistsNothing()
+    {
+        using var db = MakeDb();
+        var otherUsersFlat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "other-user",
+            Name = "Other Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        db.Flats.Add(otherUsersFlat);
+        db.Users.Add(new User { UserId = "user-intruder", LocaleOverride = "en-US" });
+        await db.SaveChangesAsync();
+
+        var fn = MakeFn(db);
+        var req = MakeRequest($$"""{"locale":"de-DE","activeFlatId":"{{otherUsersFlat.FlatId}}"}""");
+        var ctx = MakeFunctionContext("user-intruder");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        var objectResult = result.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(403);
+
+        var persisted = await db.Users.SingleAsync(u => u.UserId == "user-intruder");
+        persisted.ActiveFlatId.ShouldBeNull();
+        persisted.LocaleOverride.ShouldBe("en-US");
+    }
+
+    [Fact]
+    public async Task RunAsync_ActiveFlatIdExplicitJsonNull_ClearsExistingValue()
+    {
+        using var db = MakeDb();
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-clear",
+            Name = "Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        db.Flats.Add(flat);
+        db.Users.Add(new User { UserId = "user-clear", ActiveFlatId = flat.FlatId });
+        await db.SaveChangesAsync();
+
+        var fn = MakeFn(db);
+        var req = MakeRequest("""{"locale":"de-DE","activeFlatId":null}""");
+        var ctx = MakeFunctionContext("user-clear");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<UserSettingsResponse>();
+        response.ActiveFlatId.ShouldBeNull();
+
+        var persisted = await db.Users.SingleAsync(u => u.UserId == "user-clear");
+        persisted.ActiveFlatId.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_ActiveFlatIdMalformedGuidString_Returns400()
+    {
+        using var db = MakeDb();
+        db.Users.Add(new User { UserId = "user-malformed" });
+        await db.SaveChangesAsync();
+
+        var fn = MakeFn(db);
+        var req = MakeRequest("""{"locale":"de-DE","activeFlatId":"not-a-guid"}""");
+        var ctx = MakeFunctionContext("user-malformed");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+
+        var persisted = await db.Users.SingleAsync(u => u.UserId == "user-malformed");
+        persisted.ActiveFlatId.ShouldBeNull();
+    }
 }

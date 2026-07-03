@@ -34,7 +34,10 @@ public class GetUserSettingsFunction(AppDbContext db, LocaleResolver localeResol
             }
         }
 
-        var flat = await db.Flats.FirstOrDefaultAsync(f => f.UserId == userId, ct);
+        Flat? flat = null;
+        if (user.ActiveFlatId is Guid activeFlatId)
+            flat = await db.Flats.FirstOrDefaultAsync(f => f.FlatId == activeFlatId && f.UserId == userId, ct);
+        flat ??= await db.Flats.FirstOrDefaultAsync(f => f.UserId == userId, ct);
         var hasFlat = flat is not null;
 
         return new OkObjectResult(new UserSettingsResponse(
@@ -43,7 +46,8 @@ public class GetUserSettingsFunction(AppDbContext db, LocaleResolver localeResol
             flat?.FlatId,
             flat?.Name,
             flat?.AnnualKwhBaseline,
-            flat?.PlannedAnnualSpend
+            flat?.PlannedAnnualSpend,
+            user.ActiveFlatId
         ));
     }
 }

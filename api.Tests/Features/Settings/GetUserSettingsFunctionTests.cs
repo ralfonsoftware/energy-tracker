@@ -85,4 +85,41 @@ public class GetUserSettingsFunctionTests
         var response = ok.Value.ShouldBeOfType<UserSettingsResponse>();
         response.HasFlat.ShouldBeTrue();
     }
+
+    [Fact]
+    public async Task RunAsync_UserWithActiveFlatIdSet_ReturnsIt()
+    {
+        using var db = MakeDb();
+        var activeFlatId = Guid.NewGuid();
+        db.Users.Add(new User { UserId = "user-with-active-flat", ActiveFlatId = activeFlatId });
+        await db.SaveChangesAsync();
+
+        var fn = new GetUserSettingsFunction(db, new LocaleResolver());
+        var req = new DefaultHttpContext().Request;
+        var ctx = MakeFunctionContext("user-with-active-flat");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<UserSettingsResponse>();
+        response.ActiveFlatId.ShouldBe(activeFlatId);
+    }
+
+    [Fact]
+    public async Task RunAsync_UserWithNoActiveFlatIdSet_ReturnsNull()
+    {
+        using var db = MakeDb();
+        db.Users.Add(new User { UserId = "user-with-no-active-flat" });
+        await db.SaveChangesAsync();
+
+        var fn = new GetUserSettingsFunction(db, new LocaleResolver());
+        var req = new DefaultHttpContext().Request;
+        var ctx = MakeFunctionContext("user-with-no-active-flat");
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<UserSettingsResponse>();
+        response.ActiveFlatId.ShouldBeNull();
+    }
 }

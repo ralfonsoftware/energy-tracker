@@ -12,5 +12,6 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(u => u.UserId);
         builder.Property(u => u.UserId).HasMaxLength(450).HasColumnType("nvarchar(450)").IsRequired();
         builder.Property(u => u.LocaleOverride).HasMaxLength(10).HasColumnType("nvarchar(10)").IsRequired(false);
+        builder.Property(u => u.ActiveFlatId).IsRequired(false);
     }
 }
