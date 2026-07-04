@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { FlatSwitcher } from './FlatSwitcher'
 import type { UserSettings, FlatSummary } from '@/features/settings/api/settingsApi'
@@ -138,5 +138,26 @@ describe('FlatSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: /Home/ }))
     fireEvent.click(screen.getByRole('option', { name: 'Cabin' }))
     expect(mockMutate).not.toHaveBeenCalled()
+  })
+
+  it('FlatSwitcher_EscapeKeyPressedWhileOpen_ClosesDropdown', async () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /Home/ }))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
+  })
+
+  it('FlatSwitcher_PointerDownOutsideDropdown_ClosesDropdown', async () => {
+    setup()
+    fireEvent.click(screen.getByRole('button', { name: /Home/ }))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    // Radix's outside-dismiss listener attaches via a 0ms setTimeout after open (to avoid
+    // reacting to the very click that opened it), and defers the actual dismiss to the
+    // subsequent "click" — mirroring the real browser pointerdown-then-click sequence.
+    await new Promise(resolve => setTimeout(resolve, 0))
+    fireEvent.pointerDown(document.body, { button: 0 })
+    fireEvent.click(document.body)
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
   })
 })

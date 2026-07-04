@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { Sheet, SheetTrigger } from '@/components/ui/sheet'
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { useFlats } from '@/features/settings/hooks/useFlats'
@@ -14,24 +15,6 @@ export function FlatSwitcher() {
   const { mutate: switchFlat, isPending: isSwitching } = useSwitchActiveFlat()
   const [isOpen, setIsOpen] = useState(false)
   const [isAddFlatOpen, setIsAddFlatOpen] = useState(false)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const close = (e: MouseEvent | TouchEvent) => {
-      if (!dropdownRef.current?.contains(e.target as Node)) setIsOpen(false)
-    }
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false)
-    }
-    document.addEventListener('mousedown', close)
-    document.addEventListener('touchstart', close)
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('touchstart', close)
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [])
 
   const handleSelect = (flatId: string) => {
     if (isSwitching) return
@@ -46,55 +29,58 @@ export function FlatSwitcher() {
   }
 
   return (
-    <div ref={dropdownRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(v => !v)}
-        aria-expanded={isOpen}
-        aria-haspopup="listbox"
-        className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm text-white/80 bg-white/10 border border-white/20"
-      >
-        {isLoading ? t('flatSwitcher.loading') : (settings?.flatName ?? t('flatSwitcher.error'))} ▾
-      </button>
-      <Sheet open={isAddFlatOpen} onOpenChange={handleAddFlatOpenChange}>
-        {isOpen && (
-          <div
-            role="listbox"
-            className="absolute left-0 mt-1 min-w-[180px] bg-white/10 backdrop-blur border border-white/20 rounded-xl overflow-hidden z-10"
+    <Sheet open={isAddFlatOpen} onOpenChange={handleAddFlatOpenChange}>
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-haspopup="listbox"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm text-white/80 bg-white/10 border border-white/20"
           >
-            {isFlatsError ? (
-              <p className="px-4 py-2 text-sm text-white/50">{t('flatSwitcher.error')}</p>
-            ) : (
-              (flats ?? []).map(flat => {
-                const isActive = flat.flatId === settings?.flatId
-                return (
-                  <button
-                    key={flat.flatId}
-                    type="button"
-                    role="option"
-                    aria-selected={isActive}
-                    onClick={() => handleSelect(flat.flatId)}
-                    className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
-                    style={isActive ? { background: 'rgba(255,255,255,0.14)', fontWeight: 600 } : undefined}
-                  >
-                    {flat.name}
-                  </button>
-                )
-              })
-            )}
-            <div className="border-t border-white/10" />
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
-              >
-                {t('flatSwitcher.addFlat')}
-              </button>
-            </SheetTrigger>
-          </div>
-        )}
-        <AddFlatForm open={isAddFlatOpen} onOpenChange={handleAddFlatOpenChange} />
-      </Sheet>
-    </div>
+            {isLoading ? t('flatSwitcher.loading') : (settings?.flatName ?? t('flatSwitcher.error'))} ▾
+          </button>
+        </PopoverTrigger>
+        <PopoverContent
+          role="listbox"
+          align="start"
+          sideOffset={4}
+          onCloseAutoFocus={e => {
+            if (isAddFlatOpen) e.preventDefault()
+          }}
+          className="w-auto min-w-[180px] p-0 bg-white/10 backdrop-blur border border-white/20 rounded-xl overflow-hidden z-50"
+        >
+          {isFlatsError ? (
+            <p className="px-4 py-2 text-sm text-white/50">{t('flatSwitcher.error')}</p>
+          ) : (
+            (flats ?? []).map(flat => {
+              const isActive = flat.flatId === settings?.flatId
+              return (
+                <button
+                  key={flat.flatId}
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  onClick={() => handleSelect(flat.flatId)}
+                  className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
+                  style={isActive ? { background: 'rgba(255,255,255,0.14)', fontWeight: 600 } : undefined}
+                >
+                  {flat.name}
+                </button>
+              )
+            })
+          )}
+          <div className="border-t border-white/10" />
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
+            >
+              {t('flatSwitcher.addFlat')}
+            </button>
+          </SheetTrigger>
+        </PopoverContent>
+      </Popover>
+      <AddFlatForm open={isAddFlatOpen} onOpenChange={handleAddFlatOpenChange} />
+    </Sheet>
   )
 }
