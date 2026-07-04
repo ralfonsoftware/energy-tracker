@@ -1,0 +1,25 @@
+{
+	"folders": [
+		{
+			"path": "client"
+		},
+		{
+			"path": "api"
+		},
+		{
+			"path": "api.Tests"
+		},
+		{
+			"path": "_bmad-output"
+		},
+		{
+			"path": "infra"
+		},
+		{
+			"path": "sample-data"
+		},
+		{
+			"path": "docs"
+		}
+	]
+}
