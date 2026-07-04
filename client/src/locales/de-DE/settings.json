@@ -31,6 +31,21 @@
       "body": "Du musst dich erneut anmelden, um auf deine Daten zuzugreifen.",
       "cancel": "Abbrechen",
       "confirm": "Abmelden"
+    },
+    "deleteFlat": {
+      "button": "Wohnung löschen",
+      "prompt": "Gib \"{{flatName}}\" ein, um zu löschen",
+      "deleteButton": "Löschen",
+      "cancel": "Abbrechen",
+      "error": "Wohnung konnte nicht gelöscht werden — bitte erneut versuchen."
     }
+  },
+  "addFlat": {
+    "title": "Wohnung hinzufügen",
+    "nameLabel": "Wohnungsname",
+    "namePlaceholder": "Wohnungsname",
+    "submit": "Wohnung hinzufügen",
+    "error": "Wohnung konnte nicht hinzugefügt werden — bitte erneut versuchen.",
+    "tariffPrompt": "Füge einen Tarif unter Einstellungen → Tarif hinzu, um Kosten zu verfolgen."
   }
 }

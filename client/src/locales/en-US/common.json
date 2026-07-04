@@ -15,5 +15,10 @@
   "errors": {
     "networkError": "Something went wrong. Please try again.",
     "validationNumber": "Please enter a valid number"
+  },
+  "flatSwitcher": {
+    "loading": "Loading…",
+    "addFlat": "Add flat",
+    "error": "Unavailable"
   }
 }

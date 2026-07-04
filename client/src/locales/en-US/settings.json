@@ -31,6 +31,21 @@
       "body": "You'll need to sign in again to access your data.",
       "cancel": "Cancel",
       "confirm": "Sign out"
+    },
+    "deleteFlat": {
+      "button": "Delete Flat",
+      "prompt": "Type \"{{flatName}}\" to delete",
+      "deleteButton": "Delete",
+      "cancel": "Cancel",
+      "error": "Couldn't delete flat — please try again."
     }
+  },
+  "addFlat": {
+    "title": "Add a flat",
+    "nameLabel": "Flat name",
+    "namePlaceholder": "Flat name",
+    "submit": "Add flat",
+    "error": "Couldn't add flat — please try again.",
+    "tariffPrompt": "Add a tariff in Settings → Tariff to start tracking costs."
   }
 }

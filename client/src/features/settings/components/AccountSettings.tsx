@@ -1,13 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthMe } from '../hooks/useAuthMe'
+import { useUserSettings } from '../hooks/useUserSettings'
+import { FlatDeleteConfirm } from './FlatDeleteConfirm'
 
 export function AccountSettings() {
   const { t } = useTranslation('settings')
   const { data: authMe } = useAuthMe()
+  const { settings } = useUserSettings()
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showDeleteFlatConfirm, setShowDeleteFlatConfirm] = useState(false)
 
   const email = authMe?.clientPrincipal?.userDetails ?? ''
+  const hasFlat = Boolean(settings?.flatId && settings.flatName)
+
+  useEffect(() => {
+    if (showDeleteFlatConfirm && !hasFlat) {
+      setShowDeleteFlatConfirm(false)
+    }
+  }, [showDeleteFlatConfirm, hasFlat])
 
   const handleSignOut = () => {
     window.location.href = '/.auth/logout'
@@ -41,6 +52,16 @@ export function AccountSettings() {
     )
   }
 
+  if (showDeleteFlatConfirm && settings?.flatId && settings.flatName) {
+    return (
+      <FlatDeleteConfirm
+        flatId={settings.flatId}
+        flatName={settings.flatName}
+        onCancel={() => setShowDeleteFlatConfirm(false)}
+      />
+    )
+  }
+
   return (
     <>
       {email && (
@@ -48,7 +69,7 @@ export function AccountSettings() {
           <span className="text-white/55 text-[14px]">{email}</span>
         </div>
       )}
-      <div className={rowClass} style={{ ...rowBorderStyle, borderBottom: 'none' }}>
+      <div className={rowClass} style={hasFlat ? rowBorderStyle : { ...rowBorderStyle, borderBottom: 'none' }}>
         <button
           className="text-[15px] font-medium"
           style={{ color: '#ef4444' }}
@@ -57,6 +78,17 @@ export function AccountSettings() {
           {t('account.signOut')}
         </button>
       </div>
+      {hasFlat && (
+        <div className={rowClass} style={{ ...rowBorderStyle, borderBottom: 'none' }}>
+          <button
+            className="text-[15px] font-medium"
+            style={{ color: '#ef4444' }}
+            onClick={() => setShowDeleteFlatConfirm(true)}
+          >
+            {t('account.deleteFlat.button')}
+          </button>
+        </div>
+      )}
     </>
   )
 }

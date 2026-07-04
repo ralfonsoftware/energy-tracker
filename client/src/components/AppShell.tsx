@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom'
 import { EuroBurnGradient } from './EuroBurnGradient'
 import { BottomTabBar } from './BottomTabBar'
 import { SidebarNav } from './SidebarNav'
+import { Header } from './Header'
 
 export default function AppShell() {
   return (
@@ -12,6 +13,7 @@ export default function AppShell() {
           <SidebarNav />
         </div>
         <main className="flex-1 overflow-y-auto pb-[84px] md:pb-0">
+          <Header />
           <Outlet />
         </main>
       </div>

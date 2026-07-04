@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-03 (Story 5.1 code review complete, moved to done)
+# last_updated: 2026-07-04 (Story 5.2 review patches applied, done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-03 (Story 5.1 code review complete, moved to done)
+last_updated: 2026-07-04 (Story 5.2 review patches applied, done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -81,7 +81,7 @@ development_status:
   # Epic 5: Multi-Flat Management & Flat Structure
   epic-5: in-progress
   5-1-multi-flat-backend-create-list-and-cascade-delete: done
-  5-2-flat-switcher-add-flat-and-deletion-ui: backlog
+  5-2-flat-switcher-add-flat-and-deletion-ui: done
   5-3-flat-structure-backend-rooms-power-points-and-devices: backlog
   5-4-flat-structure-editor-frontend: backlog
   5-5-ux-polish-bottom-tab-bar-safe-area-and-tariff-sheet-close-affordance: backlog

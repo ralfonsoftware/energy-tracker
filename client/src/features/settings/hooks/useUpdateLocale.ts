@@ -5,7 +5,7 @@ import i18n from '@/lib/i18n'
 export function useUpdateLocale() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: updateUserSettings,
+    mutationFn: (locale: string) => updateUserSettings({ locale }),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       if (data.locale) i18n.changeLanguage(data.locale)

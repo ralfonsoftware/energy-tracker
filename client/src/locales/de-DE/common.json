@@ -15,5 +15,10 @@
   "errors": {
     "networkError": "Etwas ist schiefgelaufen. Bitte erneut versuchen.",
     "validationNumber": "Bitte gib eine gültige Zahl ein"
+  },
+  "flatSwitcher": {
+    "loading": "Lädt…",
+    "addFlat": "Wohnung hinzufügen",
+    "error": "Nicht verfügbar"
   }
 }
