@@ -63,7 +63,14 @@ public class KpiCalculator
         // same per-interval clamped deltas, so DailyAvgKwh and cost figures never diverge.
         decimal totalKwh = 0m;
         decimal totalCost = 0m;
-        decimal coveredDays = 0m;
+        // Accumulates only the *uncovered* period-days rather than the covered ones: CoveredDays is
+        // then derived as TotalDays minus this value, so a flat with 100% real tariff coverage never
+        // touches per-interval floating-point summation at all (uncoveredDays stays exactly 0m).
+        // Accumulating covered days directly instead would sum many independently-rounded
+        // TimeSpan.TotalDays values (ticks * DaysPerTick per interval) that don't bit-for-bit
+        // reproduce the single TotalDays computed once over the full span, flagging a cost gap that
+        // doesn't exist while CoveredDays/TotalDays still round to the same displayed integer.
+        decimal uncoveredDays = 0m;
         for (var i = 0; i < readings.Count - 1; i++)
         {
             var periodKwh = Math.Max(0m, readings[i + 1].KwhValue - readings[i].KwhValue);
@@ -71,12 +78,15 @@ public class KpiCalculator
 
             if (tariffs.Count > 0)
             {
-                var periodDays = (decimal)(readings[i + 1].ReadingDate - readings[i].ReadingDate).TotalDays;
                 var tariff = ResolveTariff(tariffs, readings[i].ReadingDate);
                 if (tariff is not null)
                 {
                     totalCost += periodKwh * tariff.PricePerKwh;
-                    coveredDays += periodDays;
+                }
+                else
+                {
+                    var periodDays = (decimal)(readings[i + 1].ReadingDate - readings[i].ReadingDate).TotalDays;
+                    uncoveredDays += periodDays;
                 }
             }
         }
@@ -95,6 +105,7 @@ public class KpiCalculator
         if (tariffs.Count > 0)
         {
             var totalDaysInt = (int)Math.Ceiling(totalDays);
+            var coveredDays = Math.Max(0m, (decimal)totalDays - uncoveredDays);
             var coveredDaysInt = Math.Min((int)Math.Ceiling(coveredDays), totalDaysInt);
             // dailyAvgCost divides by the same rounded CoveredDays reported to callers, so the
             // displayed denominator and the one used for the figure always agree.
@@ -109,9 +120,11 @@ public class KpiCalculator
                 DailyAvgCost: dailyAvgCost,
                 WeeklyAvgCost: dailyAvgCost * 7m,
                 ProjectedMonthlyCost: projectedMonthlyCost,
-                // Compares raw (unrounded) day counts so a genuine intra-day coverage gap isn't
-                // masked by Math.Ceiling rounding both sides up to the same integer.
-                HasCostGap: coveredDays < (decimal)totalDays,
+                // uncoveredDays (not coveredDays) drives this: a fully-covered flat never sums any
+                // per-interval TotalDays here, so it can't pick up floating-point drift and flag a
+                // gap that doesn't exist. A genuine sub-day gap still reports a positive uncoveredDays
+                // and correctly trips this flag.
+                HasCostGap: uncoveredDays > 0m,
                 CoveredDays: coveredDaysInt,
                 TotalDays: totalDaysInt,
                 CostDetailAvailable: coveredDaysInt >= MinCostDetailDays

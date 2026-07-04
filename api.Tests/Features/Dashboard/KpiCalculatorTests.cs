@@ -235,6 +235,65 @@ public class KpiCalculatorTests
     }
 
     [Fact]
+    public void Compute_FullyCoveredWithNonDayAlignedTimestamps_HasCostGapFalse()
+    {
+        // Regression for a floating-point false positive: summing per-interval TimeSpan.TotalDays
+        // values doesn't always bit-for-bit reproduce one TotalDays computed over the full span.
+        // Non-day-aligned reading timestamps (readings taken at different times of day, as real
+        // users do) used to expose that drift when CoveredDays was accumulated directly, landing a
+        // few microseconds short of TotalDays even when every interval resolved to the same tariff.
+        // Tracking only uncoveredDays (0m here, since nothing is uncovered) and deriving
+        // CoveredDays = TotalDays - uncoveredDays sidesteps the summation entirely when coverage is
+        // genuinely 100%.
+        var flat = MakeFlat();
+        var readings = new List<MeterReading>
+        {
+            MakeReading(new DateTimeOffset(2025, 12, 31, 10, 8, 0, TimeSpan.Zero), 6405.0000m),
+            MakeReading(new DateTimeOffset(2026, 7, 3, 10, 10, 0, TimeSpan.Zero), 7358.0000m),
+            MakeReading(new DateTimeOffset(2026, 7, 4, 9, 29, 0, TimeSpan.Zero), 7363.0000m)
+        };
+        var tariffs = new List<Tariff> { MakeTariff(new DateTimeOffset(2024, 10, 1, 0, 0, 0, TimeSpan.Zero), 0.2829m) };
+
+        var result = _calculator.Compute(flat, readings, tariffs, Now);
+
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.CoveredDays.ShouldBe(185);
+        result.Cost!.TotalDays.ShouldBe(185);
+        result.Cost!.HasCostGap.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Compute_GenuineSubDayGapMaskedByRounding_HasCostGapStillTrue()
+    {
+        // Companion to the regression above: a real (not floating-point-noise) sub-day gap must
+        // still be flagged, even in the exact scenario that motivated the original raw-value
+        // comparison — CoveredDays and TotalDays rounding (via Math.Ceiling) to the SAME displayed
+        // integer. Total span 10.5 days, 0.4 days (9h36m) genuinely uncovered, 10.1 days covered:
+        // Math.Ceiling(10.5) == Math.Ceiling(10.1) == 11, yet there is a real ~9.6-hour gap. The
+        // uncoveredDays-based fix must key HasCostGap off uncoveredDays > 0 (not the rounded
+        // comparison) to catch this rather than trading it away.
+        var flat = MakeFlat();
+        var dateA = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var dateB = dateA.AddHours(9.6);
+        var dateC = dateB.AddDays(10).AddHours(2.4);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(dateA, 100m),
+            MakeReading(dateB, 101m),
+            MakeReading(dateC, 150m)
+        };
+        // Tariff effective at dateB only — interval A→B (9.6h) uncovered, B→C (10.1 days) covered
+        var tariffs = new List<Tariff> { MakeTariff(dateB, 0.30m) };
+
+        var result = _calculator.Compute(flat, readings, tariffs, Now);
+
+        result.Cost.ShouldNotBeNull();
+        result.Cost!.TotalDays.ShouldBe(11);
+        result.Cost!.CoveredDays.ShouldBe(11);
+        result.Cost!.HasCostGap.ShouldBeTrue();
+    }
+
+    [Fact]
     public void Compute_CoveredDaysLessThanMinCostDetailDays_CostDetailAvailableFalse()
     {
         var flat = MakeFlat();
