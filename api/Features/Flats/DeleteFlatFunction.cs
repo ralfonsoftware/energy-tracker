@@ -33,10 +33,7 @@ public class DeleteFlatFunction(AppDbContext db)
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
 
-        await db.MeterReadings.Where(r => r.FlatId == flatGuid).LoadAsync(ct);
-        await db.Tariffs.Where(t => t.FlatId == flatGuid).LoadAsync(ct);
-        await db.Rooms.Where(r => r.FlatId == flatGuid).LoadAsync(ct);
-        await db.LoadPowerPointsAndDevicesAsync(flatGuid, ct);
+        await db.LoadFlatCascadeChildrenAsync(flatGuid, ct);
 
         db.Flats.Remove(flat);
         await db.SaveChangesAsync(ct);
