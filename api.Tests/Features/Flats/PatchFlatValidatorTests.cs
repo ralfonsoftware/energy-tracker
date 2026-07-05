@@ -104,4 +104,44 @@ public class PatchFlatValidatorTests
 
         result.IsValid.ShouldBeTrue();
     }
+
+    [Fact]
+    public void Validate_AnnualKwhBaselineExceedsFourDecimalPlaces_Fails()
+    {
+        var request = new PatchFlatRequest(Name: null, AnnualKwhBaseline: 3500.56789m, PlannedAnnualSpendProvided: false, PlannedAnnualSpend: null);
+
+        var result = new PatchFlatValidator().Validate(request);
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_AnnualKwhBaselineWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var request = new PatchFlatRequest(Name: null, AnnualKwhBaseline: 3500.500000m, PlannedAnnualSpendProvided: false, PlannedAnnualSpend: null);
+
+        var result = new PatchFlatValidator().Validate(request);
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendExceedsFourDecimalPlaces_Fails()
+    {
+        var request = new PatchFlatRequest(Name: null, AnnualKwhBaseline: null, PlannedAnnualSpendProvided: true, PlannedAnnualSpend: 500.56789m);
+
+        var result = new PatchFlatValidator().Validate(request);
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var request = new PatchFlatRequest(Name: null, AnnualKwhBaseline: null, PlannedAnnualSpendProvided: true, PlannedAnnualSpend: 500.500000m);
+
+        var result = new PatchFlatValidator().Validate(request);
+
+        result.IsValid.ShouldBeTrue();
+    }
 }

@@ -163,6 +163,60 @@ public class CreateFlatFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_AnnualKwhBaselineExceedsFourDecimalPlaces_Returns400()
+    {
+        using var db = MakeDb();
+        var fn = MakeFn(db);
+        var req = MakeRequest(new { name = "New Flat", annualKwhBaseline = 3500.56789m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.Flats.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_AnnualKwhBaselineWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        using var db = MakeDb();
+        var fn = MakeFn(db);
+        var req = MakeRequest(new { name = "New Flat", annualKwhBaseline = 3500.500000m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<CreatedResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_PlannedAnnualSpendExceedsFourDecimalPlaces_Returns400()
+    {
+        using var db = MakeDb();
+        var fn = MakeFn(db);
+        var req = MakeRequest(new { name = "New Flat", annualKwhBaseline = 3500m, plannedAnnualSpend = 500.56789m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.Flats.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_PlannedAnnualSpendWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        using var db = MakeDb();
+        var fn = MakeFn(db);
+        var req = MakeRequest(new { name = "New Flat", annualKwhBaseline = 3500m, plannedAnnualSpend = 500.500000m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<CreatedResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_MalformedJsonBody_Returns400()
     {
         using var db = MakeDb();

@@ -161,6 +161,37 @@ public class PatchReadingFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_KwhValueExceedsFourDecimalPlaces_Returns400AndDoesNotMutate()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var reading = await SeedReadingAsync(db, flat.FlatId, 100m);
+        var fn = new PatchReadingFunction(db, new PatchReadingValidator());
+        var req = MakeRequest(new { kwhValue = 120.56789m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), reading.ReadingId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        var persisted = await db.MeterReadings.SingleAsync(r => r.ReadingId == reading.ReadingId);
+        persisted.KwhValue.ShouldBe(100m);
+        persisted.IsCorrected.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task RunAsync_KwhValueWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var reading = await SeedReadingAsync(db, flat.FlatId, 100m);
+        var fn = new PatchReadingFunction(db, new PatchReadingValidator());
+        var req = MakeRequest(new { kwhValue = 120.500000m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), reading.ReadingId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_ReadingNotFound_Returns404()
     {
         var (flat, db) = await SeedFlatAsync();

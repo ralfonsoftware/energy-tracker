@@ -142,6 +142,60 @@ public class CreateTariffFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_PricePerKwhExceedsSixDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new CreateTariffFunction(db, new TariffValidator());
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.1234567m, monthlyBaseFee = 10m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.Tariffs.CountAsync(t => t.FlatId == flat.FlatId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_PricePerKwhWithTrailingZerosBeyondSixDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new CreateTariffFunction(db, new TariffValidator());
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.350000m, monthlyBaseFee = 10m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<CreatedResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_MonthlyBaseFeeExceedsFourDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new CreateTariffFunction(db, new TariffValidator());
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = 10.56789m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.Tariffs.CountAsync(t => t.FlatId == flat.FlatId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_MonthlyBaseFeeWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new CreateTariffFunction(db, new TariffValidator());
+        var req = MakeRequest(new { contractStartDate = DateTimeOffset.UtcNow, pricePerKwh = 0.3m, monthlyBaseFee = 10.500000m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<CreatedResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_MissingContractStartDate_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();

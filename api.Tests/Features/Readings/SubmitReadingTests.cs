@@ -140,6 +140,36 @@ public class SubmitReadingTests
     }
 
     [Fact]
+    public async Task RunAsync_KwhValueExceedsFourDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new SubmitReadingFunction(db, new ReadingValidator());
+        var req = MakeRequest(new { kwhValue = 123.56789m, readingDate = DateTimeOffset.UtcNow });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        var readings = await db.MeterReadings.CountAsync();
+        readings.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_KwhValueWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new SubmitReadingFunction(db, new ReadingValidator());
+        var req = MakeRequest(new { kwhValue = 123.500000m, readingDate = DateTimeOffset.UtcNow });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<CreatedResult>();
+        var readings = await db.MeterReadings.CountAsync();
+        readings.ShouldBe(1);
+    }
+
+    [Fact]
     public async Task RunAsync_MissingReadingDate_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();

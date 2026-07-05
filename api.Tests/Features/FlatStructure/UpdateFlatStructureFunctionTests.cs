@@ -306,6 +306,110 @@ public class UpdateFlatStructureFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_EuAnnualKwhExceedsFourDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket", "plugId": null,
+                                "devices": [ { "name": "Fridge", "consumptionApproach": "EuLabel", "euLabelClass": "A", "euAnnualKwh": 123.56789 } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_SelfMeasuredKwhExceedsFourDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket", "plugId": null,
+                                "devices": [ { "name": "Fridge", "consumptionApproach": "SelfMeasured", "selfMeasuredKwh": 1.56789, "selfMeasuredPeriod": "Daily" } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_EuAnnualKwhWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket", "plugId": null,
+                                "devices": [ { "name": "Fridge", "consumptionApproach": "EuLabel", "euLabelClass": "A", "euAnnualKwh": 123.500000 } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_SelfMeasuredKwhWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket", "plugId": null,
+                                "devices": [ { "name": "Fridge", "consumptionApproach": "SelfMeasured", "selfMeasuredKwh": 1.500000, "selfMeasuredPeriod": "Daily" } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_MalformedJsonBody_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();

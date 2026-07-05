@@ -48,4 +48,52 @@ public class OnboardingValidatorTests
 
         result.IsValid.ShouldBeFalse();
     }
+
+    [Fact]
+    public void Validate_AnnualKwhBaselineExceedsFourDecimalPlaces_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(annualKwhBaseline: 3500.56789m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_AnnualKwhBaselineWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(annualKwhBaseline: 3500.500000m));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_PricePerKwhExceedsSixDecimalPlaces_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(pricePerKwh: 0.1234567m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PricePerKwhWithTrailingZerosBeyondSixDecimals_Succeeds()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(pricePerKwh: 0.350000m));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_MonthlyBaseFeeExceedsFourDecimalPlaces_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(monthlyBaseFee: 10.56789m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_MonthlyBaseFeeWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(monthlyBaseFee: 10.500000m));
+
+        result.IsValid.ShouldBeTrue();
+    }
 }

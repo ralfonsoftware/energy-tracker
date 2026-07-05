@@ -1,5 +1,10 @@
 # Deferred Work
 
+## Deferred from: code review of decimal-precision-validation-policy (2026-07-05)
+
+- `OnboardingValidator.cs` never validates `PlannedAnnualSpend` at all — not even the pre-existing range check (`GreaterThan(0).LessThan(50000)`) that `CreateFlatValidator.cs`/`PatchFlatValidator.cs` both have for the same DB column (`Flat.PlannedAnnualSpend`, `decimal(18,4)`). Confirmed via `git show` at this story's baseline that the gap predates this change — not introduced by it. A value like `500.56789` (or any out-of-range value) submitted via the onboarding endpoint bypasses validation entirely. `api/Features/Onboarding/OnboardingValidator.cs`
+- Ten validator files now each hardcode `.PrecisionScale(18, N, true)` inline with no shared constant or extension method — introduced by this same story, applying the same duplicated literal at every call site. Low priority since it doesn't affect correctness today, but if the precision/scale policy changes again, all ten call sites must be updated manually and could drift. Candidate for an extension method (e.g. `RuleFor(...).DecimalPrecision(scale)`) if a future story touches these files anyway. `api/Features/Onboarding/OnboardingValidator.cs`, `api/Features/Flats/CreateFlatValidator.cs`, `api/Features/Flats/PatchFlatValidator.cs`, `api/Features/Tariffs/TariffValidator.cs`, `api/Features/Tariffs/PatchTariffValidator.cs`, `api/Features/Readings/ReadingValidator.cs`, `api/Features/Readings/PatchReadingValidator.cs`, `api/Features/FlatStructure/UpdateFlatStructureValidator.cs`
+
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-cicd-pipeline (2026-06-27)
 
 - CI pipeline has no `dotnet test` or `npm test` step — no test quality gate runs in CI (`.github/workflows/azure-static-web-apps.yml`). Address in a future story or CI hardening pass.

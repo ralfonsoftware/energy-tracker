@@ -299,6 +299,66 @@ public class PatchTariffFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_PricePerKwhExceedsSixDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.1234567m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.PricePerKwh.ShouldBe(tariff.PricePerKwh);
+    }
+
+    [Fact]
+    public async Task RunAsync_PricePerKwhWithTrailingZerosBeyondSixDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.350000m, lockOverride = true });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_MonthlyBaseFeeExceedsFourDecimalPlaces_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { monthlyBaseFee = 10.56789m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.MonthlyBaseFee.ShouldBe(tariff.MonthlyBaseFee);
+    }
+
+    [Fact]
+    public async Task RunAsync_MonthlyBaseFeeWithTrailingZerosBeyondFourDecimals_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { monthlyBaseFee = 10.500000m, lockOverride = true });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_ExplicitNullProviderName_ClearsProviderName()
     {
         var (flat, db) = await SeedFlatAsync();
