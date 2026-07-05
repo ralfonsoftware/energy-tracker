@@ -35,6 +35,8 @@ public class DeleteFlatFunction(AppDbContext db)
 
         await db.MeterReadings.Where(r => r.FlatId == flatGuid).LoadAsync(ct);
         await db.Tariffs.Where(t => t.FlatId == flatGuid).LoadAsync(ct);
+        await db.Rooms.Where(r => r.FlatId == flatGuid).LoadAsync(ct);
+        await db.LoadPowerPointsAndDevicesAsync(flatGuid, ct);
 
         db.Flats.Remove(flat);
         await db.SaveChangesAsync(ct);

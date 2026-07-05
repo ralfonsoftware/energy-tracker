@@ -9,6 +9,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Flat> Flats => Set<Flat>();
     public DbSet<Tariff> Tariffs => Set<Tariff>();
     public DbSet<MeterReading> MeterReadings => Set<MeterReading>();
+    public DbSet<Room> Rooms => Set<Room>();
+    public DbSet<PowerPoint> PowerPoints => Set<PowerPoint>();
+    public DbSet<Device> Devices => Set<Device>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

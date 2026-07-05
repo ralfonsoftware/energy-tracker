@@ -2,6 +2,7 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Features.Dashboard;
 using EnergyTracker.Api.Features.Flats;
+using EnergyTracker.Api.Features.FlatStructure;
 using EnergyTracker.Api.Features.Readings;
 using EnergyTracker.Api.Features.Onboarding;
 using EnergyTracker.Api.Features.Tariffs;
@@ -39,8 +40,12 @@ builder.Services.AddSingleton<TariffValidator>();
 builder.Services.AddSingleton<PatchTariffValidator>();
 builder.Services.AddScoped<TariffResolver>();
 builder.Services.AddSingleton<KpiCalculator>();
+builder.Services.AddSingleton<UpdateFlatStructureValidator>();
 
 builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
-    options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
+{
+    options.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
 
 builder.Build().Run();

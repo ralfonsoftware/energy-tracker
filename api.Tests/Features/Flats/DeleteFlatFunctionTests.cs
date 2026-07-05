@@ -57,6 +57,18 @@ public class DeleteFlatFunctionTests
         MonthlyBaseFee = 10m
     };
 
+    private static async Task<(Room room, PowerPoint powerPoint, Device device)> SeedStructureAsync(AppDbContext db, Guid flatId)
+    {
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flatId, Name = "Room", SortOrder = 0 };
+        var powerPoint = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Socket" };
+        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = powerPoint.PowerPointId, Name = "Device", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(room);
+        db.PowerPoints.Add(powerPoint);
+        db.Devices.Add(device);
+        await db.SaveChangesAsync();
+        return (room, powerPoint, device);
+    }
+
     [Fact]
     public async Task RunAsync_InvalidFlatIdFormat_Returns400()
     {
@@ -95,6 +107,7 @@ public class DeleteFlatFunctionTests
         var tariff = MakeTariff(flat.FlatId, DateTimeOffset.UtcNow);
         db.Tariffs.Add(tariff);
         await db.SaveChangesAsync();
+        var (room, powerPoint, device) = await SeedStructureAsync(db, flat.FlatId);
 
         var fn = new DeleteFlatFunction(db);
         var req = MakeRequest();
@@ -108,6 +121,9 @@ public class DeleteFlatFunctionTests
         (await db.Flats.CountAsync(f => f.FlatId == flat.FlatId)).ShouldBe(1);
         (await db.MeterReadings.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(1);
         (await db.Tariffs.CountAsync(t => t.FlatId == flat.FlatId)).ShouldBe(1);
+        (await db.Rooms.CountAsync(r => r.RoomId == room.RoomId)).ShouldBe(1);
+        (await db.PowerPoints.CountAsync(pp => pp.PowerPointId == powerPoint.PowerPointId)).ShouldBe(1);
+        (await db.Devices.CountAsync(d => d.DeviceId == device.DeviceId)).ShouldBe(1);
     }
 
     [Fact]
@@ -133,6 +149,29 @@ public class DeleteFlatFunctionTests
         result.ShouldBeOfType<NoContentResult>();
         (await db.MeterReadings.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
         (await db.Tariffs.CountAsync(t => t.FlatId == flat.FlatId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_ValidDelete_CascadeDeletesAllRoomsPowerPointsAndDevices()
+    {
+        using var db = MakeDb();
+        var flat = MakeFlat("owner-user");
+        db.Flats.Add(flat);
+        db.MeterReadings.Add(MakeReading(flat.FlatId, DateTimeOffset.UtcNow));
+        db.Tariffs.Add(MakeTariff(flat.FlatId, DateTimeOffset.UtcNow));
+        await db.SaveChangesAsync();
+        var (room, powerPoint, device) = await SeedStructureAsync(db, flat.FlatId);
+
+        var fn = new DeleteFlatFunction(db);
+        var req = MakeRequest();
+        var ctx = MakeFunctionContext("owner-user");
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<NoContentResult>();
+        (await db.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
+        (await db.PowerPoints.CountAsync(pp => pp.PowerPointId == powerPoint.PowerPointId)).ShouldBe(0);
+        (await db.Devices.CountAsync(d => d.DeviceId == device.DeviceId)).ShouldBe(0);
     }
 
     [Fact]
@@ -169,6 +208,8 @@ public class DeleteFlatFunctionTests
         var siblingTariff = MakeTariff(siblingFlat.FlatId, DateTimeOffset.UtcNow);
         db.Tariffs.AddRange(deleteTariff, siblingTariff);
         await db.SaveChangesAsync();
+        var (_, _, _) = await SeedStructureAsync(db, flatToDelete.FlatId);
+        var (siblingRoom, siblingPowerPoint, siblingDevice) = await SeedStructureAsync(db, siblingFlat.FlatId);
 
         var fn = new DeleteFlatFunction(db);
         var req = MakeRequest();
@@ -187,9 +228,14 @@ public class DeleteFlatFunctionTests
         var remainingSiblingTariff = await db.Tariffs.SingleAsync(t => t.FlatId == siblingFlat.FlatId);
         remainingSiblingTariff.TariffId.ShouldBe(siblingTariff.TariffId);
 
+        (await db.Rooms.CountAsync(r => r.RoomId == siblingRoom.RoomId)).ShouldBe(1);
+        (await db.PowerPoints.CountAsync(pp => pp.PowerPointId == siblingPowerPoint.PowerPointId)).ShouldBe(1);
+        (await db.Devices.CountAsync(d => d.DeviceId == siblingDevice.DeviceId)).ShouldBe(1);
+
         (await db.Flats.CountAsync(f => f.FlatId == flatToDelete.FlatId)).ShouldBe(0);
         (await db.MeterReadings.CountAsync(r => r.FlatId == flatToDelete.FlatId)).ShouldBe(0);
         (await db.Tariffs.CountAsync(t => t.FlatId == flatToDelete.FlatId)).ShouldBe(0);
+        (await db.Rooms.CountAsync(r => r.FlatId == flatToDelete.FlatId)).ShouldBe(0);
     }
 
     [Fact]
@@ -208,6 +254,8 @@ public class DeleteFlatFunctionTests
         var siblingTariff = MakeTariff(siblingFlat.FlatId, DateTimeOffset.UtcNow);
         db.Tariffs.AddRange(deleteTariff, siblingTariff);
         await db.SaveChangesAsync();
+        var (_, _, _) = await SeedStructureAsync(db, flatToDelete.FlatId);
+        var (siblingRoom, siblingPowerPoint, siblingDevice) = await SeedStructureAsync(db, siblingFlat.FlatId);
 
         var fn = new DeleteFlatFunction(db);
         var req = MakeRequest();
@@ -226,8 +274,13 @@ public class DeleteFlatFunctionTests
         var remainingSiblingTariff = await db.Tariffs.SingleAsync(t => t.FlatId == siblingFlat.FlatId);
         remainingSiblingTariff.TariffId.ShouldBe(siblingTariff.TariffId);
 
+        (await db.Rooms.CountAsync(r => r.RoomId == siblingRoom.RoomId)).ShouldBe(1);
+        (await db.PowerPoints.CountAsync(pp => pp.PowerPointId == siblingPowerPoint.PowerPointId)).ShouldBe(1);
+        (await db.Devices.CountAsync(d => d.DeviceId == siblingDevice.DeviceId)).ShouldBe(1);
+
         (await db.Flats.CountAsync(f => f.FlatId == flatToDelete.FlatId)).ShouldBe(0);
         (await db.MeterReadings.CountAsync(r => r.FlatId == flatToDelete.FlatId)).ShouldBe(0);
         (await db.Tariffs.CountAsync(t => t.FlatId == flatToDelete.FlatId)).ShouldBe(0);
+        (await db.Rooms.CountAsync(r => r.FlatId == flatToDelete.FlatId)).ShouldBe(0);
     }
 }
