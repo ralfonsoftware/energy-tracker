@@ -337,6 +337,23 @@ describe('TariffList', () => {
     expect(input.value).toBe('1500')
   })
 
+  it('TariffList_SheetOpen_CloseButtonIsFullyOpaqueAtRest', async () => {
+    const user = userEvent.setup()
+    setupTariffs({ data: [] })
+
+    renderList('flat-1')
+    await user.click(screen.getByRole('button', { name: 'list.addButton' }))
+
+    // The `[&>button]:opacity-100` override lives on the SheetContent (role="dialog")
+    // wrapper's className, not on the close button itself — Tailwind's descendant
+    // selector syntax keeps the utility class on the ancestor that declares it, and
+    // applies it to the button only via the generated CSS rule. Asserting on the
+    // button's own className would pass regardless of this fix, since the generated
+    // `sheet.tsx` close button already carries an unrelated `hover:opacity-100` class.
+    const dialog = screen.getByRole('dialog')
+    expect(dialog.className).toContain('[&>button]:opacity-100')
+  })
+
   it('TariffList_EditSheetDismissedWhilePatchPending_StaysOpen', async () => {
     const user = userEvent.setup()
     mockUsePatchTariff.mockReturnValue({

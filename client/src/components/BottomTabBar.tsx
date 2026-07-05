@@ -16,8 +16,10 @@ export function BottomTabBar() {
     <nav
       role="navigation"
       aria-label="Bottom navigation"
-      className="fixed bottom-0 left-0 right-0 h-[72px] flex items-center"
+      className="fixed bottom-0 left-0 right-0 flex items-center"
       style={{
+        height: 'calc(72px + env(safe-area-inset-bottom, 0px))',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         background: 'rgba(10,15,25,0.75)',
         WebkitBackdropFilter: 'blur(20px) saturate(180%)',
         backdropFilter: 'blur(20px) saturate(180%)',

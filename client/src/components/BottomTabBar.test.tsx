@@ -28,4 +28,24 @@ describe('BottomTabBar', () => {
     const nav = screen.getByRole('navigation', { name: 'Bottom navigation' })
     expect(nav).toBeInTheDocument()
   })
+
+  it('nav height and paddingBottom account for the safe-area inset', () => {
+    // jsdom's CSS engine mangles/drops `env()`/`calc()` values when read back through
+    // the style object or the serialized `style` attribute, so we spy on the raw
+    // property setters to verify the exact values React assigns instead.
+    const probe = document.createElement('div')
+    const styleProto = Object.getPrototypeOf(probe.style)
+    const heightSetter = vi.spyOn(styleProto, 'height', 'set')
+    const paddingBottomSetter = vi.spyOn(styleProto, 'paddingBottom', 'set')
+
+    try {
+      renderWithRouter(<BottomTabBar />)
+
+      expect(heightSetter).toHaveBeenCalledWith('calc(72px + env(safe-area-inset-bottom, 0px))')
+      expect(paddingBottomSetter).toHaveBeenCalledWith('env(safe-area-inset-bottom, 0px)')
+    } finally {
+      heightSetter.mockRestore()
+      paddingBottomSetter.mockRestore()
+    }
+  })
 })
