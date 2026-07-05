@@ -8,6 +8,17 @@ const FlatBaselineEdit = lazy(() => import('./components/FlatBaselineEdit'))
 const TariffList = lazy(() =>
   import('@/features/tariffs/components/TariffList').then(m => ({ default: m.TariffList }))
 )
+const FlatStructureEditor = lazy(() =>
+  import('@/features/flat-structure/components/FlatStructureEditor').then(m => ({
+    default: m.FlatStructureEditor,
+  }))
+)
+
+function FlatStructureSettingsRoute() {
+  const { settings, isLoading, isError } = useUserSettings()
+  if (isLoading || isError) return null
+  return <FlatStructureEditor flatId={settings?.flatId} />
+}
 
 function TariffSettingsRoute() {
   const { settings, isLoading, isError } = useUserSettings()
@@ -39,6 +50,7 @@ export default function SettingsPage() {
       <Route path="/" element={<SettingsRoot />} />
       <Route path="flat" element={<Suspense fallback={null}><FlatBaselineEdit /></Suspense>} />
       <Route path="tariffs" element={<Suspense fallback={null}><TariffSettingsRoute /></Suspense>} />
+      <Route path="structure" element={<Suspense fallback={null}><FlatStructureSettingsRoute /></Suspense>} />
     </Routes>
   )
 }

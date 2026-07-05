@@ -1,1 +1,47 @@
-{}
+{
+  "editor": {
+    "title": "Flat Structure",
+    "back": "Back",
+    "subtitle": "{{roomCount}} rooms · {{plugCount}} plugs assigned",
+    "defaultTemplateNote": "These rooms were pre-filled — edit names or add your own.",
+    "addRoom": "+ Add Room",
+    "newRoomName": "New Room",
+    "save": "Save",
+    "saving": "Saving…",
+    "saveError": "Couldn't save changes — please try again.",
+    "saveSuccess": "Structure saved.",
+    "plugIdConflict": "This plug is already assigned to another power point",
+    "blankNameError": "Give every room and power point a name before saving.",
+    "loadError": "Couldn't load your flat structure — please try again.",
+    "retry": "Retry"
+  },
+  "room": {
+    "namePlaceholder": "Room name",
+    "powerPointsSummary": "{{count}} power points",
+    "addPowerPoint": "+ Add Power Point"
+  },
+  "powerPoint": {
+    "namePlaceholder": "Power point name",
+    "plugIdLabel": "Smart Plug ID",
+    "plugIdPlaceholder": "Not assigned",
+    "addDevice": "+ Add Device",
+    "editDevice": "Edit device ›"
+  },
+  "device": {
+    "title": "Device",
+    "namePlaceholder": "Device name",
+    "typePlaceholder": "Type (optional)",
+    "manufacturerPlaceholder": "Manufacturer (optional)",
+    "modelPlaceholder": "Model (optional)",
+    "consumptionNote": "Configure consumption profile to include this device in Decomposition",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "defaultRooms": {
+    "livingRoom": "Living Room",
+    "bedroom": "Bedroom",
+    "kitchen": "Kitchen",
+    "bathroom": "Bathroom",
+    "hallway": "Hallway"
+  }
+}
