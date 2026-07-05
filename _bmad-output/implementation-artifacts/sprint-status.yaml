@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-05 (Story 5.5 done)
+# last_updated: 2026-07-05 (Epic 5 retrospective done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-05 (Story 5.5 done)
+last_updated: 2026-07-05 (Epic 5 retrospective done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -85,7 +85,7 @@ development_status:
   5-3-flat-structure-backend-rooms-power-points-and-devices: done
   5-4-flat-structure-editor-frontend: done
   5-5-ux-polish-bottom-tab-bar-safe-area-and-tariff-sheet-close-affordance: done
-  epic-5-retrospective: optional
+  epic-5-retrospective: done
 
   # Epic 6: Smart Plug Import & Device Registry
   epic-6: backlog
