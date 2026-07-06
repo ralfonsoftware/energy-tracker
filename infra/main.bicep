@@ -322,6 +322,52 @@ resource swaLinkedBackend 'Microsoft.Web/staticSites/linkedBackends@2023-12-01' 
   }
 }
 
+// Linking a Standard-tier SWA's custom backend (above) makes Azure auto-provision
+// App Service Authentication on the Function App itself, gating every request to its
+// raw hostname behind a bearer token so the backend can't be reached bypassing the SWA.
+// That gate also catches Event Grid's blob-trigger webhook validation (unauthenticated
+// POST to /runtime/webhooks/blobs, see importBlobEventSubscription below) — it has no
+// bearer token, only the blobs_extension system key in the querystring, so every
+// EventGrid subscription attempt 401s unless this path is explicitly excluded.
+resource functionAppAuthSettings 'Microsoft.Web/sites/config@2023-12-01' = {
+  parent: functionsApp
+  name: 'authsettingsV2'
+  properties: {
+    platform: {
+      enabled: true
+    }
+    globalValidation: {
+      requireAuthentication: true
+      unauthenticatedClientAction: 'RedirectToLoginPage'
+      excludedPaths: [
+        '/runtime/webhooks/blobs'
+      ]
+    }
+    identityProviders: {
+      azureStaticWebApps: {
+        enabled: true
+        registration: {
+          clientId: staticWebApp.properties.defaultHostname
+        }
+      }
+    }
+    login: {
+      tokenStore: {
+        enabled: false
+      }
+    }
+    httpSettings: {
+      requireHttps: true
+      routes: {
+        apiPrefix: '/.auth'
+      }
+    }
+  }
+  dependsOn: [
+    swaLinkedBackend
+  ]
+}
+
 // ── RBAC: Managed Identity → Storage Blob Data Contributor ────────────────────
 resource blobDataContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(storageAccount.id, managedIdentityObjectId, storageBlobDataContributorRoleId)
