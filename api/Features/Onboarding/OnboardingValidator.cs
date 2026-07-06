@@ -21,5 +21,10 @@ public class OnboardingValidator : AbstractValidator<CompleteOnboardingRequest>
             .WithMessage("monthlyBaseFee must have at most 4 decimal places.");
         RuleFor(r => r.ProviderName).MaximumLength(200).When(r => r.ProviderName != null);
         RuleFor(r => r.ContractDurationMonths).InclusiveBetween(1, 60).When(r => r.ContractDurationMonths.HasValue);
+        RuleFor(r => r.PlannedAnnualSpend).GreaterThan(0m).LessThan(50000m)
+            .WithMessage("plannedAnnualSpend must be greater than 0 and less than 50000.")
+            .PrecisionScale(18, 4, true)
+            .WithMessage("plannedAnnualSpend must have at most 4 decimal places.")
+            .When(r => r.PlannedAnnualSpend is not null);
     }
 }

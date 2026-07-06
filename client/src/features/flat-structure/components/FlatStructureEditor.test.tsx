@@ -100,6 +100,40 @@ function seededResponse(overrides?: Partial<FlatStructureResponse>): FlatStructu
   }
 }
 
+function seededResponseWithDevice(): FlatStructureResponse {
+  return seededResponse({
+    rooms: [
+      {
+        roomId: 'room-1',
+        name: 'Office',
+        sortOrder: 0,
+        powerPoints: [
+          {
+            powerPointId: 'pp-1',
+            name: 'Desk Outlet',
+            plugId: 'PLUG-1',
+            devices: [
+              {
+                deviceId: 'device-1',
+                name: 'Lamp',
+                type: null,
+                manufacturer: null,
+                model: null,
+                purchaseDate: null,
+                consumptionApproach: 'None',
+                euLabelClass: null,
+                euAnnualKwh: null,
+                selfMeasuredKwh: null,
+                selfMeasuredPeriod: null,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+}
+
 describe('FlatStructureEditor', () => {
   beforeEach(() => {
     mockUseFlatStructure.mockReset()
@@ -332,5 +366,115 @@ describe('FlatStructureEditor', () => {
     await user.click(screen.getByRole('button', { name: 'editor.save' }))
 
     expect(screen.getByText('editor.saveSuccess')).toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_DeleteRoomArmThenConfirm_RemovesOnlyThatRoom', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: 'room.delete' })[0])
+
+    expect(screen.getByText('room.deletePrompt')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Office')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
+
+    expect(screen.queryByDisplayValue('Office')).not.toBeInTheDocument()
+    expect(screen.getByDisplayValue('Garage')).toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_DeleteRoomArmThenCancel_RoomStillPresent', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: 'room.delete' })[0])
+    await user.click(screen.getByRole('button', { name: 'confirm.cancel' }))
+
+    expect(screen.getByDisplayValue('Office')).toBeInTheDocument()
+    expect(screen.queryByText('room.deletePrompt')).not.toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_DeleteLastRemainingRoom_DisablesSaveAndShowsError', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({
+      data: seededResponse({
+        rooms: [
+          {
+            roomId: 'room-1',
+            name: 'Office',
+            sortOrder: 0,
+            powerPoints: [],
+          },
+        ],
+      }),
+    })
+
+    renderEditor()
+    await user.click(screen.getByRole('button', { name: 'room.delete' }))
+    await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
+
+    expect(screen.getByText('editor.noRoomsError')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'editor.save' })).toBeDisabled()
+  })
+
+  it('FlatStructureEditor_DeletePowerPointArmThenConfirm_RemovesPowerPoint', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
+    await user.click(screen.getByRole('button', { name: 'powerPoint.delete' }))
+
+    expect(screen.getByText('powerPoint.deletePrompt')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
+
+    expect(screen.queryByDisplayValue('Desk Outlet')).not.toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_DeletePowerPointArmThenCancel_PowerPointStillPresent', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
+    await user.click(screen.getByRole('button', { name: 'powerPoint.delete' }))
+    await user.click(screen.getByRole('button', { name: 'confirm.cancel' }))
+
+    expect(screen.getByDisplayValue('Desk Outlet')).toBeInTheDocument()
+    expect(screen.queryByText('powerPoint.deletePrompt')).not.toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_DeleteDeviceArmThenConfirm_RemovesDevice', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponseWithDevice() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
+
+    expect(screen.getByText('Lamp')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'device.delete' }))
+
+    expect(screen.getByText('device.deletePrompt')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
+
+    expect(screen.queryByText('Lamp')).not.toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_DeleteDeviceArmThenCancel_DeviceStillPresent', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponseWithDevice() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
+    await user.click(screen.getByRole('button', { name: 'device.delete' }))
+    await user.click(screen.getByRole('button', { name: 'confirm.cancel' }))
+
+    expect(screen.getByText('Lamp')).toBeInTheDocument()
+    expect(screen.queryByText('device.deletePrompt')).not.toBeInTheDocument()
   })
 })

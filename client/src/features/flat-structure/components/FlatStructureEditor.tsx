@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { Trash2 } from 'lucide-react'
 import { useFlatStructure } from '@/features/flat-structure/hooks/useFlatStructure'
 import { useUpdateFlatStructure } from '@/features/flat-structure/hooks/useUpdateFlatStructure'
 import { RoomEditor } from './RoomEditor'
@@ -34,6 +35,7 @@ export function FlatStructureEditor({ flatId }: Props) {
   const [showDefaultTemplateNote, setShowDefaultTemplateNote] = useState(false)
   const [saveError, setSaveError] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [confirmDeleteRoomKey, setConfirmDeleteRoomKey] = useState<string | null>(null)
   const initializedFlatIdRef = useRef<string | undefined>(undefined)
 
   useEffect(() => {
@@ -69,11 +71,19 @@ export function FlatStructureEditor({ flatId }: Props) {
     setDraftRooms(prev => prev.map(room => (room.key === roomKey ? updated : room)))
   }
 
+  const handleDeleteRoom = (roomKey: string) => {
+    setSaveSuccess(false)
+    setSaveError(false)
+    setDraftRooms(prev => prev.filter(room => room.key !== roomKey))
+    setConfirmDeleteRoomKey(null)
+  }
+
   const hasPlugIdConflict = findPlugIdConflict(draftRooms)
   const hasEmptyName = hasBlankName(draftRooms)
+  const hasNoRooms = draftRooms.length === 0
 
   const handleSave = () => {
-    if (hasPlugIdConflict || hasEmptyName || isPending) return
+    if (hasPlugIdConflict || hasEmptyName || hasNoRooms || isPending) return
     setSaveError(false)
     setSaveSuccess(false)
     mutate(toUpdateRequest(draftRooms), {
@@ -191,7 +201,7 @@ export function FlatStructureEditor({ flatId }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={hasPlugIdConflict || hasEmptyName || isPending}
+            disabled={hasPlugIdConflict || hasEmptyName || hasNoRooms || isPending}
             className="px-3 py-1.5 text-xs font-semibold rounded-full disabled:opacity-40"
             style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)', color: 'white' }}
           >
@@ -224,6 +234,11 @@ export function FlatStructureEditor({ flatId }: Props) {
             {t('editor.blankNameError')}
           </p>
         )}
+        {hasNoRooms && (
+          <p role="alert" className="text-xs text-accent-error mb-2">
+            {t('editor.noRoomsError')}
+          </p>
+        )}
       </div>
 
       <div className="px-6 flex-1 pb-10">
@@ -231,26 +246,61 @@ export function FlatStructureEditor({ flatId }: Props) {
           {draftRooms.map(room => (
             <li
               key={room.key}
-              className="rounded-2xl p-4 flex items-center gap-2"
+              className="rounded-2xl p-4 flex flex-col gap-2"
               style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
             >
-              <input
-                type="text"
-                value={room.name}
-                onChange={e => handleRenameRoom(room.key, e.target.value)}
-                placeholder={t('room.namePlaceholder')}
-                aria-label={t('room.namePlaceholder')}
-                className="flex-1 h-10 px-3 rounded-[10px] bg-white/[0.08] border text-white text-sm outline-none focus:border-white/60"
-                style={{ borderColor: 'rgba(255,255,255,0.15)' }}
-              />
-              <button
-                type="button"
-                onClick={() => setView({ type: 'room', roomKey: room.key })}
-                className="flex items-center gap-1 text-xs text-white/50 shrink-0"
-              >
-                {t('room.powerPointsSummary', { count: room.powerPoints.length })}
-                <span aria-hidden="true">›</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={room.name}
+                  onChange={e => handleRenameRoom(room.key, e.target.value)}
+                  placeholder={t('room.namePlaceholder')}
+                  aria-label={t('room.namePlaceholder')}
+                  disabled={confirmDeleteRoomKey === room.key}
+                  className="flex-1 h-10 px-3 rounded-[10px] bg-white/[0.08] border text-white text-sm outline-none focus:border-white/60 disabled:opacity-60"
+                  style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+                />
+                {confirmDeleteRoomKey === room.key ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteRoomKey(null)}
+                      className="px-3 py-1.5 text-xs font-medium rounded-full text-white/70"
+                    >
+                      {t('confirm.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteRoom(room.key)}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-full text-accent-error"
+                    >
+                      {t('confirm.delete')}
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setView({ type: 'room', roomKey: room.key })}
+                      className="flex items-center gap-1 text-xs text-white/50 shrink-0"
+                    >
+                      {t('room.powerPointsSummary', { count: room.powerPoints.length })}
+                      <span aria-hidden="true">›</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteRoomKey(room.key)}
+                      aria-label={t('room.delete')}
+                      className="shrink-0 text-white/50 hover:text-accent-error transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </>
+                )}
+              </div>
+              {confirmDeleteRoomKey === room.key && (
+                <span className="text-xs text-white/60">{t('room.deletePrompt')}</span>
+              )}
             </li>
           ))}
         </ul>
