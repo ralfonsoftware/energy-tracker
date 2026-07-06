@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of 6-4-gap-detection-interpolation-and-main-meter-reconciliation (2026-07-06)
+
+- `ReconciliationEngine.BuildMainMeterDailySeries` can double-count a calendar day's kWh when two `MeterReading` rows land on the same local day — the unique index on `MeterReadings` is `(FlatId, ReadingDate)` on the exact instant, not the calendar date, so same-day duplicate readings aren't prevented at the DB level. This inflates `MainMeterTotal` and can skew the over-attribution check. Pre-existing: the identical allocation algorithm (and the same gap) already exists in `KpiCalculator.BuildDailySeries`, and Story 6.4's own Dev Notes explicitly mandate duplicating it "verbatim" for consistency with the dashboard — fixing only the new copy would diverge the two implementations. Address both call sites together in a future story. `api/Features/SmartPlugImport/ReconciliationEngine.cs`, `api/Features/Dashboard/KpiCalculator.cs`
+
 ## Deferred from: code review of decimal-precision-validation-policy (2026-07-05)
 
 - ~~`OnboardingValidator.cs` never validates `PlannedAnnualSpend` at all~~ — **RESOLVED in Story 6.0 (2026-07-06)**: added `GreaterThan(0m).LessThan(50000m).PrecisionScale(18, 4, true)` mirroring `CreateFlatValidator.cs` verbatim, with new passing/failing test cases in `OnboardingValidatorTests.cs`. `api/Features/Onboarding/OnboardingValidator.cs`

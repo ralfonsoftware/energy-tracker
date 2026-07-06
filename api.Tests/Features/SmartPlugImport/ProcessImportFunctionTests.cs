@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
 using EnergyTracker.Api.Features.SmartPlugImport;
@@ -141,7 +142,24 @@ public class ProcessImportFunctionTests
 
     private static ProcessImportFunction MakeFunction(AppDbContext db) =>
         new(db, new EveHomeParser(db, Mock.Of<ILogger<EveHomeParser>>()), new MerossParser(db, Mock.Of<ILogger<MerossParser>>()),
+            new InterpolationEngine(db, Mock.Of<ILogger<InterpolationEngine>>()),
+            new ReconciliationEngine(db, Mock.Of<ILogger<ReconciliationEngine>>()),
             Mock.Of<ILogger<ProcessImportFunction>>());
+
+    private static async Task SeedDailyRowAsync(AppDbContext db, Guid flatId, string plugId, DateOnly date, decimal kwh, bool isInterpolated = false)
+    {
+        db.SmartPlugDailyData.Add(new SmartPlugDailyData
+        {
+            FlatId = flatId,
+            PlugId = plugId,
+            Date = date,
+            KwhValue = kwh,
+            IsInterpolated = isInterpolated
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private static DateTimeOffset NoonUtc(int year, int month, int day) => new(year, month, day, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
     public async Task RunAsync_HappyPath_TransitionsPendingToComplete()
@@ -320,5 +338,57 @@ public class ProcessImportFunctionTests
         var persisted = await db.ImportJobs.SingleAsync(j => j.ImportJobId == job.ImportJobId);
         persisted.Status.ShouldBe(ImportStatus.Complete);
         persisted.CompletedAt.ShouldBe(job.CompletedAt);
+    }
+
+    [Fact]
+    public async Task RunAsync_ExistingGapForPlug_InterpolatesAndRecordsGapNotification()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var job = await SeedImportJobAsync(db, flat.FlatId);
+        await SeedDailyRowAsync(db, flat.FlatId, "plug-test-1", new DateOnly(2026, 1, 1), 1.0m);
+        await SeedDailyRowAsync(db, flat.FlatId, "plug-test-1", new DateOnly(2026, 1, 3), 3.0m);
+        var fn = MakeFunction(db);
+        using var blobStream = new MemoryStream(new byte[] { 1, 2, 3 });
+
+        await fn.RunAsync(blobStream, "user-test-123", flat.FlatId.ToString(), job.ImportJobId.ToString(), "csv",
+            MakeFunctionContext(), CancellationToken.None);
+
+        var filled = await db.SmartPlugDailyData.SingleAsync(d => d.Date == new DateOnly(2026, 1, 2));
+        filled.IsInterpolated.ShouldBeTrue();
+        // Raw interpolation would be 1.0 + (3.0-1.0)*1/2 = 2.0, but there's no history before the
+        // anchor to average, so the 7-day preceding average is just the anchor itself (1.0),
+        // capping the filled value down to 1.0.
+        filled.KwhValue.ShouldBe(1.0m);
+
+        var persisted = await db.ImportJobs.SingleAsync(j => j.ImportJobId == job.ImportJobId);
+        persisted.Status.ShouldBe(ImportStatus.Complete);
+        persisted.GapNotifications.ShouldNotBeNull();
+        var notifications = JsonSerializer.Deserialize<GapNotification[]>(
+            persisted.GapNotifications!, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        notifications.ShouldNotBeNull();
+        notifications!.Length.ShouldBe(1);
+        notifications[0].PlugId.ShouldBe("plug-test-1");
+        notifications[0].Start.ShouldBe(new DateOnly(2026, 1, 2));
+        notifications[0].End.ShouldBe(new DateOnly(2026, 1, 2));
+    }
+
+    [Fact]
+    public async Task RunAsync_AttributedExceedsMainMeterTotal_SetsFailedWithProcessingFailed()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var job = await SeedImportJobAsync(db, flat.FlatId);
+        db.MeterReadings.Add(new MeterReading { FlatId = flat.FlatId, ReadingDate = NoonUtc(2026, 1, 1), KwhValue = 0m });
+        db.MeterReadings.Add(new MeterReading { FlatId = flat.FlatId, ReadingDate = NoonUtc(2026, 1, 11), KwhValue = 100m });
+        await db.SaveChangesAsync();
+        await SeedDailyRowAsync(db, flat.FlatId, "plug-test-1", new DateOnly(2026, 1, 5), 100.5m);
+        var fn = MakeFunction(db);
+        using var blobStream = new MemoryStream(new byte[] { 1, 2, 3 });
+
+        await fn.RunAsync(blobStream, "user-test-123", flat.FlatId.ToString(), job.ImportJobId.ToString(), "csv",
+            MakeFunctionContext(), CancellationToken.None);
+
+        var persisted = await db.ImportJobs.SingleAsync(j => j.ImportJobId == job.ImportJobId);
+        persisted.Status.ShouldBe(ImportStatus.Failed);
+        persisted.ErrorCategory.ShouldBe(ImportErrorCategory.ProcessingFailed);
     }
 }
