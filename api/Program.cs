@@ -7,6 +7,7 @@ using EnergyTracker.Api.Features.Flats;
 using EnergyTracker.Api.Features.FlatStructure;
 using EnergyTracker.Api.Features.Readings;
 using EnergyTracker.Api.Features.Onboarding;
+using EnergyTracker.Api.Features.SmartPlugImport;
 using EnergyTracker.Api.Features.Tariffs;
 using EnergyTracker.Api.Shared;
 using Microsoft.Azure.Functions.Worker;
@@ -16,6 +17,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry;
+
+System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -50,6 +53,7 @@ builder.Services.AddSingleton<PatchReadingValidator>();
 builder.Services.AddSingleton<TariffValidator>();
 builder.Services.AddSingleton<PatchTariffValidator>();
 builder.Services.AddScoped<TariffResolver>();
+builder.Services.AddScoped<EveHomeParser>();
 builder.Services.AddSingleton<KpiCalculator>();
 builder.Services.AddSingleton<UpdateFlatStructureValidator>();
 

@@ -1,3 +1,5 @@
+using System.IO.Compression;
+using System.Text;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
 using EnergyTracker.Api.Features.SmartPlugImport;
@@ -11,6 +13,61 @@ namespace api.Tests.Features.SmartPlugImport;
 
 public class ProcessImportFunctionTests
 {
+    private static MemoryStream BuildMinimalEveHomeXlsx()
+    {
+        var stream = new MemoryStream();
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteEntry(zip, "[Content_Types].xml", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                  <Default Extension="xml" ContentType="application/xml"/>
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                </Types>
+                """);
+            WriteEntry(zip, "_rels/.rels", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+                </Relationships>
+                """);
+            WriteEntry(zip, "xl/workbook.xml", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets><sheet name="Gesamtverbrauch" sheetId="1" r:id="rId1"/></sheets>
+                </workbook>
+                """);
+            WriteEntry(zip, "xl/_rels/workbook.xml.rels", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+                </Relationships>
+                """);
+            WriteEntry(zip, "xl/worksheets/sheet1.xml", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>
+                <row r="1"><c r="A1" t="inlineStr"><is><t>Ger&#228;t: Test</t></is></c></row>
+                <row r="2"><c r="A2" t="inlineStr"><is><t>Raum: Test</t></is></c></row>
+                <row r="3"><c r="A3" t="inlineStr"><is><t>Zuhause: Test</t></is></c></row>
+                <row r="4"><c r="A4" t="inlineStr"><is><t>Datum</t></is></c><c r="B4" t="inlineStr"><is><t>Gesamtverbrauch (Wh)</t></is></c></row>
+                <row r="5"><c r="A5" t="d"><v>2026-06-20T00:00:00</v></c><c r="B5"><v>500</v></c></row>
+                </sheetData></worksheet>
+                """);
+        }
+        stream.Position = 0;
+        return stream;
+
+        static void WriteEntry(ZipArchive zip, string name, string content)
+        {
+            var entry = zip.CreateEntry(name);
+            using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+            writer.Write(content);
+        }
+    }
+
     private sealed class ThrowingStream(Exception exceptionToThrow) : Stream
     {
         public override bool CanRead => true;
@@ -72,6 +129,7 @@ public class ProcessImportFunctionTests
         var job = new ImportJob
         {
             FlatId = flatId,
+            PlugId = "plug-test-1",
             Status = ImportStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -81,7 +139,7 @@ public class ProcessImportFunctionTests
     }
 
     private static ProcessImportFunction MakeFunction(AppDbContext db) =>
-        new(db, Mock.Of<ILogger<ProcessImportFunction>>());
+        new(db, new EveHomeParser(db, Mock.Of<ILogger<EveHomeParser>>()), Mock.Of<ILogger<ProcessImportFunction>>());
 
     [Fact]
     public async Task RunAsync_HappyPath_TransitionsPendingToComplete()
@@ -98,6 +156,25 @@ public class ProcessImportFunctionTests
         persisted.Status.ShouldBe(ImportStatus.Complete);
         persisted.CompletedAt.ShouldNotBeNull();
         persisted.ErrorCategory.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_ValidXlsxFile_ParsesAndCompletesWithDailyData()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var job = await SeedImportJobAsync(db, flat.FlatId);
+        var fn = MakeFunction(db);
+        using var blobStream = BuildMinimalEveHomeXlsx();
+
+        await fn.RunAsync(blobStream, "user-test-123", flat.FlatId.ToString(), job.ImportJobId.ToString(), "xlsx",
+            MakeFunctionContext(), CancellationToken.None);
+
+        var persisted = await db.ImportJobs.SingleAsync(j => j.ImportJobId == job.ImportJobId);
+        persisted.Status.ShouldBe(ImportStatus.Complete);
+
+        var daily = await db.SmartPlugDailyData.SingleAsync(d => d.FlatId == flat.FlatId && d.PlugId == "plug-test-1");
+        daily.KwhValue.ShouldBe(0.5m);
+        daily.IsInterpolated.ShouldBeFalse();
     }
 
     [Fact]

@@ -20,6 +20,7 @@ public class SmartPlugIntervalDataConfiguration : IEntityTypeConfiguration<Smart
             .HasForeignKey(d => d.FlatId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(d => new { d.FlatId, d.PlugId, d.Timestamp })
+            .IsUnique()
             .HasDatabaseName("IX_SmartPlugIntervalData_FlatId_PlugId_Timestamp");
     }
 }

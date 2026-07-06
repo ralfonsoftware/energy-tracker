@@ -46,6 +46,15 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
                 detail = "No file was uploaded."
             });
 
+        var plugIdValues = req.Form["plugId"];
+        var plugId = plugIdValues.Count == 1 ? plugIdValues[0]?.Trim() : null;
+        if (string.IsNullOrWhiteSpace(plugId))
+            return new BadRequestObjectResult(new
+            {
+                title = "Bad Request", status = 400,
+                detail = "A plugId is required."
+            });
+
         var file = req.Form.Files[0];
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (!AllowedExtensions.Contains(ext))
@@ -65,6 +74,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         var importJob = new ImportJob
         {
             FlatId = flatGuid,
+            PlugId = plugId,
             Status = ImportStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
         };
