@@ -1,0 +1,203 @@
+---
+baseline_commit: d78bf3c9b4bcec60841f6fdfcb50919f5357cd5b
+---
+
+# Story 6.2: Eve Home Excel Parser
+
+Status: ready-for-dev
+
+<!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
+
+## Story
+
+As a user,
+I want to upload an Eve Home `.xlsx` export and have it parsed correctly into a daily kWh timeline with raw interval rows retained,
+so that the app can compute daily consumption and later detect standby offenders using the high-resolution interval data.
+
+## Acceptance Criteria
+
+1. **Given** a valid Eve Home `.xlsx` file (single sheet `Gesamtverbrauch`, reverse-chronological ~10-minute interval rows in Wh), **when** `EveHomeParser.cs` processes it, **then** device name is extracted from cell A1; Room name from cell A2 (informational only, not used for structure matching); rows with empty values are skipped; all remaining rows are parsed as `(Timestamp: datetimeoffset, WhValue: decimal)`; timestamps are treated as local time and are **not** converted to UTC — conversion would corrupt daily aggregation boundaries by shifting interval assignments across midnight.
+
+2. **Given** two overlapping Eve Home exports for the same `plugId`, **when** both are imported, **then** rows are deduplicated by timestamp before daily aggregation — duplicate timestamps produce a single daily total, not a doubled value (FR-24).
+
+3. **Given** the parsed interval rows, **when** written to the database, **then** all rows are inserted into `SmartPlugIntervalData` (`PlugId`, `FlatId`, `Timestamp`, `WhValue`); daily totals are aggregated and upserted into `SmartPlugDailyData` (`KwhValue` decimal, `IsInterpolated = false`); existing rows for the same `(FlatId, PlugId, Date)` are updated, not duplicated.
+
+4. **Given** `EveHomeParserTests.cs` in `api.Tests/Features/SmartPlugImport/`, **when** run, **then** tests cover: valid file produces correct daily totals; UTC conversion is absent (local-time daily boundaries preserved); overlapping exports produce deduplicated totals; rows with empty values are skipped; device name extracted from A1.
+
+5. **Given** a gap found during story creation — **no part of the pipeline built in Story 6.1 (`UploadFunction`, `ImportJob`, the blob path) carries a `plugId`** anywhere, yet AC1–3 above require every parsed row to be written with a `PlugId` — **when** `UploadFunction.RunAsync` is extended to accept a required `plugId` multipart form field, **then**: `ImportJob` gains a required `PlugId` (string) column (new EF Core migration, applied after `20260706101143_AddSmartPlugImportTables`); a request with a file but no (or empty/whitespace) `plugId` field returns 400 Problem Details and creates no `ImportJob` row; a valid request stores `plugId` on the created `ImportJob`; `ProcessImportFunction` reads `importJob.PlugId` (already loaded from the DB row it fetches at the top of `RunAsync`) and passes it through to `EveHomeParser` — no new blob-path segment or additional DB lookup is introduced. See Dev Notes — "The PlugId gap — why this is this story's problem, not 6.6's" for the full reasoning and why deferring this to Story 6.6 (Import UI) is not viable.
+
+## Tasks / Subtasks
+
+- [ ] Task 1: Close the PlugId gap — `ImportJob` schema, migration, `UploadFunction` (AC: 5)
+  - [ ] Add `public required string PlugId { get; set; }` to `api/Data/Entities/ImportJob.cs` (after `FlatId`, before `Status`, for readability — order doesn't matter functionally).
+  - [ ] In `api/Data/Configurations/ImportJobConfiguration.cs`, add `builder.Property(j => j.PlugId).IsRequired();` — mirror `SmartPlugDailyDataConfiguration`/`SmartPlugIntervalDataConfiguration`'s own `PlugId` property style (`IsRequired()`, no `HasMaxLength`) rather than `PowerPointConfiguration`'s `HasMaxLength(200)` — this column stores exactly the same string values as those two tables' `PlugId` columns, so match their configuration, not `PowerPoint`'s.
+  - [ ] Run `dotnet ef migrations list` from `api/` first to confirm `20260706101143_AddSmartPlugImportTables` is still the head, then `dotnet ef migrations add AddPlugIdToImportJob`.
+  - [ ] **Before running `dotnet ef database update` against the real dev DB**: `ImportJobs` is a required `NOT NULL` column being added with no default value — check `SELECT COUNT(*) FROM ImportJobs` first. Per Story 6.1's own Completion Notes, any existing rows are manual-verification test artifacts ("All test data cleaned up afterward") — if any remain, `DELETE FROM ImportJobs` (cascade-safe; no other table references `ImportJob`) before applying this migration, since there is no real user data to preserve yet. Do not add a placeholder default value to the migration to work around this — an empty-string `PlugId` would silently violate every downstream assumption that `PlugId` is a real, non-empty plug identifier.
+  - [ ] In `api/Features/SmartPlugImport/UploadFunction.cs`: read `req.Form["plugId"].ToString()` immediately after the existing file-presence check (before the extension check — order doesn't matter much, but keep all "bad request" validation grouped together before touching blob storage, matching this function's existing top-to-bottom validation ordering). If the value is null/empty/whitespace, return the same `BadRequestObjectResult` shape already used elsewhere in this function (`detail = "A plugId is required."`) and do **not** create an `ImportJob` row. Set `PlugId = plugId` on the `ImportJob` object constructed later in the function.
+  - [ ] Do **not** validate that `plugId` matches an existing `PowerPoint.PlugId` in this flat's structure. That cross-check is out of scope here — Story 6.6 (Import UI) is what actually assigns `plugId` to a specific upload via its device-association dropdown (populated from `PowerPoint.PlugId` values), so by the time a real upload reaches this endpoint in production the value will already be valid by construction. Adding structure-lookup validation now would be scope creep against a UI flow that doesn't exist yet.
+
+- [ ] Task 2: Program.cs — register `EveHomeParser`, close the `CodePagesEncodingProvider` deferred-work item (AC: 1)
+  - [ ] Add `System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);` near the top of `api/Program.cs`, before `FunctionsApplication.CreateBuilder(args)` is called (this must run once at process startup, before any Excel file is read). This closes the `deferred-work.md` entry "`ExcelDataReader` needs `System.Text.Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)` called at startup on Linux — required before any Excel import. Address in Story 6.x when the import pipeline is built." — update that entry in `deferred-work.md` to `~~...~~` **RESOLVED in Story 6.2** once done, following the exact strikethrough convention already used elsewhere in that file.
+  - [ ] Register `builder.Services.AddScoped<EveHomeParser>();` alongside the existing service registrations (grouped near `AddScoped<TariffResolver>()` — `EveHomeParser` takes `AppDbContext` in its constructor exactly like `TariffResolver`, so it must be `Scoped`, never `Singleton`, per this codebase's DI lifetime rule).
+
+- [ ] Task 3: `EveHomeParser.cs` — pure Excel parsing (AC: 1)
+  - [ ] New file `api/Features/SmartPlugImport/EveHomeParser.cs`, class `EveHomeParser(AppDbContext db, ILogger<EveHomeParser> logger)` (primary constructor, mirrors `TariffResolver(AppDbContext db)`'s shape with an added logger for the device-name diagnostic note below).
+  - [ ] Add a private static (or internal, for direct unit testing) method that opens the stream with `ExcelDataReader`'s streaming API — `ExcelReaderFactory.CreateReader(stream)` then `IExcelDataReader.Read()` row-by-row — **not** `AsDataSet()`. Real Eve Home exports run to 50,000–100,000+ rows (confirmed from the two sample files at `sample-data/eve/*.xlsx` on this machine — **gitignored, not part of the repo**, local reference only, do not assume they exist in CI or on a fresh clone); `AsDataSet()` materializes the whole sheet as an in-memory `DataTable` first, which is wasteful at this row count. The streaming `Read()` loop is both simpler and cheaper here.
+  - [ ] Row 1 (`A1`): read via `reader.GetValue(0)`; strip the `"Gerät: "` prefix if present to get the device name. Row 2 (`A2`): read and strip `"Raum: "` — this value is **not stored anywhere** (no column exists for it on `ImportJob`/`SmartPlugDailyData`/`SmartPlugIntervalData`); per AC1 it is informational only. Row 3 (`A3`, `"Zuhause: "`) is not mentioned in this story's ACs at all — read past it (`reader.Read()`) and discard; do not extract or log it.
+  - [ ] **Device name has no persistence target in this story** — there is no `DeviceName` column on any of the three import-related tables (confirmed against `architecture.md`'s entity model and the actual entity classes). Log it via `logger.LogInformation("Eve Home file device name: {DeviceName}", deviceName)` for diagnostic value only. Story 6.6 (Import UI) does its own, independent filename-based device matching in the frontend — it does not read this in-file cell value at all. Do not invent a place to persist it.
+  - [ ] Row 4 is the header row (`Datum` / `Gesamtverbrauch (Wh)`) — read and discard, no validation of header text required.
+  - [ ] From row 5 onward, loop `while (reader.Read())`. For each row: `var rawTimestamp = reader.GetValue(0); var rawWh = reader.GetValue(1);`. **If either is `null`, skip the row entirely** (AC1's "rows with empty values are skipped") — do not fabricate a zero value.
+  - [ ] Timestamp conversion — **this is the single most important correctness detail in this task**: the sample files' date cells use the OOXML `t="d"` (ISO 8601 date) cell type (confirmed by inspecting `sample-data/eve/*.xlsx`'s raw `sheet1.xml`: `<c r="A5" s="4" t="d"><v>2026-06-20T12:00:18</v></c>`). ExcelDataReader has supported this cell type since well before the version pinned in this repo (3.9.0) — confirmed via the library's own test suite (`ExcelOpenXmlReaderTest.CellValueIso8601Date`, `Issue221.xlsx`), which asserts `reader.GetValue(...)` for a `t="d"` cell returns a plain `DateTime` directly, no manual ISO-8601 string parsing needed. So `rawTimestamp` will normally already be a `DateTime`. Still handle a `string` fallback defensively (`DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed)`) in case a differently-exported file uses a text-formatted date cell instead — treat an unparseable value as a corrupt file (`throw new UnreadableFileException(...)`), not a skippable row (unlike an empty cell, a garbage timestamp string is a file-format problem, not "no data for this interval").
+  - [ ] **Do not perform any UTC conversion.** AC1 is explicit that timestamps are local time and must stay that way. The parsed `DateTime` from ExcelDataReader will have `Kind == DateTimeKind.Unspecified`. Convert it to the required `DateTimeOffset` field type with a **zero offset used purely as a fixed tag, not a real UTC claim**: `new DateTimeOffset(DateTime.SpecifyKind(rawTimestamp, DateTimeKind.Unspecified), TimeSpan.Zero)`. This constructor pairs the wall-clock value with offset zero without any arithmetic — the `.DateTime`/`.Date` components read back byte-for-byte identical to what was in the cell. Do **not** call `.ToUniversalTime()`, `.ToLocalTime()`, or construct via `DateTimeKind.Local` — `ToLocalTime()` in particular would apply the *server's* OS timezone (a Linux Function host, likely UTC) rather than the *plug's* timezone, silently shifting every timestamp and corrupting exactly the midnight-boundary case AC1 calls out.
+  - [ ] Value conversion: `rawWh` will be a boxed `double` for ordinary numeric cells (per the sample data, e.g. `0.82`, `0.98`). Convert via `(decimal)(double)rawWh` — per this codebase's absolute rule, the entity field (`SmartPlugIntervalData.WhValue`) is `decimal`; never leave it as `double` anywhere in the pipeline (`float`/`double` are banned for energy values project-wide, per `project-context.md`'s non-negotiable rule #1). Guard the cast: if `rawWh` isn't a `double`/`int`/`decimal` and isn't a parseable numeric string, treat the row the same as an empty-value row (skip, don't throw) — a stray non-numeric value in this column is exactly the kind of "empty" data AC1 says to skip, not a corrupt-file signal.
+  - [ ] Wrap the entire read loop (reader creation through the final `Read()`) in a try/catch for any exception ExcelDataReader itself can throw (corrupt zip, wrong file signature, etc.) and rethrow as `new UnreadableFileException($"Unable to parse Eve Home export: {ex.Message}")` — do **not** change `UnreadableFileException`'s constructor signature (it only takes a `string message` today, and `ProcessImportFunction`'s existing catch block already logs the causing exception via `logger.LogError(ex, ...)` at the call site, so nothing is lost by not chaining an inner exception here).
+  - [ ] Return the parsed `(string DeviceName, List<(DateTimeOffset Timestamp, decimal WhValue)> Rows)` from this method — keep it a pure function of the input stream (no `db` access), so it can be unit tested in isolation per AC4 without any EF Core setup.
+
+- [ ] Task 4: `EveHomeParser` — dedup, daily aggregation, and persistence (AC: 2, 3)
+  - [ ] Add `public async Task ParseAndStoreAsync(Guid flatId, string plugId, Stream fileStream, CancellationToken ct)` — the method `ProcessImportFunction` calls. Internally: call the Task 3 parse method to get `(deviceName, rows)`.
+  - [ ] Dedup (AC2): load the set of `Timestamp` values already in `SmartPlugIntervalData` for this exact `(flatId, plugId)` — `await db.SmartPlugIntervalData.Where(d => d.FlatId == flatId && d.PlugId == plugId).Select(d => d.Timestamp).ToListAsync(ct)` — into a `HashSet<DateTimeOffset>`. Iterate the parsed `rows`; for each, `if (!seen.Add(timestamp)) continue;` (this both dedupes against previously-stored rows from an earlier import **and** against duplicate timestamps within the same file, in one pass — `HashSet<T>.Add` returns `false` on either kind of repeat). Rows that pass are new `SmartPlugIntervalData` entities to insert; track the distinct set of local calendar dates (`DateOnly.FromDateTime(timestamp.DateTime)` — reads the wall-clock date back out, unaffected by the zero offset) touched by newly-inserted rows only, in an `affectedDates` set.
+  - [ ] If there are any new rows, `db.SmartPlugIntervalData.AddRange(newRows); await db.SaveChangesAsync(ct);`. If `newRows.Count == 0` (a fully-duplicate re-import), skip straight to returning — `affectedDates` will be empty, so no `SmartPlugDailyData` recompute happens, which is correct: nothing changed, so nothing needs re-aggregating.
+  - [ ] Daily aggregation (AC3): for each date in `affectedDates`, **re-query the full set of interval rows for `(flatId, plugId, date)` from the DB** (not just the newly-inserted ones) — this guarantees the recomputed total is correct regardless of how much a re-import overlapped an existing day. Use a half-open range rather than a `.Date`-style EF translation: `var dayStart = new DateTimeOffset(date.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero); var dayEnd = dayStart.AddDays(1);` then `.Where(d => d.FlatId == flatId && d.PlugId == plugId && d.Timestamp >= dayStart && d.Timestamp < dayEnd)`. This is safe specifically because this parser is the **only** writer of `SmartPlugIntervalData` in the entire codebase (Meross, Story 6.3, never writes this table per the epic) and always stores timestamps with the same zero-offset convention — so every stored row for a plug sorts and range-filters consistently.
+  - [ ] Sum the range's `WhValue`s, divide by `1000m` to get the day's `KwhValue`. Upsert into `SmartPlugDailyData`: `var daily = await db.SmartPlugDailyData.SingleOrDefaultAsync(d => d.FlatId == flatId && d.PlugId == plugId && d.Date == date, ct);` — if null, create a new entity (`IsInterpolated = false` always, per AC3 — this parser never produces interpolated rows, that's Story 6.4's `InterpolationEngine`); if found, update `KwhValue` in place (and reset `IsInterpolated = false`, since a real data point overwriting a previously-interpolated placeholder is exactly the "not duplicated" contract AC3 describes — Story 6.4 hasn't been built yet so this branch won't be exercised in practice yet, but writing it correctly now avoids revisiting this method later).
+  - [ ] Single `await db.SaveChangesAsync(ct);` after the full `affectedDates` loop, not one per date — batches the daily upserts into one round-trip.
+
+- [ ] Task 5: Wire `EveHomeParser` into `ProcessImportFunction`'s dispatch (AC: 1, 2, 3)
+  - [ ] Add `EveHomeParser eveHomeParser` to `ProcessImportFunction`'s primary constructor: `public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser, ILogger<ProcessImportFunction> logger)`.
+  - [ ] `DispatchToParserAsync` is currently `private static` and takes `(string ext, Stream blobStream, CancellationToken ct)` with no access to the injected `eveHomeParser` instance or to `importJob`. Change it to a private **instance** method (drop `static`) taking `(ImportJob importJob, string ext, Stream blobStream, CancellationToken ct)`. In the `case "xlsx":` branch, replace the `ConfirmBlobReadableAsync(blobStream, ct);` stub with `await eveHomeParser.ParseAndStoreAsync(importJob.FlatId, importJob.PlugId, blobStream, ct);`. **Leave the `case "csv":` branch's `ConfirmBlobReadableAsync` stub completely untouched** — Meross parsing is Story 6.3's scope, exactly as Story 6.1's Dev Notes already established ("Parser dispatch is a forward-compatible stub in this story — not scope creep either direction"); do not implement or touch anything Meross-related here.
+  - [ ] Update the call site inside `RunAsync`: `await DispatchToParserAsync(importJob, ext, blobStream, ct);` (was `await DispatchToParserAsync(ext, blobStream, ct);`).
+  - [ ] No change to the exception-mapping catch blocks (`UnreadableFileException` → `DataUnreadable`, unhandled → `ProcessingFailed`) — `EveHomeParser`'s own exceptions already conform to that contract per Task 3.
+
+- [ ] Task 6: Backend tests — `EveHomeParserTests.cs` and a reusable xlsx-fixture builder (AC: 4)
+  - [ ] New file `api.Tests/Features/SmartPlugImport/EveHomeParserTests.cs`. **This story needs a way to build minimal, valid, in-memory `.xlsx` byte streams for tests** — `ExcelDataReader` is read-only (there is no xlsx-writing package anywhere in this codebase, and adding one, e.g. ClosedXML/EPPlus, just to author test fixtures would be an unjustified new dependency for a personal project). Build a private static helper in this test file using only `System.IO.Compression.ZipArchive` (already part of the BCL, zero new packages) to hand-write the minimal OOXML parts a spreadsheet needs: `[Content_Types].xml`, `_rels/.rels`, `xl/workbook.xml`, `xl/_rels/workbook.xml.rels`, and `xl/worksheets/sheet1.xml` (with the sheet named exactly `Gesamtverbrauch`, matching AC1's format). Use `t="inlineStr"` cells for the A1/A2/A4/B4 text values (avoids needing a `sharedStrings.xml` part) and `t="d"` cells with an ISO-8601 `<v>` for the date column, matching the real file format confirmed in Task 3. A reference starting point (verify it actually produces a file `ExcelReaderFactory.CreateReader` can open — adjust part contents if any single part is rejected, but this shape mirrors a well-known minimal-xlsx structure so it should not require significant changes):
+    ```csharp
+    private static MemoryStream BuildEveHomeXlsx(
+        string cellA1, string cellA2,
+        IReadOnlyList<(string? Timestamp, string? WhValue)> dataRows)
+    {
+        var stream = new MemoryStream();
+        using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            WriteEntry(zip, "[Content_Types].xml", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+                  <Default Extension="xml" ContentType="application/xml"/>
+                  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+                  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+                </Types>
+                """);
+            WriteEntry(zip, "_rels/.rels", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+                </Relationships>
+                """);
+            WriteEntry(zip, "xl/workbook.xml", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                          xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                  <sheets><sheet name="Gesamtverbrauch" sheetId="1" r:id="rId1"/></sheets>
+                </workbook>
+                """);
+            WriteEntry(zip, "xl/_rels/workbook.xml.rels", """
+                <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+                </Relationships>
+                """);
+
+            var sb = new StringBuilder();
+            sb.Append("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+            sb.Append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>");
+            sb.Append($"<row r=\"1\"><c r=\"A1\" t=\"inlineStr\"><is><t>{cellA1}</t></is></c></row>");
+            sb.Append($"<row r=\"2\"><c r=\"A2\" t=\"inlineStr\"><is><t>{cellA2}</t></is></c></row>");
+            sb.Append("<row r=\"3\"><c r=\"A3\" t=\"inlineStr\"><is><t>Zuhause: Test</t></is></c></row>");
+            sb.Append("<row r=\"4\"><c r=\"A4\" t=\"inlineStr\"><is><t>Datum</t></is></c><c r=\"B4\" t=\"inlineStr\"><is><t>Gesamtverbrauch (Wh)</t></is></c></row>");
+            var rowNum = 5;
+            foreach (var (ts, val) in dataRows)
+            {
+                sb.Append($"<row r=\"{rowNum}\">");
+                sb.Append(ts is null ? $"<c r=\"A{rowNum}\"/>" : $"<c r=\"A{rowNum}\" t=\"d\"><v>{ts}</v></c>");
+                sb.Append(val is null ? $"<c r=\"B{rowNum}\"/>" : $"<c r=\"B{rowNum}\"><v>{val}</v></c>");
+                sb.Append("</row>");
+                rowNum++;
+            }
+            sb.Append("</sheetData></worksheet>");
+            WriteEntry(zip, "xl/worksheets/sheet1.xml", sb.ToString());
+        }
+        stream.Position = 0;
+        return stream;
+
+        static void WriteEntry(ZipArchive zip, string name, string content)
+        {
+            var entry = zip.CreateEntry(name);
+            using var writer = new StreamWriter(entry.Open(), new UTF8Encoding(false));
+            writer.Write(content);
+        }
+    }
+    ```
+  - [ ] Test cases against the Task 3 pure-parse method (construct an `EveHomeParser` with an `InMemory` `AppDbContext` per this codebase's standard test pattern — the parse step itself never touches `db`, only `ParseAndStoreAsync` does): device name extraction strips `"Gerät: "` from `cellA1`; a row with a `null` timestamp or `null` value is excluded from the returned rows; a timestamp like `"2026-06-20T12:00:18"` round-trips to a `DateTimeOffset` whose `.DateTime` and `.Offset` (zero) reflect no conversion occurred (assert the hour is still `12`, not shifted).
+  - [ ] Test cases against `ParseAndStoreAsync` (seed an `InMemory` `AppDbContext` with a `Flat`, call the method, assert against `db.SmartPlugIntervalData`/`db.SmartPlugDailyData` afterward — mirrors `ProcessImportFunctionTests.cs`'s `SeedFlatAsync` helper pattern): a valid file with several same-day rows produces one `SmartPlugDailyData` row with the correct summed-and-divided-by-1000 `KwhValue` and `IsInterpolated = false`; calling `ParseAndStoreAsync` twice with the same file (or two files sharing timestamps) does not double the daily total (AC2) and does not create duplicate `SmartPlugIntervalData` rows for the same timestamp; re-running with an overlapping-but-not-identical second file's rows correctly recomputes (not appends to) the affected day's total.
+
+- [ ] Task 7: Update existing tests for the new `PlugId` field and `EveHomeParser` dependency (AC: 5)
+  - [ ] `UploadFunctionTests.cs`: every existing test that builds a request via `MakeRequestWithFile` currently omits `plugId` entirely; the function will now reject all of them with 400 unless updated. Extend the request-building helper (or the `FormCollection` constructed in `MakeRequestWithFile`) to include a `"plugId"` form field (e.g. default `"plug-test-1"`) for the tests that expect success, and add one new test, `RunAsync_MissingPlugId_Returns400`, that omits it and asserts `BadRequestObjectResult` + zero `ImportJob` rows created (mirrors the existing `RunAsync_MissingFile_Returns400` test's shape exactly).
+  - [ ] `ProcessImportFunctionTests.cs`: `MakeFunction(AppDbContext db)` currently constructs `new ProcessImportFunction(db, Mock.Of<ILogger<ProcessImportFunction>>())` — update to `new ProcessImportFunction(db, new EveHomeParser(db, Mock.Of<ILogger<EveHomeParser>>()), Mock.Of<ILogger<ProcessImportFunction>>())`, passing a **real** `EveHomeParser` instance (not mocked) since it has no external dependencies beyond the same `InMemory` `db` already in use — consistent with this codebase's "no live Azure calls in unit tests" convention, which doesn't apply here since there's nothing external to call. `SeedImportJobAsync` must now also set `PlugId` (e.g. `"plug-test-1"`) since it's a required column. Add one new test, `RunAsync_ValidXlsxFile_ParsesAndCompletesWithDailyData`, using `EveHomeParserTests.cs`'s xlsx-builder helper (either duplicate the small helper here or, if practical, make it `internal` and share via an `[assembly: InternalsVisibleTo]`-visible location — check `api/energy-tracker-api.csproj` for the existing `InternalsVisibleTo` attribute noted in `deferred-work.md`'s 1-4 entry before deciding; duplicating a ~40-line private test helper is also perfectly acceptable here and avoids coupling two test files together) to confirm the full dispatch path ends in `Status = Complete` with a populated `SmartPlugDailyData` row — this is a shallow integration-style check; `EveHomeParserTests.cs` (Task 6) owns the exhaustive parsing-detail coverage.
+  - [ ] `GetImportStatusFunctionTests.cs` also constructs `new ImportJob { FlatId = ..., Status = ..., CreatedAt = ... }` directly (its own seed helper, separate from `ProcessImportFunctionTests.cs`'s) — this will fail to compile once `PlugId` is `required` unless it's added there too (e.g. `PlugId = "plug-test-1"`). This test file otherwise needs no behavioral changes — `PlugId` isn't part of `ImportJobStatusResponse` and no AC asks for it to be.
+
+- [ ] Task 8: Full verification pass before marking ready for review (AC: all)
+  - [ ] `dotnet test api.Tests/` — all green, including all new and updated `SmartPlugImport` tests, with zero regressions in the rest of the suite (272 tests passed as of Story 6.1; expect that number to grow).
+  - [ ] `dotnet ef migrations list` before and after adding `AddPlugIdToImportJob`, confirming it lands directly after `20260706101143_AddSmartPlugImportTables`; `dotnet ef database update` locally against the real dev Azure SQL DB per `project-context.md`'s standing rule — confirm the `PlugId` column exists as `NOT NULL nvarchar(max)` and that no existing rows were silently broken (see Task 1's note on checking/clearing `ImportJobs` first).
+  - [ ] Manually verify end-to-end locally if practical: `func start` + a real Eve Home `.xlsx` (the two gitignored samples at `sample-data/eve/*.xlsx` on this machine are suitable if present) POSTed to `/api/v1/flats/{flatId}/imports` with a `plugId` form field, then inspect `SmartPlugIntervalData`/`SmartPlugDailyData` in the dev DB directly via `sqlcmd` (the blob-trigger `ProcessImportFunction` itself cannot be exercised locally against Azurite — same pre-existing limitation Story 6.1 already documented, since Azurite doesn't emulate Event Grid — so this can only be verified by calling `EveHomeParser.ParseAndStoreAsync` directly in a throwaway console snippet or relying on the unit tests in Task 6, plus a real post-deploy check once Ralf deploys). Do not treat an inability to trigger the real Event Grid path locally as a blocker — it is a known, already-documented gap from Story 6.1, not something this story introduces or must solve.
+  - [ ] Do **not** run `./infra/deploy.sh` or push any changes to the live Azure environment — this story has no infra changes at all (Task 1's migration is applied via `dotnet ef database update`, which is a direct DB operation Ralf already runs manually per the existing convention, not part of the Bicep/pipeline deploy flow).
+
+## Dev Notes
+
+### The PlugId gap — why this is this story's problem, not 6.6's
+
+Discovered while cross-referencing Story 6.1's actual merged code (`UploadFunction.cs`, `ImportJob.cs`) against this story's own ACs and the smart-plug-formats spec's unified timeline contract (`"plug_id": str, // user-assigned ID from flat structure`). `UploadFunction` (built and merged in Story 6.1, before this gap was visible) takes only a file — no `plugId` anywhere in the request, the `ImportJob` entity, or the blob path (`smart-plug-imports/{userId}/{flatId}/{importJobId}.{ext}`). But AC1–3 of *this* story require every parsed row to carry a `PlugId` when written to `SmartPlugIntervalData`/`SmartPlugDailyData`. There is currently no source for that value anywhere in the pipeline.
+
+Story 6.6 (Import UI) is where a user picks which already-known `plugId` (from `PowerPoint.PlugId`, assigned via the Flat Structure editor, an existing Epic 5 capability) a given uploaded file corresponds to — but 6.6's own AC is explicit that "Upload Files" is only enabled once every file already has an association, meaning the frontend must send `plugId` *as part of* the `POST .../imports` call 6.6 makes. Since 6.2 (this story) and 6.3 (Meross) are both pure-backend stories that must independently be functional and testable before 6.6's UI exists, deferring the fix to 6.6 would leave 6.2/6.3 unable to actually satisfy their own ACs — there'd be nowhere to get a `PlugId` from. This is exactly the same category of cross-story infrastructure gap Story 6.1 found with the Event Grid blob-trigger source (documented in its own Dev Notes) — found by reading the *actual as-built* upstream code rather than trusting the epic text alone. Task 1 closes it with the smallest possible change: one new required column, one new required form field, zero new endpoints or blob-path changes.
+
+### ISO 8601 date cells — confirmed supported by ExcelDataReader 3.9.0, no workaround needed
+
+The real risk in this story was whether `ExcelDataReader` (pinned at 3.9.0 in `api/energy-tracker-api.csproj`) actually supports the OOXML `t="d"` (ISO 8601) date cell type the real Eve Home files use (confirmed by inspecting `sample-data/eve/2026-06-20_Steckdose_Tur_Gesamtverbrauch.xlsx`'s raw `xl/worksheets/sheet1.xml`: cells look like `<c r="A5" s="4" t="d"><v>2026-06-20T12:00:18</v></c>`, not the older Excel-serial-number date encoding). Verified directly against the library's own test suite on GitHub (`ExcelDataReader.Tests/ExcelOpenXmlReaderTest.cs`, method `CellValueIso8601Date`, workbook `Issue221.xlsx`): `reader.AsDataSet()... Rows[0][0]` asserts equal to `new DateTime(2017, 3, 16)` for exactly this cell type — meaning the library returns a plain `DateTime` directly, no manual date-string parsing required, and this support significantly predates 3.9.0. Task 3's fallback string-parsing branch exists only as defensive handling for a differently-formatted file, not because the primary path is in doubt.
+
+### `sample-data/eve/*.xlsx` — real reference files, but gitignored; do not assume they exist
+
+Two real Eve Home export files exist on this development machine at `sample-data/eve/2026-06-20_Steckdose_Tur_Gesamtverbrauch.xlsx` (658 KB, 57,184 rows, device `Steckdose Tür`) and `sample-data/eve/2026-06-20_Steckdose_HiFi_Gesamtverbrauch.xlsx` (1.2 MB, 108,715 rows, device `Steckdose HiFi`) — both under `Gesamtverbrauch` sheets matching the spec exactly. **`sample-data/` is listed in `.gitignore`** — these files are not in the repository and will not exist in CI or on a fresh clone. They were used only to verify the real file structure while writing this story (see the two notes above). Do not write a test that depends on their presence; Task 6's hand-built `ZipArchive` fixtures are the only fixtures this story's automated tests may rely on. They remain useful only for an optional manual local verification pass (Task 8) if Ralf runs this on the same machine.
+
+### Persistence design rationale — why re-query-and-recompute instead of incremental sums
+
+Task 4 recomputes each affected day's total from a fresh DB query rather than incrementally adding new Wh values to whatever `SmartPlugDailyData.KwhValue` already held. This is deliberately the simpler, more obviously-correct approach for a personal-scale dataset (a plug's daily row count is always 1, and even a full day of 10-minute intervals is only ~144 interval rows to sum) — it trivially handles every overlap scenario (fully new day, fully duplicate day, partially-overlapping day) with the same code path, at the cost of one extra `SELECT` per affected date. Do not "optimize" this into an incremental running-total update — that would require tracking exactly which specific rows contributed to the stored total (to correctly not-double-count on a partial re-import), which is far more complex for a codebase at this scale and dataset size.
+
+### Testing conventions confirmed from the actual (not just documented) test files
+
+`api.Tests` uses **Moq + Shouldly** (not the generic "xUnit" convention alone implied by `project-context.md`) — confirmed directly from `ProcessImportFunctionTests.cs`/`UploadFunctionTests.cs`'s actual `using Moq;` / `using Shouldly;` and `.ShouldBe(...)`/`Mock.Of<T>()` usage throughout Story 6.1's merged code. Follow this exact style in `EveHomeParserTests.cs` — do not introduce a different assertion library. Blob-trigger route binding parameters arrive **without** a leading dot (`ext` is `"xlsx"`/`"csv"`, not `".xlsx"`/`".csv"`) — confirmed from `ProcessImportFunctionTests.cs`'s existing test calls (`"csv"`, `"txt"`) — this only matters if touching `DispatchToParserAsync`'s switch, which Task 5 does; the existing `case "xlsx":`/`case "csv":` labels are already correctly bare.
+
+### Project Structure Notes
+
+- New files: `api/Features/SmartPlugImport/EveHomeParser.cs`; `api/Data/Migrations/{timestamp}_AddPlugIdToImportJob.cs` (+ Designer file, generated); `api.Tests/Features/SmartPlugImport/EveHomeParserTests.cs`.
+- Modified files: `api/Data/Entities/ImportJob.cs` (new `PlugId` property); `api/Data/Configurations/ImportJobConfiguration.cs` (configure `PlugId`); `api/Data/Migrations/AppDbContextModelSnapshot.cs` (EF-generated); `api/Features/SmartPlugImport/UploadFunction.cs` (accept/validate `plugId` form field); `api/Features/SmartPlugImport/ProcessImportFunction.cs` (inject `EveHomeParser`, wire xlsx dispatch); `api/Program.cs` (`CodePagesEncodingProvider` registration, `EveHomeParser` DI registration); `api.Tests/Features/SmartPlugImport/UploadFunctionTests.cs`; `api.Tests/Features/SmartPlugImport/ProcessImportFunctionTests.cs`; `_bmad-output/implementation-artifacts/deferred-work.md` (mark the `CodePagesEncodingProvider` entry resolved).
+- No changes to: `client/` (this story is entirely backend — Import UI is Story 6.6); `api/Features/SmartPlugImport/GetImportStatusFunction.cs` (no AC requires surfacing `PlugId` in the status response); `MerossParser.cs` (does not exist — Story 6.3; the `case "csv":` stub in `ProcessImportFunction` is untouched); `infra/main.bicep` / `infra/deploy.sh` (no infra changes — this story only adds an EF Core migration, applied via `dotnet ef database update`, not a Bicep resource).
+
+### References
+
+- [Source: _bmad-output/planning-artifacts/epics/epic-6-smart-plug-import-device-registry.md#Story 6.2] — authoritative AC text (verbatim, reproduced above as ACs 1–4; AC5 added during story creation per the PlugId gap found by reading Story 6.1's actual merged code).
+- [Source: _bmad-output/specs/spec-energy-tracker/smart-plug-formats.md#Eve Home — Excel (.xlsx)] — canonical format reference: sheet name `Gesamtverbrauch`, row 1–4 metadata/header layout, `Gerät:`/`Raum:`/`Zuhause:` prefixes, Wh→kWh aggregation (÷1000), dedup-by-timestamp, no-UTC-conversion note, and the unified `plug_id` contract ("user-assigned ID from flat structure") that is the root of this story's AC5 gap.
+- [Source: _bmad-output/implementation-artifacts/6-1-import-pipeline-infrastructure-upload-job-tracking-and-blob-trigger.md] — `UploadFunction.cs`/`ProcessImportFunction.cs`/`ImportModels.cs` as actually merged (not just as originally speced): confirmed no `plugId` field exists anywhere in the upload path; confirmed `DispatchToParserAsync`'s exact stub shape and the "forward-compatible stub, not scope creep" convention this story's Task 5 continues; confirmed blob-trigger `ext` binding parameter has no leading dot; confirmed `ProcessImportFunction` already loads the full `ImportJob` row (including whatever new `PlugId` column Task 1 adds) before dispatch, so no extra lookup is needed.
+- [Source: api/Data/Entities/ImportJob.cs, SmartPlugDailyData.cs, SmartPlugIntervalData.cs; api/Data/Configurations/ImportJobConfiguration.cs, SmartPlugDailyDataConfiguration.cs, SmartPlugIntervalDataConfiguration.cs, PowerPointConfiguration.cs] — exact current entity/configuration shapes; confirmed `SmartPlugDailyData`/`SmartPlugIntervalData`'s own `PlugId` columns use plain `.IsRequired()` (no `HasMaxLength`), the convention Task 1 mirrors for `ImportJob.PlugId` rather than `PowerPoint.PlugId`'s `HasMaxLength(200)`.
+- [Source: api/Shared/TariffResolver.cs, api/Program.cs] — canonical `Scoped` service-taking-`AppDbContext` shape (`TariffResolver(AppDbContext db)` + `AddScoped<TariffResolver>()`) mirrored for `EveHomeParser`; confirmed exact insertion point and existing pattern for the new `BlobServiceClient`-style startup configuration this story's `CodePagesEncodingProvider` registration follows.
+- [Source: _bmad-output/implementation-artifacts/deferred-work.md] — confirms the `CodePagesEncodingProvider` registration was explicitly deferred to "Story 6.x when the import pipeline is built" — this story closes that item.
+- [Source: api.Tests/Features/SmartPlugImport/ProcessImportFunctionTests.cs, UploadFunctionTests.cs] — confirmed actual test conventions (Moq + Shouldly, `InMemory` `AppDbContext` via `MakeDb()`, `SeedFlatAsync`/`SeedImportJobAsync` helper shapes, bare-extension blob-trigger parameters) mirrored throughout this story's Tasks 6–7.
+- [Source: sample-data/eve/2026-06-20_Steckdose_Tur_Gesamtverbrauch.xlsx, 2026-06-20_Steckdose_HiFi_Gesamtverbrauch.xlsx (local, gitignored)] — inspected directly (via `xl/sharedStrings.xml` and raw `xl/worksheets/sheet1.xml`) to confirm the real cell-type encoding (`t="d"` ISO 8601 dates) and sheet name, resolving the single biggest technical-risk question in this story before implementation starts.
+- [GitHub, queried during story creation: ExcelDataReader/ExcelDataReader, `src/ExcelDataReader.Tests/ExcelOpenXmlReaderTest.cs`, method `CellValueIso8601Date`] — confirms `t="d"` ISO 8601 date cells are read as native `DateTime` values, not requiring any manual parsing workaround, and that this support predates the 3.9.0 version already pinned in this repo.
+
+## Dev Agent Record
+
+### Agent Model Used
+
+### Debug Log References
+
+### Completion Notes List
+
+### File List
