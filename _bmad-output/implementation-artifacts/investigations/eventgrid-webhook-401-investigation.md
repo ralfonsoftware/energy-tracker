@@ -12,7 +12,7 @@
 | ---------------- | -------------------------------------------------------------------------- |
 | Ticket           | N/A — reported directly by user                                            |
 | Date opened      | 2026-07-06                                                                 |
-| Status           | Concluded (superseded root cause — see Follow-up: 2026-07-06)              |
+| Status           | Concluded — fix deployed and verified                                     |
 | System           | Azure (energytracker-rg), GitHub Actions, Bicep (`infra/main.bicep`)       |
 | Evidence sources | GitHub Actions run logs (`gh run view`), `infra/main.bicep`, `infra/deploy.sh`, git history |
 
@@ -265,3 +265,12 @@ The Easy Auth exclusion (Finding 4 / Follow-up #1) is the correct and complete f
 1. Re-run "Deploy Azure Infrastructure" from `main` with the `dependsOn` fix in place.
 2. Expect: `functionAppAuthSettings` deploys (no-op if already applied from the prior attempt), then `importBlobEventSubscription` deploys only after it, and Event Grid's validation now succeeds against the already-excluded path.
 3. Confirm in the Portal or via `az resource show` on the event subscription: `provisioningState: Succeeded`.
+
+## Case Closed: 2026-07-06
+
+Redeploy succeeded. Verified via `az resource show` on `blob-created-to-processimport`: `provisioningState: Succeeded`. Two fixes were required in total:
+
+1. **`functionAppAuthSettings`** (`authsettingsV2` on the Function App) — excludes `/runtime/webhooks/blobs` from the Easy Auth gate that Azure auto-provisions for Standard-tier SWA linked backends (Finding 4).
+2. **`dependsOn: [functionAppAuthSettings]`** on `importBlobEventSubscription` — guarantees the exclusion is live before Event Grid's webhook validation handshake runs (Finding 5).
+
+No open hypotheses or missing evidence remain.
