@@ -1,4 +1,6 @@
+using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;
+using Azure.Storage.Blobs;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Features.Dashboard;
 using EnergyTracker.Api.Features.Flats;
@@ -29,6 +31,15 @@ var sqlConnectionString = builder.Configuration["SqlConnectionString"]
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(sqlConnectionString));
+
+var storageAccountName = builder.Configuration["AzureStorageAccountName"]
+    ?? throw new InvalidOperationException("Required configuration 'AzureStorageAccountName' is missing.");
+var managedIdentityClientId = builder.Configuration["AZURE_CLIENT_ID"];
+var storageCredential = managedIdentityClientId is not null
+    ? new DefaultAzureCredential(new DefaultAzureCredentialOptions { ManagedIdentityClientId = managedIdentityClientId })
+    : new DefaultAzureCredential();
+builder.Services.AddSingleton(new BlobServiceClient(
+    new Uri($"https://{storageAccountName}.blob.core.windows.net"), storageCredential));
 
 builder.Services.AddSingleton<LocaleResolver>();
 builder.Services.AddSingleton<OnboardingValidator>();
