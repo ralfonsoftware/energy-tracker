@@ -470,6 +470,12 @@ resource importBlobEventSubscription 'Microsoft.EventGrid/systemTopics/eventSubs
       eventTimeToLiveInMinutes: 1440
     }
   }
+  // Without this, ARM has no ordering guarantee against functionAppAuthSettings and may
+  // attempt the webhook validation handshake above before that Easy Auth exclusion has
+  // taken effect, causing a 401 that a same-input redeploy would otherwise not reproduce.
+  dependsOn: [
+    functionAppAuthSettings
+  ]
 }
 
 // ── Outputs ────────────────────────────────────────────────────────────────────

@@ -218,3 +218,50 @@ This should be added as an explicit `Microsoft.Web/sites/config@2023-12-01` (`au
 This is a Bicep/infra change — per this project's ownership convention, Ralf deploys infra changes himself; happy to draft the Bicep addition for review, but it won't be applied to live Azure or pushed without explicit go-ahead.
 
 **Diagnostic (if the excluded-path fix doesn't fully resolve it):** Re-run the same `curl` replication after the fix lands; expect a 200 with the echoed `validationCode` instead of 401. If still 401, capture the response body/headers again to see if a different auth layer (e.g., IP restrictions) is now surfacing.
+
+## Follow-up: 2026-07-06 (#2)
+
+### New Evidence
+
+- Ralf deployed the `authsettingsV2` Bicep addition (run 28791390326). Deployment **still failed with the identical 401** on `blob-created-to-processimport`.
+- `az rest GET .../config/authsettingsV2` immediately after the failed run confirmed `globalValidation.excludedPaths: ["/runtime/webhooks/blobs"]` **is live** — the auth-settings resource itself deployed successfully; only the EventGrid subscription resource in the same run failed.
+- `az resource show` on the event subscription: `ResourceNotFound` — ARM did not leave a partially-created subscription behind (consistent with incremental deployment: earlier-succeeding resources, like `functionAppAuthSettings`, persist even though the overall deployment is marked Failed).
+- Replayed the exact `curl` validation request again, ~8 minutes after the failed deployment finished: **`200 OK`**, body `{"validationResponse":"test-code-123"}`. The exclusion demonstrably works at the runtime level right now.
+
+### Additional Findings
+
+#### Finding 5: `importBlobEventSubscription` had no explicit dependency on `functionAppAuthSettings`, so ARM had no ordering guarantee between them
+
+**Evidence:** `infra/main.bicep` (pre-fix) — `functionAppAuthSettings` (the new `authsettingsV2` resource) and `importBlobEventSubscription` were declared as independent top-level resources with no `dependsOn` edge between them, and no data-flow reference from one to the other that Bicep could use to infer an implicit dependency. `importBlobEventSubscription`'s only implicit dependency is on `functionAppHost` (via `listKeys()`), unrelated to the auth settings.
+
+**Detail:** Without an explicit dependency, ARM is free to deploy independent resources in parallel or in an unspecified order. In this run, Event Grid's synchronous webhook-validation POST (triggered as part of creating `importBlobEventSubscription`) evidently reached the Function App either before the `authsettingsV2` PUT had been applied, or before an Easy-Auth-config change had fully propagated to the running platform auth middleware — so the request was still rejected with 401 at that moment, even though the exclusion was correct and (per the immediate post-failure `curl` test) fully functional within minutes.
+
+### Updated Hypotheses
+
+#### Hypothesis 3: `excludedPaths` fix is functionally correct but was applied too late in this specific deployment run
+
+**Status:** Confirmed
+
+**Would confirm:** `excludedPaths` present and live post-deployment, and a direct replay of the webhook validation succeeding once retested.
+
+**Would refute:** The exclusion still failing on direct replay well after the deployment finished (would indicate a config or path-matching problem instead).
+
+**Resolution:** Confirmed — direct `curl` replay ~8 minutes post-failure returned `200 OK` with the correct validation echo. The fix itself is correct; the failure was purely an ordering/propagation race within that single deployment run between `functionAppAuthSettings` and `importBlobEventSubscription`.
+
+### Backlog Changes
+
+| # | Path to Explore | Priority | Status | Notes |
+| - | --------------- | -------- | ------ | ----- |
+| 4 | Add explicit `dependsOn: [functionAppAuthSettings]` to `importBlobEventSubscription` | High | Done | Applied in `infra/main.bicep`; `az bicep build` validated clean |
+
+### Updated Conclusion
+
+**Confidence:** High
+
+The Easy Auth exclusion (Finding 4 / Follow-up #1) is the correct and complete fix for the underlying 401 — confirmed working via direct webhook replay. The second deployment failure was a distinct, narrower bug introduced by the fix itself: `importBlobEventSubscription` wasn't ordered to wait for `functionAppAuthSettings`, so ARM could (and did) attempt Event Grid's webhook validation before the auth exclusion had taken effect. Adding an explicit `dependsOn: [functionAppAuthSettings]` on `importBlobEventSubscription` closes that gap. No further hypotheses open.
+
+### Reproduction Plan (updated)
+
+1. Re-run "Deploy Azure Infrastructure" from `main` with the `dependsOn` fix in place.
+2. Expect: `functionAppAuthSettings` deploys (no-op if already applied from the prior attempt), then `importBlobEventSubscription` deploys only after it, and Event Grid's validation now succeeds against the already-excluded path.
+3. Confirm in the Portal or via `az resource show` on the event subscription: `provisioningState: Succeeded`.
