@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EnergyTracker.Api.Data.Entities;
 using EnergyTracker.Api.Data;
 using Microsoft.Azure.Functions.Worker;
@@ -6,8 +7,16 @@ using Microsoft.Extensions.Logging;
 
 namespace EnergyTracker.Api.Features.SmartPlugImport;
 
-public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser, MerossParser merossParser, ILogger<ProcessImportFunction> logger)
+public class ProcessImportFunction(
+    AppDbContext db,
+    EveHomeParser eveHomeParser,
+    MerossParser merossParser,
+    InterpolationEngine interpolationEngine,
+    ReconciliationEngine reconciliationEngine,
+    ILogger<ProcessImportFunction> logger)
 {
+    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
     [Function("ProcessImport")]
     public async Task RunAsync(
         [BlobTrigger("smart-plug-imports/{userId}/{flatId}/{importJobId}.{ext}",
@@ -60,6 +69,14 @@ public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser,
             importJob.Status = ImportStatus.Failed;
             importJob.ErrorCategory = ImportErrorCategory.ServiceUnavailable;
         }
+        catch (OverAttributionException ex)
+        {
+            logger.LogError(ex,
+                "Import job {ImportJobId} failed: attributed consumption {AttributedKwh} kWh exceeds main meter total {MainMeterTotal} kWh beyond tolerance {Tolerance} kWh.",
+                importJobId, ex.AttributedKwh, ex.MainMeterTotal, ex.Tolerance);
+            importJob.Status = ImportStatus.Failed;
+            importJob.ErrorCategory = ImportErrorCategory.ProcessingFailed;
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Import job {ImportJobId} failed: unhandled exception.", importJobId);
@@ -84,6 +101,17 @@ public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser,
             default:
                 throw new UnreadableFileException($"Unsupported file extension: {ext}");
         }
+
+        var interpolation = await interpolationEngine.InterpolateGapsAsync(importJob.FlatId, importJob.PlugId, ct);
+
+        if (interpolation.Gaps.Count > 0)
+        {
+            var notifications = interpolation.Gaps.Select(g => new GapNotification(importJob.PlugId, g.Start, g.End));
+            importJob.GapNotifications = JsonSerializer.Serialize(notifications, _jsonOptions);
+        }
+
+        if (interpolation.PeriodStart is { } periodStart && interpolation.PeriodEnd is { } periodEnd)
+            await reconciliationEngine.ReconcileAsync(importJob.FlatId, periodStart, periodEnd, ct);
     }
 
     private static async Task<bool> TrySaveAsync(

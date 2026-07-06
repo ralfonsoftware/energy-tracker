@@ -12,6 +12,16 @@ public record ImportJobStatusResponse(
     ImportErrorCategory? ErrorCategory,
     string? GapNotifications);
 
+public record GapNotification(string PlugId, DateOnly Start, DateOnly End);
+
 public class UnreadableFileException(string message) : Exception(message);
 
 public class ImportServiceUnavailableException(string message) : Exception(message);
+
+public class OverAttributionException(string message, decimal attributedKwh, decimal mainMeterTotal, decimal tolerance)
+    : Exception(message)
+{
+    public decimal AttributedKwh { get; } = attributedKwh;
+    public decimal MainMeterTotal { get; } = mainMeterTotal;
+    public decimal Tolerance { get; } = tolerance;
+}
