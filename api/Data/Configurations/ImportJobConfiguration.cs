@@ -13,6 +13,7 @@ public class ImportJobConfiguration : IEntityTypeConfiguration<ImportJob>
         builder.Property(j => j.ImportJobId).ValueGeneratedOnAdd();
         builder.Property(j => j.FlatId).IsRequired();
         builder.Property(j => j.PlugId).IsRequired();
+        builder.Property(j => j.OriginalFileName).IsRequired();
         builder.Property(j => j.Status).IsRequired();
         builder.Property(j => j.CreatedAt).IsRequired();
         builder.Property(j => j.CompletedAt).IsRequired(false);

@@ -283,6 +283,22 @@ public class UploadFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_ValidUpload_StoresOriginalFileName()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var (blobService, _, _) = MakeMockBlobServiceClient();
+        var fn = new UploadFunction(db, blobService, Mock.Of<ILogger<UploadFunction>>());
+        var req = MakeRequestWithFile(MakeFormFile("export.xlsx"));
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var response = result.ShouldBeOfType<AcceptedResult>().Value.ShouldBeOfType<UploadImportResponse>();
+        var job = await db.ImportJobs.SingleAsync(j => j.ImportJobId == response.ImportJobId);
+        job.OriginalFileName.ShouldBe("export.xlsx");
+    }
+
+    [Fact]
     public async Task RunAsync_ValidUpload_BlobPathMatchesUserIdFlatIdImportJobId()
     {
         var (flat, db) = await SeedFlatAsync(userId: "user-test-123");

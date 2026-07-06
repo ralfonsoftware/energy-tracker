@@ -54,6 +54,7 @@ public class GetImportStatusFunctionTests
         {
             FlatId = flatId,
             PlugId = "plug-test-1",
+            OriginalFileName = "test-import.csv",
             Status = status,
             CreatedAt = DateTimeOffset.UtcNow
         };
