@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace EnergyTracker.Api.Features.SmartPlugImport;
 
-public class ProcessImportFunction(AppDbContext db, ILogger<ProcessImportFunction> logger)
+public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser, ILogger<ProcessImportFunction> logger)
 {
     [Function("ProcessImport")]
     public async Task RunAsync(
@@ -45,7 +45,7 @@ public class ProcessImportFunction(AppDbContext db, ILogger<ProcessImportFunctio
 
         try
         {
-            await DispatchToParserAsync(ext, blobStream, ct);
+            await DispatchToParserAsync(importJob, ext, blobStream, ct);
             importJob.Status = ImportStatus.Complete;
         }
         catch (UnreadableFileException ex)
@@ -71,13 +71,12 @@ public class ProcessImportFunction(AppDbContext db, ILogger<ProcessImportFunctio
         await TrySaveAsync(db, importJob, importJobId, logger, ct);
     }
 
-    private static async Task DispatchToParserAsync(string ext, Stream blobStream, CancellationToken ct)
+    private async Task DispatchToParserAsync(ImportJob importJob, string ext, Stream blobStream, CancellationToken ct)
     {
         switch (ext.ToLowerInvariant())
         {
             case "xlsx":
-                // EveHomeParser is Story 6.2's scope — this story only confirms the blob is readable.
-                await ConfirmBlobReadableAsync(blobStream, ct);
+                await eveHomeParser.ParseAndStoreAsync(importJob.FlatId, importJob.PlugId, blobStream, ct);
                 break;
             case "csv":
                 // MerossParser is Story 6.3's scope — this story only confirms the blob is readable.

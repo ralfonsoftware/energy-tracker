@@ -89,13 +89,16 @@ public class UploadFunctionTests
         return (serviceClientMock.Object, blobClientMock);
     }
 
-    private static HttpRequest MakeRequestWithFile(IFormFile? file)
+    private static HttpRequest MakeRequestWithFile(IFormFile? file, string? plugId = "plug-test-1")
     {
         var ctx = new DefaultHttpContext();
         var files = file is null
             ? new FormFileCollection()
             : new FormFileCollection { file };
-        ctx.Request.Form = new FormCollection(new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>(), files);
+        var formValues = new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>();
+        if (plugId is not null)
+            formValues["plugId"] = plugId;
+        ctx.Request.Form = new FormCollection(formValues, files);
         return ctx.Request;
     }
 
@@ -145,6 +148,56 @@ public class UploadFunctionTests
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.ImportJobs.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_MissingPlugId_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var (blobService, _, _) = MakeMockBlobServiceClient();
+        var fn = new UploadFunction(db, blobService, Mock.Of<ILogger<UploadFunction>>());
+        var req = MakeRequestWithFile(MakeFormFile("export.xlsx"), plugId: null);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.ImportJobs.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhitespaceOnlyPlugId_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var (blobService, _, _) = MakeMockBlobServiceClient();
+        var fn = new UploadFunction(db, blobService, Mock.Of<ILogger<UploadFunction>>());
+        var req = MakeRequestWithFile(MakeFormFile("export.xlsx"), plugId: "   ");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+        (await db.ImportJobs.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_DuplicatePlugIdFormField_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var (blobService, _, _) = MakeMockBlobServiceClient();
+        var fn = new UploadFunction(db, blobService, Mock.Of<ILogger<UploadFunction>>());
+        var ctx = new DefaultHttpContext();
+        var formValues = new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>
+        {
+            ["plugId"] = new Microsoft.Extensions.Primitives.StringValues(["plug-a", "plug-b"])
+        };
+        ctx.Request.Form = new FormCollection(formValues, new FormFileCollection { MakeFormFile("export.xlsx") });
+        var funcCtx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(ctx.Request, flat.FlatId.ToString(), funcCtx, CancellationToken.None);
 
         result.ShouldBeOfType<BadRequestObjectResult>();
         (await db.ImportJobs.CountAsync()).ShouldBe(0);

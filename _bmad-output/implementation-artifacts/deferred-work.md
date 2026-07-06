@@ -16,7 +16,7 @@
 ## Deferred from: code review of 1-1-monorepo-scaffold-and-cicd-pipeline pass 2 (2026-06-27)
 
 - ~~No `pull_request` CI trigger~~ — **PARTIALLY RESOLVED in Story 6.0 (2026-07-06)**: `pull_request: branches: [main]` added to the `on:` block; Azure Login has federated credentials for both `main` and `pull_request` events, so the test gate itself does run on PRs. However, code review of Story 6.0 found the single-job workflow's `Run EF Core migrations`/`Deploy` steps are now also unguarded on `pull_request` events — the job proceeds past the tests all the way to applying migrations against the production DB and attempting deploy, on every PR (see the new `story-6.0` entry below) — left as an open decision-needed item on that story rather than resolved here. `.github/workflows/azure-static-web-apps.yml`
-- `ExcelDataReader` needs `System.Text.Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)` called at startup on Linux — required before any Excel import. Address in Story 6.x when the import pipeline is built.
+- ~~`ExcelDataReader` needs `System.Text.Encoding.RegisterProvider(CodePagesEncodingProvider.Instance)` called at startup on Linux — required before any Excel import. Address in Story 6.x when the import pipeline is built.~~ **RESOLVED in Story 6.2 (2026-07-06)**: added at the top of `api/Program.cs`, before `FunctionsApplication.CreateBuilder(args)`. `api/Program.cs`
 - No catch-all `path: '*'` route in the React Router — unknown URLs render a blank page with no feedback. Add a 404 page in a future UX story.
 - `fetch()` network errors (e.g., `TypeError: Failed to fetch`) are not reshaped into Problem Details format in `apiClient.ts` — inconsistent error shape for callers. Address when the API client is hardened.
 
@@ -267,6 +267,10 @@
 - FluentValidation `.WithMessage()` only binds to the immediately preceding validator call, so a `PlannedAnnualSpend <= 0` failure surfaces the framework's default message instead of the intended custom one — confirmed byte-for-byte identical to the already-shipped pattern in `CreateFlatValidator.cs`/`PatchFlatValidator.cs` (from commit `89b4fd5`); this story explicitly directed copying the rule verbatim, so not a new defect. `api/Features/Onboarding/OnboardingValidator.cs`
 - No focus management or `aria-live` region when a delete button flips a row into its Cancel/Delete confirmation controls — not required by AC3's "single confirmation step" wording, and no existing confirm pattern in this codebase (e.g. `FlatDeleteConfirm.tsx`) does this either. `client/src/features/flat-structure/components/FlatStructureEditor.tsx`, `PowerPointEditor.tsx`
 - No Escape-key handler, click-outside dismissal, or reset of an armed confirm state on navigating away — enhancement beyond AC3's literal scope, consistent with how the rest of this editor already behaves. `client/src/features/flat-structure/components/FlatStructureEditor.tsx`, `PowerPointEditor.tsx`
+
+## Deferred from: code review of story-6.2 (2026-07-06)
+
+- DST fall-back transition can silently drop a distinct interval reading — timestamps are stored with a fixed zero offset and no UTC conversion (per AC1), so during a DST fall-back (local clock repeats one hour, once a year), two genuinely different readings can share the same wall-clock value and collide in the timestamp-based dedup `HashSet`, silently discarding one. Inherent consequence of AC1's mandated zero-offset design, not an implementation bug. Deferred (2026-07-06): once-a-year, single-hour data loss is acceptable for now; revisit if it's ever noticed in real usage, e.g. if Story 6.4's gap-detection needs to reason about it. `api/Features/SmartPlugImport/EveHomeParser.cs:35,131`
 
 ## Deferred from: code review of story-6.1 (2026-07-06)
 

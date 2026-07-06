@@ -53,6 +53,7 @@ public class GetImportStatusFunctionTests
         var job = new ImportJob
         {
             FlatId = flatId,
+            PlugId = "plug-test-1",
             Status = status,
             CreatedAt = DateTimeOffset.UtcNow
         };
