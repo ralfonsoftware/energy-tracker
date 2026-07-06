@@ -527,6 +527,61 @@ public class UpdateFlatStructureFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_EuLabelApproachWithKwhButNoClass_Returns200()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket", "plugId": null,
+                                "devices": [ { "name": "Device", "consumptionApproach": "EuLabel", "euAnnualKwh": 150 } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<FlatStructureResponse>();
+        var deviceResponse = response.Rooms.Single().PowerPoints.Single().Devices.Single();
+        deviceResponse.EuLabelClass.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_EuLabelApproachWithClassButNoKwh_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket", "plugId": null,
+                                "devices": [ { "name": "Device", "consumptionApproach": "EuLabel", "euLabelClass": "A+++" } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
     public async Task RunAsync_SelfMeasuredApproachMissingKwhAndPeriod_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();

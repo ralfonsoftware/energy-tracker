@@ -39,6 +39,28 @@
     "manufacturerPlaceholder": "Hersteller (optional)",
     "modelPlaceholder": "Modell (optional)",
     "consumptionNote": "Verbrauchsprofil konfigurieren, um dieses Gerät in die Aufschlüsselung aufzunehmen",
+    "configureProfile": "Verbrauchsprofil konfigurieren",
+    "consumptionApproach": {
+      "sectionLabel": "Wie wird dieses Gerät gemessen?",
+      "euLabelTitle": "EU-Energielabel",
+      "euLabelSub": "Energieklasse und Jahres-kWh vom Label",
+      "selfMeasuredTitle": "Selbst gemessener Durchschnitt",
+      "selfMeasuredSub": "Ein selbst gemessener Tages- oder Wochendurchschnitt",
+      "changeApproach": "Ändern"
+    },
+    "euLabel": {
+      "classLabel": "Energieklasse (optional)",
+      "classPlaceholder": "z. B. A+++",
+      "annualKwhLabel": "Jahres-kWh (vom Label)",
+      "annualKwhPlaceholder": "z. B. 150",
+      "dailyEstimate": "≈ {{value}} pro Tag"
+    },
+    "selfMeasured": {
+      "periodDaily": "Täglich",
+      "periodWeekly": "Wöchentlich",
+      "kwhLabelDaily": "kWh pro Tag",
+      "kwhLabelWeekly": "kWh pro Woche"
+    },
     "save": "Speichern",
     "cancel": "Abbrechen",
     "delete": "Gerät löschen",
