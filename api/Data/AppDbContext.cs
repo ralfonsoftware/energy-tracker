@@ -12,6 +12,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<Room> Rooms => Set<Room>();
     public DbSet<PowerPoint> PowerPoints => Set<PowerPoint>();
     public DbSet<Device> Devices => Set<Device>();
+    public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
+    public DbSet<SmartPlugDailyData> SmartPlugDailyData => Set<SmartPlugDailyData>();
+    public DbSet<SmartPlugIntervalData> SmartPlugIntervalData => Set<SmartPlugIntervalData>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

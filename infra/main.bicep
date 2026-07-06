@@ -57,6 +57,8 @@ var insightQueueName = 'insight-discovery'
 var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
 var keyVaultSecretsUserRoleId = '4633458b-17de-408a-b874-0445c86b69e6'
+var storageAccountContributorRoleId = '17d1049b-9a84-46fb-8f53-869881c3d3ab'
+var storageBlobDataOwnerRoleId = 'b7e6dc6d-f1e8-4753-8033-0f276bb0955b'
 
 // ── Log Analytics Workspace ────────────────────────────────────────────────────
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -290,6 +292,8 @@ resource functionsApp 'Microsoft.Web/sites@2023-12-01' = {
     blobDataContributorAssignment
     queueDataContributorAssignment
     keyVaultSecretsUserAssignment
+    storageAccountContributorAssignment
+    storageBlobDataOwnerAssignment
   ]
 }
 
@@ -348,6 +352,77 @@ resource keyVaultSecretsUserAssignment 'Microsoft.Authorization/roleAssignments@
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleId)
     principalId: managedIdentityObjectId
     principalType: 'ServicePrincipal'
+  }
+}
+
+// ── RBAC: Managed Identity → Storage Account Contributor ─────────────────────
+// Required because AzureWebJobsStorage is identity-based (see AzureWebJobsStorage__credential
+// above) — the host identity needs this role in addition to the data-plane roles below.
+resource storageAccountContributorAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, managedIdentityObjectId, storageAccountContributorRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageAccountContributorRoleId)
+    principalId: managedIdentityObjectId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ── RBAC: Managed Identity → Storage Blob Data Owner ──────────────────────────
+// Required specifically for the Event-Grid-sourced blob trigger's internal blob-receipt
+// mechanism — Storage Blob Data Contributor (above) is insufficient for this one purpose,
+// even though it covers UploadFunction's own reads/writes. Additive; does not replace
+// blobDataContributorAssignment.
+resource storageBlobDataOwnerAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, managedIdentityObjectId, storageBlobDataOwnerRoleId)
+  scope: storageAccount
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', storageBlobDataOwnerRoleId)
+    principalId: managedIdentityObjectId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ── Event Grid: blob-created notifications → ProcessImportFunction ────────────
+// Flex Consumption does not support the default polling blob trigger — only the
+// Event-Grid-sourced trigger works on this hosting plan. See Dev Notes in Story 6.1
+// for the two-phase deploy requirement: this resource pair can only be deployed
+// successfully AFTER ProcessImportFunction's code (with Source = BlobTriggerSource.EventGrid)
+// has been deployed and the host has started at least once (blobs_extension system key
+// is generated lazily on first host start with that trigger registered).
+resource functionAppHost 'Microsoft.Web/sites/host@2023-12-01' existing = {
+  parent: functionsApp
+  name: 'default'
+}
+
+resource importBlobEventGridTopic 'Microsoft.EventGrid/systemTopics@2023-12-15-preview' = {
+  name: '${storageAccountName}-import-egst'
+  location: location
+  properties: {
+    source: storageAccount.id
+    topicType: 'Microsoft.Storage.StorageAccounts'
+  }
+}
+
+resource importBlobEventSubscription 'Microsoft.EventGrid/systemTopics/eventSubscriptions@2023-12-15-preview' = {
+  parent: importBlobEventGridTopic
+  name: 'blob-created-to-processimport'
+  properties: {
+    destination: {
+      endpointType: 'WebHook'
+      properties: {
+        endpointUrl: 'https://${functionsApp.properties.defaultHostName}/runtime/webhooks/blobs?functionName=Host.Functions.ProcessImport&code=${functionAppHost.listKeys().systemKeys.blobs_extension}'
+      }
+    }
+    eventDeliverySchema: 'EventGridSchema'
+    filter: {
+      includedEventTypes: ['Microsoft.Storage.BlobCreated']
+      subjectBeginsWith: '/blobServices/default/containers/smart-plug-imports/'
+    }
+    retryPolicy: {
+      maxDeliveryAttempts: 30
+      eventTimeToLiveInMinutes: 1440
+    }
   }
 }
 
