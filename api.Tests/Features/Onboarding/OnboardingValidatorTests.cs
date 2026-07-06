@@ -6,11 +6,12 @@ namespace api.Tests.Features.Onboarding;
 public class OnboardingValidatorTests
 {
     private static CompleteOnboardingRequest MakeRequest(
-        decimal annualKwhBaseline = 3500m, decimal pricePerKwh = 0.35m, decimal monthlyBaseFee = 10m) =>
+        decimal annualKwhBaseline = 3500m, decimal pricePerKwh = 0.35m, decimal monthlyBaseFee = 10m,
+        decimal? plannedAnnualSpend = null) =>
         new(
             FlatName: "Test Flat",
             AnnualKwhBaseline: annualKwhBaseline,
-            PlannedAnnualSpend: null,
+            PlannedAnnualSpend: plannedAnnualSpend,
             PricePerKwh: pricePerKwh,
             MonthlyBaseFee: monthlyBaseFee,
             ProviderName: null,
@@ -93,6 +94,62 @@ public class OnboardingValidatorTests
     public void Validate_MonthlyBaseFeeWithTrailingZerosBeyondFourDecimals_Succeeds()
     {
         var result = new OnboardingValidator().Validate(MakeRequest(monthlyBaseFee: 10.500000m));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendExceedsFourDecimalPlaces_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: 500.56789m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendAtOrAboveUpperBound_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: 50000m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendAboveUpperBound_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: 50001m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendAtOrBelowLowerBound_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: 0m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendBelowLowerBound_Fails()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: -5m));
+
+        result.IsValid.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendWithFourDecimalPlaces_Succeeds()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: 500.5678m));
+
+        result.IsValid.ShouldBeTrue();
+    }
+
+    [Fact]
+    public void Validate_PlannedAnnualSpendNull_Succeeds()
+    {
+        var result = new OnboardingValidator().Validate(MakeRequest(plannedAnnualSpend: null));
 
         result.IsValid.ShouldBeTrue();
     }

@@ -7,15 +7,52 @@ on:
     paths:
       - 'api/**'
       - 'client/**'
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
-permissions:
-  id-token: write   # required for OIDC Azure login via Federated Credentials
-  contents: read
-
 jobs:
-  build_and_deploy:
+  test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── Frontend ───────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: client/package-lock.json
+
+      - name: Upgrade npm
+        run: npm install -g npm@11.17.0
+
+      - name: Test frontend
+        working-directory: client
+        run: |
+          npm ci
+          npm test -- --run
+
+      # ── Backend ────────────────────────────────────────────────────────────
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Test backend
+        run: dotnet test api.Tests/
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for OIDC Azure login via Federated Credentials
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -41,15 +78,10 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@11.17.0
 
-      - name: Test frontend
-        working-directory: client
-        run: |
-          npm ci
-          npm test -- --run
-
       - name: Build frontend
         working-directory: client
         run: |
+          npm ci
           npm run build
           rm -rf node_modules
 
@@ -58,9 +90,6 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-
-      - name: Test backend
-        run: dotnet test api.Tests/
 
       - name: Publish Functions app
         run: |

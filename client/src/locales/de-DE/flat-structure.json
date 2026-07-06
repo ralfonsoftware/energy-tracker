@@ -12,20 +12,25 @@
     "saveSuccess": "Struktur gespeichert.",
     "plugIdConflict": "Diese Steckdose ist bereits einer anderen Anschlussstelle zugewiesen",
     "blankNameError": "Gib jedem Raum und jeder Anschlussstelle einen Namen, bevor du speicherst.",
+    "noRoomsError": "Füge mindestens einen Raum hinzu, bevor du speicherst.",
     "loadError": "Wohnungsstruktur konnte nicht geladen werden — bitte erneut versuchen.",
     "retry": "Erneut versuchen"
   },
   "room": {
     "namePlaceholder": "Raumname",
     "powerPointsSummary": "{{count}} Anschlussstellen",
-    "addPowerPoint": "+ Anschlussstelle hinzufügen"
+    "addPowerPoint": "+ Anschlussstelle hinzufügen",
+    "delete": "Raum löschen",
+    "deletePrompt": "Diesen Raum und alles darin löschen?"
   },
   "powerPoint": {
     "namePlaceholder": "Name der Anschlussstelle",
     "plugIdLabel": "Smart-Plug-ID",
     "plugIdPlaceholder": "Nicht zugewiesen",
     "addDevice": "+ Gerät hinzufügen",
-    "editDevice": "Gerät bearbeiten ›"
+    "editDevice": "Gerät bearbeiten ›",
+    "delete": "Anschlussstelle löschen",
+    "deletePrompt": "Diese Anschlussstelle und ihre Geräte löschen?"
   },
   "device": {
     "title": "Gerät",
@@ -35,7 +40,13 @@
     "modelPlaceholder": "Modell (optional)",
     "consumptionNote": "Verbrauchsprofil konfigurieren, um dieses Gerät in die Aufschlüsselung aufzunehmen",
     "save": "Speichern",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "delete": "Gerät löschen",
+    "deletePrompt": "Dieses Gerät löschen?"
+  },
+  "confirm": {
+    "cancel": "Abbrechen",
+    "delete": "Löschen"
   },
   "defaultRooms": {
     "livingRoom": "Wohnzimmer",

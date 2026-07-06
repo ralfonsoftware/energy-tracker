@@ -47,6 +47,12 @@ export function RoomEditor({ room, onChange, onBack, onEditDevice }: Props) {
               })
             }
             onEditDevice={deviceKey => onEditDevice(powerPoint.key, deviceKey)}
+            onDelete={() =>
+              onChange({
+                ...room,
+                powerPoints: room.powerPoints.filter(pp => pp.key !== powerPoint.key),
+              })
+            }
           />
         ))}
 

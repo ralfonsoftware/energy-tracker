@@ -2,6 +2,56 @@
 
 A user can upload Eve Home Excel and Meross CSV exports, parsed into a unified daily kWh timeline, gap-interpolated, and reconciled against the main meter. Devices can be registered with EU label or self-measured consumption profiles.
 
+## Story 6.0: Pre-Epic-6 Hardening — CI Test Gate, Onboarding Validator Fix & Flat Structure Delete Affordance
+
+As a user and as the team maintaining this app,
+I want the existing test suite to actually gate merges, the onboarding
+form to validate the same fields its siblings already validate, and a
+way to remove a mistakenly-added room/power point/device,
+So that Epic 6 builds on a codebase where regressions are caught before
+merge, a known validation bypass is closed, and flat structure
+management isn't a one-way ratchet.
+
+**Acceptance Criteria:**
+
+**Given** `.github/workflows/azure-static-web-apps.yml`,
+**When** the workflow is updated,
+**Then** it adds a `dotnet test` step (running `api.Tests`) and an
+`npm test` step (running the Vitest suite in `client/`), both required
+to pass before the build/publish jobs run; the trigger block adds
+`pull_request: branches: [main]` alongside the existing trigger, so
+every PR runs the same gate before merge — not just pushes to `main`.
+
+**Given** `api/Features/Onboarding/OnboardingValidator.cs`,
+**When** `PlannedAnnualSpend` is validated,
+**Then** it receives the same rule already present on
+`CreateFlatValidator`/`PatchFlatValidator` for the identical
+`Flat.PlannedAnnualSpend` column: `GreaterThan(0)`, `LessThan(50000)`,
+`PrecisionScale(18, 4, true)`; a new or extended
+`OnboardingValidatorTests.cs` case asserts a value with more than 4
+decimal places, and a value outside the (0, 50000) range, are both
+rejected with 400 Problem Details.
+
+**Given** the Flat Structure editor
+(`client/src/features/flat-structure/components/`),
+**When** a user views an existing Room, Power Point, or Device,
+**Then** a delete affordance is present for each; tapping it removes
+the item from the client-side draft model (removing a Room also
+removes its child Power Points/Devices from the draft); a single
+confirmation step (inline or modal) is required before removal to
+guard against accidental loss; on Save, the removal is carried by the
+existing `PUT /api/v1/flats/{flatId}/structure` full-replace contract
+(delete-and-reinsert transaction) — no new backend endpoint is needed.
+
+**Given** the three fixes above,
+**When** the story reaches `done`,
+**Then** `dotnet test` and `npm test` both pass locally and (per AC1,
+now) in CI; `OnboardingValidatorTests.cs` covers the new rule;
+`FlatStructureEditor.test.tsx` (or equivalent) covers delete-with-
+confirm for a Room, a Power Point, and a Device.
+
+---
+
 ## Story 6.1: Import Pipeline Infrastructure — Upload, Job Tracking & Blob Trigger
 
 As a user,
@@ -29,6 +79,10 @@ So that I am not blocked waiting for the file to process and can navigate freely
 **Given** import error categorization (FR-28),
 **When** `ImportJob.ErrorCategory` is set,
 **Then** the frontend maps it to exactly one user-facing message: `DataUnreadable` → "Data cannot be read."; `ProcessingFailed` → "Processing failed — try again."; `ServiceUnavailable` → "Service temporarily unavailable — try again later."
+
+**Given** `ImportJob`, `SmartPlugDailyData`, and `SmartPlugIntervalData` can be written concurrently (e.g., a retried blob trigger re-processing the same job while a status poll or a structure edit is in flight),
+**When** `ImportJobConfiguration` is defined,
+**Then** `ImportJob` includes a `RowVersion` (SQL Server `rowversion`) column configured via EF Core `.IsRowVersion()`; a `DbUpdateConcurrencyException` on save is caught and surfaces as `ImportJob.Status = Failed`, `ErrorCategory = ProcessingFailed` — never an unhandled 500 or a silent overwrite; this is the codebase's first concurrency-token pattern, deliberately scoped to these three new tables only — `Flat`, `Tariff`, and `MeterReading` remain last-write-wins, tracked separately in `deferred-work.md`.
 
 ---
 
