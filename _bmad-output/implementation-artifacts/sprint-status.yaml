@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-06 (story 6.2 code review complete, done)
+# last_updated: 2026-07-06 (story 6.3 code review complete, done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-06 (story 6.2 code review complete, done)
+last_updated: 2026-07-06 (story 6.3 code review complete, done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -92,7 +92,7 @@ development_status:
   6-0-pre-epic-6-hardening-ci-test-gate-onboarding-validator-fix-and-flat-structure-delete-affordance: done
   6-1-import-pipeline-infrastructure-upload-job-tracking-and-blob-trigger: done
   6-2-eve-home-excel-parser: done
-  6-3-meross-csv-parser: backlog
+  6-3-meross-csv-parser: done
   6-4-gap-detection-interpolation-and-main-meter-reconciliation: backlog
   6-5-device-registry-eu-label-and-self-measured-consumption: backlog
   6-6-import-ui-upload-zone-file-list-and-progress-card: backlog

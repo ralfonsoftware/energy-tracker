@@ -20,6 +20,7 @@ public class ImportJob
     public Guid ImportJobId { get; set; }
     public Guid FlatId { get; set; }
     public required string PlugId { get; set; }
+    public required string OriginalFileName { get; set; }
     public ImportStatus Status { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }

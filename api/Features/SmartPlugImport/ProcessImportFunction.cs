@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace EnergyTracker.Api.Features.SmartPlugImport;
 
-public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser, ILogger<ProcessImportFunction> logger)
+public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser, MerossParser merossParser, ILogger<ProcessImportFunction> logger)
 {
     [Function("ProcessImport")]
     public async Task RunAsync(
@@ -79,20 +79,11 @@ public class ProcessImportFunction(AppDbContext db, EveHomeParser eveHomeParser,
                 await eveHomeParser.ParseAndStoreAsync(importJob.FlatId, importJob.PlugId, blobStream, ct);
                 break;
             case "csv":
-                // MerossParser is Story 6.3's scope — this story only confirms the blob is readable.
-                await ConfirmBlobReadableAsync(blobStream, ct);
+                await merossParser.ParseAndStoreAsync(importJob.FlatId, importJob.PlugId, importJob.OriginalFileName, blobStream, ct);
                 break;
             default:
                 throw new UnreadableFileException($"Unsupported file extension: {ext}");
         }
-    }
-
-    private static async Task ConfirmBlobReadableAsync(Stream blobStream, CancellationToken ct)
-    {
-        var buffer = new byte[1];
-        var bytesRead = await blobStream.ReadAsync(buffer.AsMemory(0, 1), ct);
-        if (bytesRead == 0)
-            throw new UnreadableFileException("Blob is empty.");
     }
 
     private static async Task<bool> TrySaveAsync(

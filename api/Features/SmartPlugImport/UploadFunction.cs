@@ -57,6 +57,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
 
         var file = req.Form.Files[0];
         var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+        var originalFileName = Path.GetFileName(file.FileName);
         if (!AllowedExtensions.Contains(ext))
             return new BadRequestObjectResult(new
             {
@@ -75,6 +76,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         {
             FlatId = flatGuid,
             PlugId = plugId,
+            OriginalFileName = originalFileName,
             Status = ImportStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
         };

@@ -54,6 +54,7 @@ builder.Services.AddSingleton<TariffValidator>();
 builder.Services.AddSingleton<PatchTariffValidator>();
 builder.Services.AddScoped<TariffResolver>();
 builder.Services.AddScoped<EveHomeParser>();
+builder.Services.AddScoped<MerossParser>();
 builder.Services.AddSingleton<KpiCalculator>();
 builder.Services.AddSingleton<UpdateFlatStructureValidator>();
 

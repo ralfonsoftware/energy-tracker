@@ -130,6 +130,7 @@ public class ProcessImportFunctionTests
         {
             FlatId = flatId,
             PlugId = "plug-test-1",
+            OriginalFileName = "Power Monitor Day Data - Test Device - 20260620.csv",
             Status = ImportStatus.Pending,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -139,7 +140,8 @@ public class ProcessImportFunctionTests
     }
 
     private static ProcessImportFunction MakeFunction(AppDbContext db) =>
-        new(db, new EveHomeParser(db, Mock.Of<ILogger<EveHomeParser>>()), Mock.Of<ILogger<ProcessImportFunction>>());
+        new(db, new EveHomeParser(db, Mock.Of<ILogger<EveHomeParser>>()), new MerossParser(db, Mock.Of<ILogger<MerossParser>>()),
+            Mock.Of<ILogger<ProcessImportFunction>>());
 
     [Fact]
     public async Task RunAsync_HappyPath_TransitionsPendingToComplete()
