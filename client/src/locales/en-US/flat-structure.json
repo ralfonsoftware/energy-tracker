@@ -39,6 +39,28 @@
     "manufacturerPlaceholder": "Manufacturer (optional)",
     "modelPlaceholder": "Model (optional)",
     "consumptionNote": "Configure consumption profile to include this device in Decomposition",
+    "configureProfile": "Configure consumption profile",
+    "consumptionApproach": {
+      "sectionLabel": "How is this device measured?",
+      "euLabelTitle": "EU energy label",
+      "euLabelSub": "Energy class and annual kWh from the label",
+      "selfMeasuredTitle": "Self-measured average",
+      "selfMeasuredSub": "A daily or weekly average you measured yourself",
+      "changeApproach": "Change"
+    },
+    "euLabel": {
+      "classLabel": "Energy class (optional)",
+      "classPlaceholder": "e.g. A+++",
+      "annualKwhLabel": "Annual kWh (from label)",
+      "annualKwhPlaceholder": "e.g. 150",
+      "dailyEstimate": "≈ {{value}} per day"
+    },
+    "selfMeasured": {
+      "periodDaily": "Daily",
+      "periodWeekly": "Weekly",
+      "kwhLabelDaily": "kWh per day",
+      "kwhLabelWeekly": "kWh per week"
+    },
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete device",

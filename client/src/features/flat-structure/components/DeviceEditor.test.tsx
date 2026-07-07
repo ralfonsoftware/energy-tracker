@@ -5,7 +5,9 @@ import { DeviceEditor } from './DeviceEditor'
 import type { DraftDevice } from './draftModel'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, opts?: Record<string, unknown>) => (opts?.value ? `${k}:${opts.value}` : k),
+  }),
 }))
 
 const sampleDevice: DraftDevice = {
@@ -37,19 +39,21 @@ describe('DeviceEditor', () => {
     expect(screen.getByRole('button', { name: 'device.save' })).toBeEnabled()
   })
 
-  it('DeviceEditor_AlwaysRendersConsumptionNote', () => {
+  it('DeviceEditor_UnconfiguredDevice_RendersConsumptionNoteAndConfigureButton', () => {
     render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
 
     expect(screen.getByText('device.consumptionNote')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'device.configureProfile' })).toBeInTheDocument()
   })
 
-  it('DeviceEditor_NoConsumptionApproachChoiceUIRendered', () => {
+  it('DeviceEditor_ConfigureProfileTapped_ShowsChoiceStepCards', async () => {
+    const user = userEvent.setup()
     render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
 
-    expect(screen.queryByText(/EuLabel/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/SelfMeasured/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/smart plug connected/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/estimated usage/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+
+    expect(screen.getByText('device.consumptionApproach.euLabelTitle')).toBeInTheDocument()
+    expect(screen.getByText('device.consumptionApproach.selfMeasuredTitle')).toBeInTheDocument()
   })
 
   it('DeviceEditor_ExistingDevice_PrefillsFields', () => {
@@ -95,6 +99,105 @@ describe('DeviceEditor', () => {
     )
   })
 
+  it('DeviceEditor_EuLabelSelected_ShowsOnlyEuLabelFieldsHidesSelfMeasured', async () => {
+    const user = userEvent.setup()
+    render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.euLabelTitle' }))
+
+    expect(screen.getByLabelText('device.euLabel.annualKwhLabel')).toBeInTheDocument()
+    expect(screen.queryByText('device.selfMeasured.kwhLabelDaily')).not.toBeInTheDocument()
+    expect(screen.queryByText('device.selfMeasured.kwhLabelWeekly')).not.toBeInTheDocument()
+  })
+
+  it('DeviceEditor_SelfMeasuredSelected_ShowsOnlySelfMeasuredFieldsHidesEuLabel', async () => {
+    const user = userEvent.setup()
+    render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.selfMeasuredTitle' }))
+
+    expect(screen.getByText('device.selfMeasured.kwhLabelDaily')).toBeInTheDocument()
+    expect(screen.queryByLabelText('device.euLabel.annualKwhLabel')).not.toBeInTheDocument()
+  })
+
+  it('DeviceEditor_EuAnnualKwhEntered_ShowsDerivedDailyEstimate', async () => {
+    const user = userEvent.setup()
+    render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.euLabelTitle' }))
+    await user.type(screen.getByLabelText('device.euLabel.annualKwhLabel'), '365')
+
+    expect(screen.getByText('device.euLabel.dailyEstimate:1 kWh')).toBeInTheDocument()
+  })
+
+  it('DeviceEditor_SelfMeasuredToggleSwitchedToWeekly_UpdatesKwhInputLabelInstantly', async () => {
+    const user = userEvent.setup()
+    render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.selfMeasuredTitle' }))
+
+    expect(screen.getByText('device.selfMeasured.kwhLabelDaily')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'device.selfMeasured.periodWeekly' }))
+
+    expect(screen.queryByText('device.selfMeasured.kwhLabelDaily')).not.toBeInTheDocument()
+    expect(screen.getByText('device.selfMeasured.kwhLabelWeekly')).toBeInTheDocument()
+  })
+
+  it('DeviceEditor_EuLabelApproachMissingAnnualKwh_SaveDisabled', async () => {
+    const user = userEvent.setup()
+    render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('device.namePlaceholder'), 'Fridge')
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.euLabelTitle' }))
+
+    expect(screen.getByRole('button', { name: 'device.save' })).toBeDisabled()
+  })
+
+  it('DeviceEditor_EuLabelApproachWithKwhOnly_SaveEnabledAndCallsOnSaveWithUndefinedClass', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<DeviceEditor device={undefined} onSave={onSave} onCancel={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('device.namePlaceholder'), 'Fridge')
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.euLabelTitle' }))
+    await user.type(screen.getByLabelText('device.euLabel.annualKwhLabel'), '150')
+
+    expect(screen.getByRole('button', { name: 'device.save' })).toBeEnabled()
+
+    await user.click(screen.getByRole('button', { name: 'device.save' }))
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ euLabelClass: undefined, euAnnualKwh: 150 })
+    )
+  })
+
+  it('DeviceEditor_SelfMeasuredApproachWithValidKwh_CallsOnSaveWithApproachFields', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<DeviceEditor device={undefined} onSave={onSave} onCancel={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('device.namePlaceholder'), 'Fridge')
+    await user.click(screen.getByRole('button', { name: 'device.configureProfile' }))
+    await user.click(screen.getByRole('radio', { name: 'device.consumptionApproach.selfMeasuredTitle' }))
+    await user.type(screen.getByLabelText('device.selfMeasured.kwhLabelDaily'), '5')
+    await user.click(screen.getByRole('button', { name: 'device.save' }))
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({
+        consumptionApproach: 'SelfMeasured',
+        selfMeasuredKwh: 5,
+        selfMeasuredPeriod: 'Daily',
+      })
+    )
+  })
+
   it('DeviceEditor_ExistingDeviceWithConsumptionProfile_PreservesItUnchangedOnSave', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn()
@@ -102,13 +205,14 @@ describe('DeviceEditor', () => {
       ...sampleDevice,
       consumptionApproach: 'EuLabel',
       euLabelClass: 'A+++',
+      euAnnualKwh: 150,
     }
     render(<DeviceEditor device={deviceWithProfile} onSave={onSave} onCancel={vi.fn()} />)
 
     await user.click(screen.getByRole('button', { name: 'device.save' }))
 
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ consumptionApproach: 'EuLabel', euLabelClass: 'A+++' })
+      expect.objectContaining({ consumptionApproach: 'EuLabel', euLabelClass: 'A+++', euAnnualKwh: 150 })
     )
   })
 })
