@@ -26,7 +26,7 @@ export const router = createBrowserRouter([
         children: [
           { path: '/', element: <Wrap Page={DashboardPage} /> },
           { path: '/insights', element: <Wrap Page={InsightsPage} /> },
-          { path: '/decomposition', element: <Wrap Page={DecompositionPage} /> },
+          { path: '/decomposition/*', element: <Wrap Page={DecompositionPage} /> },
           { path: '/settings/*', element: <Wrap Page={SettingsPage} /> },
         ],
       },
