@@ -1,9 +1,12 @@
 const BASE = '/api/v1'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = init?.body instanceof FormData
   const res = await fetch(`${BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers: isFormData
+      ? init?.headers
+      : { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!res.ok) {
     const problem = await res.json().catch(() => ({ detail: 'Unknown error' }))
@@ -28,4 +31,6 @@ export const apiClient = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  postForm: <T>(path: string, formData: FormData) =>
+    request<T>(path, { method: 'POST', body: formData }),
 }

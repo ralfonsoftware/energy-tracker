@@ -1,1 +1,35 @@
-{}
+{
+  "uploadZone": {
+    "primary": "Dateien zum Hochladen auswählen",
+    "subtitle": "Eve Home (.xlsx) oder Meross (.csv)",
+    "chooseFiles": "+ Dateien auswählen",
+    "tip": "Tipp: Sie können mehrere Dateien gleichzeitig auswählen"
+  },
+  "surface": {
+    "title": "Smart-Plug-Daten importieren",
+    "selectedFiles": "Ausgewählte Dateien ({{count}})",
+    "uploadButton": "{{count}} Dateien hochladen",
+    "uploadNote": "Die Verarbeitung läuft im Hintergrund — Sie können die App weiter nutzen",
+    "partialFailure": "Einige Dateien konnten nicht hochgeladen werden. Beheben Sie das Problem und versuchen Sie es erneut.",
+    "noDevicesAvailable": "Es sind noch keine Anschlussstellen mit zugewiesener Plug-ID eingerichtet. Legen Sie zuerst eine in den Einstellungen der Wohnungsstruktur an."
+  },
+  "fileType": {
+    "eveHome": "Eve Home",
+    "meross": "Meross"
+  },
+  "association": {
+    "label": "Anschlussstelle zuordnen:",
+    "placeholder": "Anschlussstelle auswählen…",
+    "auto": "automatisch"
+  },
+  "remove": "Entfernen",
+  "progress": {
+    "processingTitle": "Smart-Plug-Daten werden verarbeitet…",
+    "retry": "Erneut versuchen",
+    "dismiss": "Schließen",
+    "gapNotice": "Lücke erkannt: {{range}}. Fehlende Tage wurden interpoliert.",
+    "errorDataUnreadable": "Daten können nicht gelesen werden.",
+    "errorProcessingFailed": "Verarbeitung fehlgeschlagen — bitte erneut versuchen.",
+    "errorServiceUnavailable": "Dienst vorübergehend nicht verfügbar — später erneut versuchen."
+  }
+}

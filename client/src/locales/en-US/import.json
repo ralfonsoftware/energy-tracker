@@ -1,1 +1,35 @@
-{}
+{
+  "uploadZone": {
+    "primary": "Select files to upload",
+    "subtitle": "Eve Home (.xlsx) or Meross (.csv)",
+    "chooseFiles": "+ Choose Files",
+    "tip": "Tip: you can select multiple files at once"
+  },
+  "surface": {
+    "title": "Import Smart Plug Data",
+    "selectedFiles": "Selected Files ({{count}})",
+    "uploadButton": "Upload {{count}} Files",
+    "uploadNote": "Processing runs in the background — you can continue using the app",
+    "partialFailure": "Some files could not be uploaded. Fix them and try again.",
+    "noDevicesAvailable": "No power points with an assigned plug are set up yet. Add one in Flat Structure settings first."
+  },
+  "fileType": {
+    "eveHome": "Eve Home",
+    "meross": "Meross"
+  },
+  "association": {
+    "label": "Associate to power point:",
+    "placeholder": "Select a power point…",
+    "auto": "auto"
+  },
+  "remove": "Remove",
+  "progress": {
+    "processingTitle": "Processing smart plug data…",
+    "retry": "Retry",
+    "dismiss": "Dismiss",
+    "gapNotice": "Gap detected: {{range}}. Missing days have been interpolated.",
+    "errorDataUnreadable": "Data cannot be read.",
+    "errorProcessingFailed": "Processing failed — try again.",
+    "errorServiceUnavailable": "Service temporarily unavailable — try again later."
+  }
+}
