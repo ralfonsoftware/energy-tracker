@@ -1,0 +1,5 @@
+[workflow]
+
+persistent_facts = [
+  "When a review finding is deferred with a concrete future trigger (e.g. \"must be fixed before Story X.Y ships\" or \"will break once Story X.Y depends on this\"), tag the deferred-work.md entry with an explicit `blocks: Story X.Y` marker in addition to the prose explanation, so it is mechanically greppable at that story's creation time rather than relying on someone re-reading the prose.",
+]

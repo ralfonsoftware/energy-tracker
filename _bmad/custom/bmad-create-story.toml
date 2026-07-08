@@ -1,0 +1,5 @@
+[workflow]
+
+persistent_facts = [
+  "Before finalizing this story's acceptance criteria, grep {project-root}/_bmad-output/implementation-artifacts/deferred-work.md for any entry tagged `blocks: Story {epic}.{story}` matching the epic/story number being created. Treat any match as a must-resolve gap for this story, not a defer to leave open — surface it as an explicit 'gap found during story creation' AC, the same way Stories 6.1-6.5 did for their own discovered gaps.",
+]
