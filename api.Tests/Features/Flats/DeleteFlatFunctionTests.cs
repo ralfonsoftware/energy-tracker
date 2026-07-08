@@ -12,9 +12,9 @@ namespace api.Tests.Features.Flats;
 
 public class DeleteFlatFunctionTests
 {
-    private static AppDbContext MakeDb() =>
+    private static AppDbContext MakeDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
             .Options);
 
     private static FunctionContext MakeFunctionContext(string userId = "user-test-123")
@@ -55,6 +55,34 @@ public class DeleteFlatFunctionTests
         ContractStartDate = contractStartDate,
         PricePerKwh = 0.30m,
         MonthlyBaseFee = 10m
+    };
+
+    private static ImportJob MakeImportJob(Guid flatId) => new()
+    {
+        ImportJobId = Guid.NewGuid(),
+        FlatId = flatId,
+        PlugId = "plug-1",
+        OriginalFileName = "export.csv",
+        Status = ImportStatus.Complete,
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
+    private static SmartPlugDailyData MakeSmartPlugDailyData(Guid flatId, DateOnly date) => new()
+    {
+        Id = Guid.NewGuid(),
+        FlatId = flatId,
+        PlugId = "plug-1",
+        Date = date,
+        KwhValue = 1.5m
+    };
+
+    private static SmartPlugIntervalData MakeSmartPlugIntervalData(Guid flatId, DateTimeOffset timestamp) => new()
+    {
+        Id = Guid.NewGuid(),
+        FlatId = flatId,
+        PlugId = "plug-1",
+        Timestamp = timestamp,
+        WhValue = 150m
     };
 
     private static async Task<(Room room, PowerPoint powerPoint, Device device)> SeedStructureAsync(AppDbContext db, Guid flatId)
@@ -172,6 +200,38 @@ public class DeleteFlatFunctionTests
         (await db.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
         (await db.PowerPoints.CountAsync(pp => pp.PowerPointId == powerPoint.PowerPointId)).ShouldBe(0);
         (await db.Devices.CountAsync(d => d.DeviceId == device.DeviceId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_ValidDelete_CascadeDeletesImportJobsSmartPlugDailyDataAndIntervalData()
+    {
+        // Seed via a separate DbContext instance (same InMemory database) so the rows are
+        // persisted but NOT already tracked by the context DeleteFlatFunction runs against —
+        // mirroring a real request, which always gets a fresh scoped DbContext. This is the
+        // exact condition LoadFlatCascadeChildrenAsync exists to handle under the InMemory
+        // provider (unlike real SQL Server, InMemory only cascades to already-tracked rows).
+        var dbName = Guid.NewGuid().ToString();
+        var flat = MakeFlat("owner-user");
+        using (var seedDb = MakeDb(dbName))
+        {
+            seedDb.Flats.Add(flat);
+            seedDb.ImportJobs.Add(MakeImportJob(flat.FlatId));
+            seedDb.SmartPlugDailyData.Add(MakeSmartPlugDailyData(flat.FlatId, DateOnly.FromDateTime(DateTime.UtcNow)));
+            seedDb.SmartPlugIntervalData.Add(MakeSmartPlugIntervalData(flat.FlatId, DateTimeOffset.UtcNow));
+            await seedDb.SaveChangesAsync();
+        }
+
+        using var db = MakeDb(dbName);
+        var fn = new DeleteFlatFunction(db);
+        var req = MakeRequest();
+        var ctx = MakeFunctionContext("owner-user");
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<NoContentResult>();
+        (await db.ImportJobs.CountAsync(j => j.FlatId == flat.FlatId)).ShouldBe(0);
+        (await db.SmartPlugDailyData.CountAsync(d => d.FlatId == flat.FlatId)).ShouldBe(0);
+        (await db.SmartPlugIntervalData.CountAsync(d => d.FlatId == flat.FlatId)).ShouldBe(0);
     }
 
     [Fact]

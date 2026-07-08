@@ -21,5 +21,8 @@ public static class AppDbContextExtensions
         await db.Tariffs.Where(t => t.FlatId == flatId).LoadAsync(ct);
         await db.Rooms.Where(r => r.FlatId == flatId).LoadAsync(ct);
         await db.LoadPowerPointsAndDevicesAsync(flatId, ct);
+        await db.ImportJobs.Where(j => j.FlatId == flatId).LoadAsync(ct);
+        await db.SmartPlugDailyData.Where(d => d.FlatId == flatId).LoadAsync(ct);
+        await db.SmartPlugIntervalData.Where(d => d.FlatId == flatId).LoadAsync(ct);
     }
 }
