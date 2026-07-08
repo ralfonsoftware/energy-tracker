@@ -60,14 +60,6 @@ builder.Services.AddScoped<ReconciliationEngine>();
 builder.Services.AddSingleton<KpiCalculator>();
 builder.Services.AddSingleton<UpdateFlatStructureValidator>();
 
-builder.Services.Configure<Microsoft.AspNetCore.Http.Json.JsonOptions>(options =>
-    JsonSerializationDefaults.Apply(options.SerializerOptions));
-
-// ObjectResult (returned as OkObjectResult, etc. by this codebase's HTTP functions) is
-// serialized via the MVC pipeline, which reads Mvc.JsonOptions, not Http.Json.JsonOptions
-// above. Both must be configured identically or enum-typed response fields silently
-// fall back to numeric serialization wherever ObjectResult is used.
-builder.Services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(options =>
-    JsonSerializationDefaults.Apply(options.JsonSerializerOptions));
+JsonSerializationDefaults.ConfigureAspNetCoreJsonOptions(builder.Services);
 
 builder.Build().Run();
