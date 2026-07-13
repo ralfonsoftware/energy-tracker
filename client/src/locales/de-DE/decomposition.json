@@ -1,1 +1,24 @@
-{ "importButton": "Smart-Plug-Daten importieren" }
+{
+  "importButton": "Smart-Plug-Daten importieren",
+  "period": {
+    "thisWeek": "Diese Woche",
+    "thisMonth": "Dieser Monat",
+    "lastMonth": "Letzter Monat",
+    "thisYear": "Dieses Jahr",
+    "custom": "Benutzerdefinierter Zeitraum",
+    "customStartLabel": "Startdatum",
+    "customEndLabel": "Enddatum",
+    "selectRange": "Wähle ein Start- und Enddatum"
+  },
+  "residual": {
+    "title": "Rest"
+  },
+  "interpolatedBanner": "Einige Werte wurden aus unvollständigen Importdaten interpoliert.",
+  "unavailable": {
+    "heading": "Keine Smart-Plug-Daten für diesen Zeitraum",
+    "body": "Lade einen Smart-Plug-Export hoch, um deine Aufschlüsselung zu sehen",
+    "cta": "Daten importieren"
+  },
+  "loadError": "Aufschlüsselung konnte nicht geladen werden",
+  "retry": "Erneut versuchen"
+}

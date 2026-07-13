@@ -5,6 +5,7 @@ import { Upload } from 'lucide-react'
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { useFlatStructure } from '@/features/flat-structure/hooks/useFlatStructure'
 import { ImportProgressCard } from '@/features/smart-plug-import/components/ImportProgressCard'
+import { DecompositionTab } from '@/features/decomposition/components/DecompositionTab'
 
 const ImportSurface = lazy(() =>
   import('@/features/smart-plug-import/components/ImportSurface').then(m => ({ default: m.ImportSurface }))
@@ -29,6 +30,7 @@ function DecompositionRoot() {
         </button>
       </div>
       <ImportProgressCard flatId={settings?.flatId} />
+      <DecompositionTab flatId={settings?.flatId} />
     </div>
   )
 }

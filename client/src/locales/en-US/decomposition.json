@@ -1,1 +1,24 @@
-{ "importButton": "Import smart plug data" }
+{
+  "importButton": "Import smart plug data",
+  "period": {
+    "thisWeek": "This week",
+    "thisMonth": "This month",
+    "lastMonth": "Last month",
+    "thisYear": "This year",
+    "custom": "Custom range",
+    "customStartLabel": "Start date",
+    "customEndLabel": "End date",
+    "selectRange": "Select a start and end date"
+  },
+  "residual": {
+    "title": "Residual"
+  },
+  "interpolatedBanner": "Some values have been interpolated from incomplete import data.",
+  "unavailable": {
+    "heading": "No smart plug data for this period",
+    "body": "Upload a smart plug export to see your breakdown",
+    "cta": "Import Data"
+  },
+  "loadError": "Couldn't load decomposition",
+  "retry": "Retry"
+}
