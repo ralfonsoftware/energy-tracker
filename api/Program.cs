@@ -3,6 +3,7 @@ using Azure.Monitor.OpenTelemetry.Exporter;
 using Azure.Storage.Blobs;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Features.Dashboard;
+using EnergyTracker.Api.Features.Decomposition;
 using EnergyTracker.Api.Features.Flats;
 using EnergyTracker.Api.Features.FlatStructure;
 using EnergyTracker.Api.Features.Readings;
@@ -57,6 +58,7 @@ builder.Services.AddScoped<EveHomeParser>();
 builder.Services.AddScoped<MerossParser>();
 builder.Services.AddScoped<InterpolationEngine>();
 builder.Services.AddScoped<ReconciliationEngine>();
+builder.Services.AddScoped<DecompositionEngine>();
 builder.Services.AddSingleton<KpiCalculator>();
 builder.Services.AddSingleton<UpdateFlatStructureValidator>();
 

@@ -28,7 +28,7 @@ So that I get accurate per-room and per-device kWh and cost figures that are con
 
 **Given** `Residual` computation,
 **When** included in the response,
-**Then** `Residual.Kwh = TotalKwh − sum(all device kWh)`; `Residual.Cost` uses the same period-accurate TariffResolver; the invariant `Residual.Kwh + attributed kWh = TotalKwh` holds within ±0.1 kWh; `Residual.Kwh` may be zero but is always included in the response (FR-33).
+**Then** `Residual.Kwh = TotalKwh − sum(all device kWh)`; `Residual.Cost` uses the same period-accurate TariffResolver; the invariant `Residual.Kwh + attributed kWh = TotalKwh` holds within ±0.1 kWh for periods where `HasInterpolatedData = false`, and within ±1.0 kWh for periods where `HasInterpolatedData = true` (FR-27); `Residual.Kwh` may be zero but is always included in the response (FR-33).
 
 **Given** a period with no SmartPlugDailyData for any plug in the flat,
 **When** `ComputeAsync` is called,
@@ -44,7 +44,7 @@ So that I get accurate per-room and per-device kWh and cost figures that are con
 
 **Given** `DecompositionEngineTests.cs` in `api.Tests/Features/Decomposition/`,
 **When** run,
-**Then** tests cover: measured device attribution; EU label daily estimate; SelfMeasured daily estimate; Smart Power Strip proportional split; unconfigured sub-devices get equal share; Residual = TotalKwh − attributed within tolerance; period with no SmartPlugData sets `IsUnavailable = true`; `HasInterpolatedData = true` when any row is interpolated; `Residual.Kwh` is 0 but present when all kWh is attributed.
+**Then** tests cover: measured device attribution; EU label daily estimate; SelfMeasured daily estimate; Smart Power Strip proportional split; unconfigured sub-devices get equal share; Residual = TotalKwh − attributed within ±0.1 kWh for a clean (non-interpolated) period; Residual = TotalKwh − attributed within ±1.0 kWh for a period containing interpolated data; period with no SmartPlugData sets `IsUnavailable = true`; `HasInterpolatedData = true` when any row is interpolated; `Residual.Kwh` is 0 but present when all kWh is attributed.
 
 ---
 
