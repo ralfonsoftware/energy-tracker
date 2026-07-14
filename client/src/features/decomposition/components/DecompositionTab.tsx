@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useDecomposition } from '@/features/decomposition/hooks/useDecomposition'
 import { resolvePeriodRange, type PeriodOption } from '@/features/decomposition/lib/periods'
+import type { RoomDecomposition } from '@/features/decomposition/api/decompositionApi'
 import { PeriodSelector } from '@/features/decomposition/components/PeriodSelector'
 import { ResidualCard } from '@/features/decomposition/components/ResidualCard'
 import { RoomCard } from '@/features/decomposition/components/RoomCard'
@@ -11,6 +12,10 @@ import { DecompositionUnavailable } from '@/features/decomposition/components/De
 type Props = { flatId: string | undefined }
 
 type CustomRange = { startDate: string; endDate: string }
+
+function sortRoomsByKwh(rooms: RoomDecomposition[]): RoomDecomposition[] {
+  return [...rooms].sort((a, b) => b.kwh - a.kwh)
+}
 
 export function DecompositionTab({ flatId }: Props) {
   const { t } = useTranslation('decomposition')
@@ -78,8 +83,13 @@ export function DecompositionTab({ flatId }: Props) {
             </div>
           )}
           <ResidualCard kwh={data.residual.kwh} cost={data.residual.cost} totalKwh={data.totalKwh} />
-          {data.rooms.map(room => (
-            <RoomCard key={room.roomId} room={room} />
+          {/* API orders rooms by Room.SortOrder; we re-sort by kWh for display here — not a bug, don't "fix" the backend ordering */}
+          {sortRoomsByKwh(data.rooms).map(room => (
+            <RoomCard
+              key={room.roomId}
+              room={room}
+              onConfigureDevice={() => navigate('/settings/structure')}
+            />
           ))}
         </div>
       )}

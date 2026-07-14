@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-13 (Story 7.2 created, ready-for-dev)
+# last_updated: 2026-07-13 (Story 7.3 created, ready-for-dev)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-13 (Story 7.2 done — code review complete)
+last_updated: 2026-07-14 (Story 7.3 done — code review complete)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -102,7 +102,7 @@ development_status:
   epic-7: in-progress
   7-1-decomposition-backend-engine-api-and-cost-attribution: done
   7-2-decomposition-tab-period-selector-residual-card-and-unavailable-state: done
-  7-3-room-cards-device-card-variants-and-smart-power-strip-card: backlog
+  7-3-room-cards-device-card-variants-and-smart-power-strip-card: done
   epic-7-retrospective: optional
 
   # Epic 8: Actionable Insights

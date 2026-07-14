@@ -20,5 +20,17 @@
     "cta": "Daten importieren"
   },
   "loadError": "Aufschlüsselung konnte nicht geladen werden",
-  "retry": "Erneut versuchen"
+  "retry": "Erneut versuchen",
+  "deviceCard": {
+    "badgeMeasured": "Gemessen",
+    "badgeEstimated": "Geschätzt",
+    "disclaimerEuLabel": "Basierend auf EU-Label",
+    "disclaimerSelfMeasured": "Basierend auf selbst gemessenem Durchschnitt"
+  },
+  "roomCard": {
+    "directConsumption": "Direkter Verbrauch"
+  },
+  "smartStripCard": {
+    "configureHint": "Zu den Einstellungen"
+  }
 }

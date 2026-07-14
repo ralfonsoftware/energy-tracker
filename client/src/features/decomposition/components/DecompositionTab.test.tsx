@@ -121,6 +121,26 @@ describe('DecompositionTab', () => {
     expect(document.querySelectorAll('.animate-pulse')).toHaveLength(0)
   })
 
+  it('DecompositionTab_RoomsOutOfSortOrderInput_RendersRoomsSortedByDescendingKwh', () => {
+    mockDecomposition({
+      data: makeResponse({
+        rooms: [
+          { roomId: 'room-1', roomName: 'Bedroom', kwh: 5, cost: 1, devices: [] },
+          { roomId: 'room-2', roomName: 'Living Room', kwh: 62.3, cost: 14.43, devices: [] },
+          { roomId: 'room-3', roomName: 'Kitchen', kwh: 20, cost: 4.5, devices: [] },
+        ],
+      }),
+    })
+
+    render(<DecompositionTab flatId="flat-1" />)
+
+    const livingRoom = screen.getByText('Living Room')
+    const kitchen = screen.getByText('Kitchen')
+    const bedroom = screen.getByText('Bedroom')
+    expect(livingRoom.compareDocumentPosition(kitchen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(kitchen.compareDocumentPosition(bedroom) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('DecompositionTab_HasInterpolatedDataTrue_RendersBanner', () => {
     mockDecomposition({ data: makeResponse({ hasInterpolatedData: true }) })
 
