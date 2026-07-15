@@ -35,7 +35,12 @@ A user can view their energy consumption broken down by room and device for any 
 **FRs covered:** FR-32, FR-33, FR-34
 **UX items:** UX-DR13 (Residual card always first, Room cards, Device card variants — rich/measured vs compact/estimated, Smart Power Strip two-tier opacity sub-device rows).
 
-## Epic 8: Actionable Insights
+## Epic 8: UI & Behavior Consistency Alignment
+Save/cancel actions and dropdown/overlay behavior are consistent, always visible within the viewport, and located next to the fields they act on across the whole app. Consumption cards make efficient use of available width on tablet and desktop. Sourced from Ralf's own cross-app usage after Epic 7, not from the original PRD scope — see `_bmad-output/implementation-artifacts/epic-7-retro-2026-07-14.md`.
+**FRs covered:** FR-44, FR-45, FR-46, FR-47
+**UX items:** UX-DR2 (Glass Surface System — dropdown/overlay treatment), UX-DR12 (responsive layout breakpoints — device card grid), UX-DR13 (Decomposition card system — Room card device list).
+
+## Epic 9: Actionable Insights
 The app automatically discovers standby offenders, replacement candidates, budget pressure alerts, and invoice deviation hints on a daily schedule (02:00 UTC) and on-demand. Prior insights remain visible during discovery runs.
 **FRs covered:** FR-35, FR-36, FR-37, FR-38, FR-39, FR-43
 **UX items:** UX-DR10 (Progress Card for insight discovery), InsightCard variants (standby / replacement / budget / invoice types), insights insufficient-data state.

@@ -1,8 +1,8 @@
-# Epic 8: Actionable Insights
+# Epic 9: Actionable Insights
 
 The Insights tab automatically surfaces four categories of findings — standby offenders, replacement candidates, budget pressure alerts, and invoice deviation hints — via a daily scheduled job and a manual trigger. Prior insights remain visible while a new run is in progress.
 
-## Story 8.1: Insights Infrastructure — Data Model, Run Tracking, Schedule & API
+## Story 9.1: Insights Infrastructure — Data Model, Run Tracking, Schedule & API
 
 As a user,
 I want the app to automatically discover insights every night and let me trigger a refresh manually, with prior insights staying visible while a new run completes,
@@ -36,7 +36,7 @@ So that I always see the most recent findings and never land on an empty screen 
 
 ---
 
-## Story 8.2: Standby Offender & Replacement Candidate Detectors
+## Story 9.2: Standby Offender & Replacement Candidate Detectors
 
 As a user,
 I want to be told when a specific device is drawing power outside its normal hours of use and when a high-consumption device could be replaced at a known payback, with exact device names and quantified euro figures,
@@ -66,7 +66,7 @@ So that I can take targeted action rather than guessing where to investigate.
 
 ---
 
-## Story 8.3: Budget Pressure & Invoice Deviation Detectors
+## Story 9.3: Budget Pressure & Invoice Deviation Detectors
 
 As a user,
 I want to be warned when my projected annual spend is tracking over budget and when my rolling annual consumption is diverging significantly from my baseline, with exact euro and kWh figures,
@@ -104,7 +104,7 @@ So that I can act before the invoice arrives rather than after.
 
 ---
 
-## Story 8.4: Insights Tab — Trend Chart, Insight Cards & Discovery Progress
+## Story 9.4: Insights Tab — Trend Chart, Insight Cards & Discovery Progress
 
 As a user,
 I want to open the Insights tab and see my 30-day trend chart alongside auto-discovered insight cards, with a visible progress indicator during a discovery run and prior cards staying visible underneath,

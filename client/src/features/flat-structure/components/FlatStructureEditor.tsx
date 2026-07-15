@@ -10,9 +10,16 @@ import {
   toDraftRooms,
   createDefaultDraftRooms,
   toUpdateRequest,
+  toRoomInput,
+  toKeyedRooms,
+  toWireRequest,
   findPlugIdConflict,
   hasBlankName,
+  withRoomAppended,
+  withRoomUpdated,
+  withRoomRemoved,
   type DraftRoom,
+  type KeyedRoomInput,
 } from './draftModel'
 
 type View =
@@ -31,6 +38,7 @@ export function FlatStructureEditor({ flatId }: Props) {
   const { mutate, isPending } = useUpdateFlatStructure(flatId)
 
   const [draftRooms, setDraftRooms] = useState<DraftRoom[]>([])
+  const [lastSaved, setLastSaved] = useState<KeyedRoomInput[]>([])
   const [view, setView] = useState<View>({ type: 'list' })
   const [showDefaultTemplateNote, setShowDefaultTemplateNote] = useState(false)
   const [saveError, setSaveError] = useState(false)
@@ -43,9 +51,12 @@ export function FlatStructureEditor({ flatId }: Props) {
     initializedFlatIdRef.current = flatId
     if (data.hasDefaultTemplate && data.rooms.length === 0) {
       setDraftRooms(createDefaultDraftRooms(t))
+      setLastSaved([])
       setShowDefaultTemplateNote(true)
     } else {
-      setDraftRooms(toDraftRooms(data.rooms))
+      const seeded = toDraftRooms(data.rooms)
+      setDraftRooms(seeded)
+      setLastSaved(toKeyedRooms(seeded))
       setShowDefaultTemplateNote(false)
     }
     setView({ type: 'list' })
@@ -71,11 +82,58 @@ export function FlatStructureEditor({ flatId }: Props) {
     setDraftRooms(prev => prev.map(room => (room.key === roomKey ? updated : room)))
   }
 
+  const handleSaveRoom = (room: DraftRoom) => {
+    const trimmedName = room.name.trim()
+    const roomInput = toRoomInput(room, trimmedName)
+    const newLastSaved =
+      room.originalName === undefined
+        ? withRoomAppended(lastSaved, room.key, roomInput)
+        : withRoomUpdated(lastSaved, room.key, roomInput)
+    const payload = toWireRequest(newLastSaved)
+    setSaveError(false)
+    setSaveSuccess(false)
+    mutate(payload, {
+      onSuccess: () => {
+        setLastSaved(newLastSaved)
+        setDraftRooms(prev =>
+          prev.map(r => (r.key === room.key ? { ...r, originalName: trimmedName } : r))
+        )
+        setSaveSuccess(true)
+      },
+      onError: () => {
+        if (room.originalName !== undefined) {
+          setDraftRooms(prev =>
+            prev.map(r => (r.key === room.key ? { ...r, name: room.originalName as string } : r))
+          )
+        }
+        setSaveError(true)
+      },
+    })
+  }
+
   const handleDeleteRoom = (roomKey: string) => {
+    const index = draftRooms.findIndex(r => r.key === roomKey)
+    const room = draftRooms[index]
     setSaveSuccess(false)
     setSaveError(false)
-    setDraftRooms(prev => prev.filter(room => room.key !== roomKey))
+    setDraftRooms(prev => prev.filter(r => r.key !== roomKey))
     setConfirmDeleteRoomKey(null)
+
+    if (draftRooms.length - 1 === 0) return
+    if (room.originalName === undefined) return
+
+    const newLastSaved = withRoomRemoved(lastSaved, roomKey)
+    const payload = toWireRequest(newLastSaved)
+    mutate(payload, {
+      onSuccess: () => {
+        setLastSaved(newLastSaved)
+        setSaveSuccess(true)
+      },
+      onError: () => {
+        setDraftRooms(prev => [...prev.slice(0, index), room, ...prev.slice(index)])
+        setSaveError(true)
+      },
+    })
   }
 
   const hasPlugIdConflict = findPlugIdConflict(draftRooms)
@@ -243,7 +301,9 @@ export function FlatStructureEditor({ flatId }: Props) {
 
       <div className="px-6 flex-1 pb-10">
         <ul className="flex flex-col gap-2">
-          {draftRooms.map(room => (
+          {draftRooms.map(room => {
+            const isRoomDirty = room.originalName === undefined || room.name.trim() !== room.originalName
+            return (
             <li
               key={room.key}
               className="rounded-2xl p-4 flex flex-col gap-2"
@@ -265,20 +325,32 @@ export function FlatStructureEditor({ flatId }: Props) {
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteRoomKey(null)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-full text-white/70"
+                      disabled={isPending}
+                      className="px-3 py-1.5 text-xs font-medium rounded-full text-white/70 disabled:opacity-40"
                     >
                       {t('confirm.cancel')}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteRoom(room.key)}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-full text-accent-error"
+                      disabled={isPending}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-full text-accent-error disabled:opacity-40"
                     >
                       {t('confirm.delete')}
                     </button>
                   </div>
                 ) : (
                   <>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveRoom(room)}
+                      disabled={!isRoomDirty || isPending || room.name.trim() === ''}
+                      aria-label={`${isPending ? t('editor.saving') : t('editor.save')}: ${room.name.trim()}`}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-full disabled:opacity-40 shrink-0"
+                      style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)', color: 'white' }}
+                    >
+                      {isPending ? t('editor.saving') : t('editor.save')}
+                    </button>
                     <button
                       type="button"
                       onClick={() => setView({ type: 'room', roomKey: room.key })}
@@ -290,6 +362,7 @@ export function FlatStructureEditor({ flatId }: Props) {
                     <button
                       type="button"
                       onClick={() => setConfirmDeleteRoomKey(room.key)}
+                      disabled={isPending}
                       aria-label={t('room.delete')}
                       className="shrink-0 text-white/50 hover:text-accent-error transition-colors"
                     >
@@ -302,13 +375,15 @@ export function FlatStructureEditor({ flatId }: Props) {
                 <span className="text-xs text-white/60">{t('room.deletePrompt')}</span>
               )}
             </li>
-          ))}
+            )
+          })}
         </ul>
 
         <button
           type="button"
           onClick={handleAddRoom}
-          className="mt-3 px-3 py-1.5 text-xs font-medium rounded-full"
+          disabled={isPending}
+          className="mt-3 px-3 py-1.5 text-xs font-medium rounded-full disabled:opacity-40"
           style={{
             background: 'rgba(255,255,255,0.10)',
             border: '1px solid rgba(255,255,255,0.12)',

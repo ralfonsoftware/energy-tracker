@@ -1,5 +1,6 @@
 import type {
   ConsumptionApproach,
+  RoomInput,
   RoomResponse,
   SelfMeasuredPeriod,
   UpdateFlatStructureRequest,
@@ -31,6 +32,9 @@ export type DraftPowerPoint = {
 export type DraftRoom = {
   key: string
   name: string
+  // Absent = new room, never persisted (always dirty). Present = existing
+  // room; dirty only when `name` differs from this last-saved value.
+  originalName?: string
   powerPoints: DraftPowerPoint[]
 }
 
@@ -38,6 +42,7 @@ export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
   return rooms.map(room => ({
     key: crypto.randomUUID(),
     name: room.name,
+    originalName: room.name.trim(),
     powerPoints: room.powerPoints.map(powerPoint => ({
       key: crypto.randomUUID(),
       name: powerPoint.name,
@@ -69,29 +74,72 @@ export function createDefaultDraftRooms(t: (key: string) => string): DraftRoom[]
   ].map(name => ({ key: crypto.randomUUID(), name, powerPoints: [] }))
 }
 
-export function toUpdateRequest(rooms: DraftRoom[]): UpdateFlatStructureRequest {
+export function toRoomInput(room: DraftRoom, name: string): RoomInput {
   return {
-    rooms: rooms.map((room, index) => ({
-      name: room.name,
-      sortOrder: index,
-      powerPoints: room.powerPoints.map(powerPoint => ({
-        name: powerPoint.name,
-        plugId: powerPoint.plugId.trim() || undefined,
-        devices: powerPoint.devices.map(device => ({
-          name: device.name,
-          type: device.type.trim() || undefined,
-          manufacturer: device.manufacturer.trim() || undefined,
-          model: device.model.trim() || undefined,
-          purchaseDate: device.purchaseDate,
-          consumptionApproach: device.consumptionApproach,
-          euLabelClass: device.euLabelClass,
-          euAnnualKwh: device.euAnnualKwh,
-          selfMeasuredKwh: device.selfMeasuredKwh,
-          selfMeasuredPeriod: device.selfMeasuredPeriod,
-        })),
+    name,
+    sortOrder: 0,
+    powerPoints: room.powerPoints.map(powerPoint => ({
+      name: powerPoint.name,
+      plugId: powerPoint.plugId.trim() || undefined,
+      devices: powerPoint.devices.map(device => ({
+        name: device.name,
+        type: device.type.trim() || undefined,
+        manufacturer: device.manufacturer.trim() || undefined,
+        model: device.model.trim() || undefined,
+        purchaseDate: device.purchaseDate,
+        consumptionApproach: device.consumptionApproach,
+        euLabelClass: device.euLabelClass,
+        euAnnualKwh: device.euAnnualKwh,
+        selfMeasuredKwh: device.selfMeasuredKwh,
+        selfMeasuredPeriod: device.selfMeasuredPeriod,
       })),
     })),
   }
+}
+
+export function toUpdateRequest(rooms: DraftRoom[]): UpdateFlatStructureRequest {
+  return {
+    rooms: rooms.map((room, index) => ({ ...toRoomInput(room, room.name), sortOrder: index })),
+  }
+}
+
+// Tracks each room's own last-saved wire-shape snapshot alongside the
+// DraftRoom `key` it corresponds to, so per-room saves/deletes can look a
+// room up by identity instead of by array position — positions drift
+// whenever never-saved rooms are saved/deleted out of insertion order.
+export type KeyedRoomInput = {
+  key: string
+  room: RoomInput
+}
+
+export function toKeyedRooms(rooms: DraftRoom[]): KeyedRoomInput[] {
+  return rooms.map(room => ({ key: room.key, room: toRoomInput(room, room.name) }))
+}
+
+export function toWireRequest(keyedRooms: KeyedRoomInput[]): UpdateFlatStructureRequest {
+  return {
+    rooms: keyedRooms.map(({ room }, index) => ({ ...room, sortOrder: index })),
+  }
+}
+
+export function withRoomAppended(
+  base: KeyedRoomInput[],
+  key: string,
+  room: RoomInput
+): KeyedRoomInput[] {
+  return [...base, { key, room }]
+}
+
+export function withRoomUpdated(
+  base: KeyedRoomInput[],
+  key: string,
+  room: RoomInput
+): KeyedRoomInput[] {
+  return base.map(entry => (entry.key === key ? { key, room } : entry))
+}
+
+export function withRoomRemoved(base: KeyedRoomInput[], key: string): KeyedRoomInput[] {
+  return base.filter(entry => entry.key !== key)
 }
 
 export function findPlugIdConflict(rooms: DraftRoom[]): boolean {

@@ -51,6 +51,13 @@ FR-38: Insight discovery runs automatically daily at 02:00 UTC. The user can als
 FR-39: A visible progress indicator is displayed for the full duration of an insight discovery run.
 FR-43: The app computes a rolling annual kWh figure and generates an invoice deviation Insight when consumption is trending ±10% or more above or below the Annual kWh Baseline. Insight shows projected annual kWh, baseline, and implied euro difference at current Tariff.
 
+**Release 3 (UI & Behavior Consistency, added post-Epic-7 retro):**
+
+FR-44: Structural edits to Flat Structure (adding or deleting a Room) save automatically on each change; no separate manual "Save" action is required for structural changes.
+FR-45: Every save/cancel action in a form or sheet is positioned adjacent to the fields it commits, and remains within the visible viewport without requiring the user to scroll to find it, across all supported browsers (including Safari).
+FR-46: Every dropdown/overlay/popover in the app renders fully visible and unclipped within the viewport, regardless of its trigger's position on the page.
+FR-47: On tablet and desktop viewports, device cards within a Room Card lay out in a responsive multi-column grid instead of a single full-width column per device.
+
 ## NonFunctional Requirements
 
 NFR-1 Performance: Three-tier model: Tier 1 (≤2s synchronous — standard server actions), Tier 2 (≤30s with UI hint — operations exceeding 2s), Tier 3 (fully background with notification on completion — smart plug import processing and insight discovery). KPI Dashboard load for up to 2 years of Readings: Tier 1 (≤2s).
@@ -168,13 +175,17 @@ FR-31: Epic 6 — Self-measured consumption
 FR-32: Epic 7 — Decomposition view
 FR-33: Epic 7 — Residual always shown
 FR-34: Epic 7 — Decomposition unavailable state
-FR-35: Epic 8 — Standby offender detection (Eve Home only)
-FR-36: Epic 8 — Replacement candidate detection
-FR-37: Epic 8 — Budget pressure alert
-FR-38: Epic 8 — Scheduled and manual insight discovery
-FR-39: Epic 8 — Discovery progress indicator
+FR-35: Epic 9 — Standby offender detection (Eve Home only)
+FR-36: Epic 9 — Replacement candidate detection
+FR-37: Epic 9 — Budget pressure alert
+FR-38: Epic 9 — Scheduled and manual insight discovery
+FR-39: Epic 9 — Discovery progress indicator
 FR-40: Epic 2 — Locale selection
 FR-41: Epic 2 — Locale-aware rendering
 FR-42: Epic 2 — Locale-neutral storage
-FR-43: Epic 8 — Invoice deviation hint
+FR-43: Epic 9 — Invoice deviation hint
+FR-44: Epic 8 — Flat Structure room add/delete autosave
+FR-45: Epic 8 — Save/cancel action placement and viewport visibility
+FR-46: Epic 8 — Dropdown/overlay visibility (unclipped rendering)
+FR-47: Epic 8 — Responsive device card grid on tablet/desktop
 ```
