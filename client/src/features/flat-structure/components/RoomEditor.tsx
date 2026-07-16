@@ -54,7 +54,8 @@ export function RoomEditor({
         <h1 className="text-[22px] font-semibold text-white tracking-tight mb-6">{room.name}</h1>
       </div>
 
-      <div className="px-6 flex-1 pb-10 flex flex-col gap-3">
+      {/* pb-32 clears StickyActionBar's rendered height (~81-97px: button + optional error/success message + py-3 padding + border) so the sticky bar doesn't cover the last power point at full scroll */}
+      <div className="px-6 flex-1 pb-32 flex flex-col gap-3">
         {room.powerPoints.map(powerPoint => (
           <PowerPointEditor
             key={powerPoint.key}

@@ -1,5 +1,10 @@
 # Deferred Work
 
+## Deferred from: code review of device-editor sticky-bar padding fix (2026-07-16)
+
+- No automated regression test guards the `pb-32` clearance between the scrollable form content and `StickyActionBar` in `DeviceEditor.tsx`/`RoomEditor.tsx` — a DOM-measurement or visual-regression test could catch a future reintroduction, but this project's frontend testing conventions explicitly avoid querying by CSS class/implementation detail, so no such test fits the established pattern without first deciding whether a new test category is warranted. `client/src/features/flat-structure/components/DeviceEditor.tsx`, `client/src/features/flat-structure/components/RoomEditor.tsx`
+- `RoomEditor`'s optional error/success message inside `StickyActionBar` is currently single-line; longer i18n translations or larger OS accessibility font sizes could wrap it to two lines, shrinking the safety margin between `pb-32` and the bar's actual rendered height. Not addressed now since it's a pre-existing latent risk inherited from the original `StickyActionBar` design (story 8.2), not introduced by this fix. `client/src/features/flat-structure/components/RoomEditor.tsx`
+
 ## Deferred from: code review of story-8.1 (2026-07-15)
 
 - Duplicate room names produce identical per-row `aria-label`s, making individual Save/Delete buttons indistinguishable to assistive tech and exact-name test queries — pre-existing gap (room-name uniqueness was never validated anywhere in this app, only PowerPoint plugIds are checked via `findPlugIdConflict`); this story's new individually-addressable per-room Save buttons make the ambiguity marginally more visible but didn't introduce the underlying non-uniqueness. `client/src/features/flat-structure/components/FlatStructureEditor.tsx`
