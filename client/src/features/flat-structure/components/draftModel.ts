@@ -150,8 +150,35 @@ export function findPlugIdConflict(rooms: DraftRoom[]): boolean {
   return new Set(plugIds).size !== plugIds.length
 }
 
+export function hasBlankNameInRoom(room: DraftRoom): boolean {
+  return room.name.trim() === '' || room.powerPoints.some(pp => pp.name.trim() === '')
+}
+
 export function hasBlankName(rooms: DraftRoom[]): boolean {
-  return rooms.some(
-    room => room.name.trim() === '' || room.powerPoints.some(pp => pp.name.trim() === '')
+  return rooms.some(hasBlankNameInRoom)
+}
+
+export function isRoomDirty(room: DraftRoom, lastSaved: KeyedRoomInput[]): boolean {
+  if (room.originalName === undefined) return true
+  const savedEntry = lastSaved.find(entry => entry.key === room.key)
+  if (!savedEntry) return true
+  return (
+    JSON.stringify(toRoomInput(room, room.name.trim())) !== JSON.stringify(savedEntry.room)
   )
+}
+
+export function hasPlugIdConflictForRoomSave(room: DraftRoom, lastSaved: KeyedRoomInput[]): boolean {
+  const ownPlugIds = room.powerPoints
+    .map(pp => (pp.plugId ?? '').trim())
+    .filter(plugId => plugId !== '')
+  if (new Set(ownPlugIds).size !== ownPlugIds.length) return true
+
+  const otherSavedPlugIds = new Set(
+    lastSaved
+      .filter(entry => entry.key !== room.key)
+      .flatMap(entry => entry.room.powerPoints)
+      .map(pp => (pp.plugId ?? '').trim())
+      .filter(plugId => plugId !== '')
+  )
+  return ownPlugIds.some(plugId => otherSavedPlugIds.has(plugId))
 }

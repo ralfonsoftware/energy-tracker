@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import type { ConsumptionApproach, SelfMeasuredPeriod } from '@/features/flat-structure/api/flatStructureApi'
+import { StickyActionBar } from './StickyActionBar'
 import type { DraftDevice } from './draftModel'
 
 type Props = {
@@ -82,7 +83,7 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
       <div className="px-6 pt-4 flex-1 flex flex-col">
         <h1 className="text-[22px] font-semibold text-white tracking-tight mb-6">{t('device.title')}</h1>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 pb-10">
           <div className="flex flex-col gap-1.5">
             <label className={sectionLabelClass}>{t('device.namePlaceholder')}</label>
             <input
@@ -295,10 +296,10 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
             </div>
           )}
         </div>
+      </div>
 
-        <div className="flex-1" />
-
-        <div className="flex gap-2 pb-10">
+      <StickyActionBar>
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={onCancel}
@@ -317,7 +318,7 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
             {t('device.save')}
           </button>
         </div>
-      </div>
+      </StickyActionBar>
     </div>
   )
 }

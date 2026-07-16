@@ -15,6 +15,9 @@ import {
   toWireRequest,
   findPlugIdConflict,
   hasBlankName,
+  hasBlankNameInRoom,
+  isRoomDirty,
+  hasPlugIdConflictForRoomSave,
   withRoomAppended,
   withRoomUpdated,
   withRoomRemoved,
@@ -237,6 +240,12 @@ export function FlatStructureEditor({ flatId }: Props) {
         onEditDevice={(powerPointKey, deviceKey) =>
           setView({ type: 'device', roomKey: room.key, powerPointKey, deviceKey })
         }
+        isDirty={isRoomDirty(room, lastSaved)}
+        isPending={isPending}
+        isSaveBlocked={hasBlankNameInRoom(room) || hasPlugIdConflictForRoomSave(room, lastSaved)}
+        saveError={saveError}
+        saveSuccess={saveSuccess}
+        onSave={() => handleSaveRoom(room)}
       />
     )
   }
@@ -302,7 +311,8 @@ export function FlatStructureEditor({ flatId }: Props) {
       <div className="px-6 flex-1 pb-10">
         <ul className="flex flex-col gap-2">
           {draftRooms.map(room => {
-            const isRoomDirty = room.originalName === undefined || room.name.trim() !== room.originalName
+            const isDirty = isRoomDirty(room, lastSaved)
+            const isSaveBlocked = hasBlankNameInRoom(room) || hasPlugIdConflictForRoomSave(room, lastSaved)
             return (
             <li
               key={room.key}
@@ -344,7 +354,7 @@ export function FlatStructureEditor({ flatId }: Props) {
                     <button
                       type="button"
                       onClick={() => handleSaveRoom(room)}
-                      disabled={!isRoomDirty || isPending || room.name.trim() === ''}
+                      disabled={!isDirty || isPending || isSaveBlocked}
                       aria-label={`${isPending ? t('editor.saving') : t('editor.save')}: ${room.name.trim()}`}
                       className="px-3 py-1.5 text-xs font-semibold rounded-full disabled:opacity-40 shrink-0"
                       style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)', color: 'white' }}
@@ -353,7 +363,11 @@ export function FlatStructureEditor({ flatId }: Props) {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setView({ type: 'room', roomKey: room.key })}
+                      onClick={() => {
+                        setSaveError(false)
+                        setSaveSuccess(false)
+                        setView({ type: 'room', roomKey: room.key })
+                      }}
                       className="flex items-center gap-1 text-xs text-white/50 shrink-0"
                     >
                       {t('room.powerPointsSummary', { count: room.powerPoints.length })}

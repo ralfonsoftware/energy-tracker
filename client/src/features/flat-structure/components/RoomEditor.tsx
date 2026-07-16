@@ -1,16 +1,35 @@
 import { useTranslation } from 'react-i18next'
 import { PowerPointEditor } from './PowerPointEditor'
-import type { DraftRoom } from './draftModel'
+import { StickyActionBar } from './StickyActionBar'
+import { hasBlankNameInRoom, type DraftRoom } from './draftModel'
 
 type Props = {
   room: DraftRoom
   onChange: (updated: DraftRoom) => void
   onBack: () => void
   onEditDevice: (powerPointKey: string, deviceKey: string | null) => void
+  isDirty: boolean
+  isPending: boolean
+  isSaveBlocked: boolean
+  saveError: boolean
+  saveSuccess: boolean
+  onSave: () => void
 }
 
-export function RoomEditor({ room, onChange, onBack, onEditDevice }: Props) {
+export function RoomEditor({
+  room,
+  onChange,
+  onBack,
+  onEditDevice,
+  isDirty,
+  isPending,
+  isSaveBlocked,
+  saveError,
+  saveSuccess,
+  onSave,
+}: Props) {
   const { t } = useTranslation('flat-structure')
+  const blockedByBlankName = hasBlankNameInRoom(room)
 
   const handleAddPowerPoint = () => {
     onChange({
@@ -69,6 +88,34 @@ export function RoomEditor({ room, onChange, onBack, onEditDevice }: Props) {
           {t('room.addPowerPoint')}
         </button>
       </div>
+
+      <StickyActionBar>
+        {saveError ? (
+          <p role="alert" className="text-xs text-accent-error">
+            {t('editor.saveError')}
+          </p>
+        ) : (
+          isSaveBlocked && (
+            <p role="alert" className="text-xs text-accent-error">
+              {blockedByBlankName ? t('editor.blankNameError') : t('editor.plugIdConflict')}
+            </p>
+          )
+        )}
+        {saveSuccess && !saveError && !isSaveBlocked && (
+          <p role="status" className="text-xs" style={{ color: '#60a5fa' }}>
+            {t('editor.saveSuccess')}
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!isDirty || isPending || isSaveBlocked}
+          className="w-full h-12 rounded-full text-white text-sm font-semibold disabled:opacity-40"
+          style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)' }}
+        >
+          {isPending ? t('editor.saving') : t('editor.save')}
+        </button>
+      </StickyActionBar>
     </div>
   )
 }
