@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-13 (Story 7.3 created, ready-for-dev)
+# last_updated: 2026-07-16 (Story 8.3 code-reviewed, marked done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-15 (Story 8.2 code review: 4 patches fixed, AC6 Safari check still outstanding)
+last_updated: 2026-07-16 (Story 8.3 created — ready-for-dev)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -108,8 +108,8 @@ development_status:
   # Epic 8: UI & Behavior Consistency Alignment
   epic-8: in-progress
   8-1-flat-structure-editor-autosave-for-room-add-delete: done
-  8-2-powerpoint-and-device-edit-save-action-placement-and-viewport-fix: in-progress
-  8-3-overlay-and-dropdown-visibility-audit: backlog
+  8-2-powerpoint-and-device-edit-save-action-placement-and-viewport-fix: done
+  8-3-overlay-and-dropdown-visibility-audit: done
   8-4-responsive-device-card-grid-room-card-layout-on-tablet-and-desktop: backlog
   epic-8-retrospective: optional
 
