@@ -8,7 +8,7 @@
 
 ## Deferred from: code review of story-8.2 (2026-07-15)
 
-- `isPending` is a single flat-editor-wide flag, not scoped per room — every room's in-room Save button shows "Saving…"/disabled while ANY room's save is in flight, not just the one being viewed. Accepted as an intentional simplification consistent with Story 8.1's shared-`isPending` serialization design (relied upon by this story's own AC5 Dev Notes as the race-prevention mechanism). Revisit if per-room concurrent save becomes a real UX need. `client/src/features/flat-structure/components/FlatStructureEditor.tsx`
+- `isPending` is a single flat-editor-wide flag, not scoped per room — every room's in-room Save button shows "Saving…"/disabled while ANY room's save is in flight, not just the one being viewed. Accepted as an intentional simplification consistent with Story 8.1's shared-`isPending` serialization design (relied upon by this story's own AC5 Dev Notes as the race-prevention mechanism). Revisit if per-room concurrent save becomes a real UX need. `client/src/features/flat-structure/components/FlatStructureEditor.tsx` — **Addendum (2026-07-16, room-row-overflow-fix review):** the room-*list* Save button now shows an animated `animate-spin` spinner ring while `isPending`, not just dimmed text — the same shared-flag effect (every dirty room's Save button spins simultaneously when only one room's save was requested) is now visually louder than before. Not re-litigated; same accepted tradeoff, just noting the increased visual prominence for whoever picks this up next.
 
 ## Deferred from: code review of 6-6-import-ui-upload-zone-file-list-and-progress-card (2026-07-07)
 

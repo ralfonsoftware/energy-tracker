@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Trash2 } from 'lucide-react'
+import { Check, Trash2 } from 'lucide-react'
 import { useFlatStructure } from '@/features/flat-structure/hooks/useFlatStructure'
 import { useUpdateFlatStructure } from '@/features/flat-structure/hooks/useUpdateFlatStructure'
 import { RoomEditor } from './RoomEditor'
@@ -313,76 +313,90 @@ export function FlatStructureEditor({ flatId }: Props) {
           {draftRooms.map(room => {
             const isDirty = isRoomDirty(room, lastSaved)
             const isSaveBlocked = hasBlankNameInRoom(room) || hasPlugIdConflictForRoomSave(room, lastSaved)
+            const saveLabel = `${isPending ? t('editor.saving') : t('editor.save')}: ${room.name.trim()}`
             return (
             <li
               key={room.key}
               className="rounded-2xl p-4 flex flex-col gap-2"
               style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
             >
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={room.name}
-                  onChange={e => handleRenameRoom(room.key, e.target.value)}
-                  placeholder={t('room.namePlaceholder')}
-                  aria-label={t('room.namePlaceholder')}
-                  disabled={confirmDeleteRoomKey === room.key}
-                  className="flex-1 h-10 px-3 rounded-[10px] bg-white/[0.08] border text-white text-sm outline-none focus:border-white/60 disabled:opacity-60"
-                  style={{ borderColor: 'rgba(255,255,255,0.15)' }}
-                />
-                {confirmDeleteRoomKey === room.key ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteRoomKey(null)}
-                      disabled={isPending}
-                      className="px-3 py-1.5 text-xs font-medium rounded-full text-white/70 disabled:opacity-40"
-                    >
-                      {t('confirm.cancel')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteRoom(room.key)}
-                      disabled={isPending}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-full text-accent-error disabled:opacity-40"
-                    >
-                      {t('confirm.delete')}
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleSaveRoom(room)}
-                      disabled={!isDirty || isPending || isSaveBlocked}
-                      aria-label={`${isPending ? t('editor.saving') : t('editor.save')}: ${room.name.trim()}`}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-full disabled:opacity-40 shrink-0"
-                      style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)', color: 'white' }}
-                    >
-                      {isPending ? t('editor.saving') : t('editor.save')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSaveError(false)
-                        setSaveSuccess(false)
-                        setView({ type: 'room', roomKey: room.key })
-                      }}
-                      className="flex items-center gap-1 text-xs text-white/50 shrink-0"
-                    >
-                      {t('room.powerPointsSummary', { count: room.powerPoints.length })}
-                      <span aria-hidden="true">›</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteRoomKey(room.key)}
-                      disabled={isPending}
-                      aria-label={t('room.delete')}
-                      className="shrink-0 text-white/50 hover:text-accent-error transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={room.name}
+                    onChange={e => handleRenameRoom(room.key, e.target.value)}
+                    placeholder={t('room.namePlaceholder')}
+                    aria-label={t('room.namePlaceholder')}
+                    disabled={confirmDeleteRoomKey === room.key}
+                    className="flex-1 h-10 px-3 rounded-[10px] bg-white/[0.08] border text-white text-sm outline-none focus:border-white/60 disabled:opacity-60"
+                    style={{ borderColor: 'rgba(255,255,255,0.15)' }}
+                  />
+                  {confirmDeleteRoomKey === room.key ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteRoomKey(null)}
+                        disabled={isPending}
+                        className="px-3 py-1.5 text-xs font-medium rounded-full text-white/70 disabled:opacity-40"
+                      >
+                        {t('confirm.cancel')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteRoom(room.key)}
+                        disabled={isPending}
+                        className="px-3 py-1.5 text-xs font-semibold rounded-full text-accent-error disabled:opacity-40"
+                      >
+                        {t('confirm.delete')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleSaveRoom(room)}
+                        disabled={!isDirty || isPending || isSaveBlocked}
+                        aria-label={saveLabel}
+                        title={saveLabel}
+                        className="min-h-11 min-w-11 flex items-center justify-center rounded-full disabled:opacity-40 shrink-0"
+                        style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)', color: 'white' }}
+                      >
+                        {isPending ? (
+                          <div
+                            className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white/70 animate-spin"
+                            aria-hidden="true"
+                          />
+                        ) : (
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteRoomKey(room.key)}
+                        disabled={isPending}
+                        aria-label={t('room.delete')}
+                        title={t('room.delete')}
+                        className="min-h-11 min-w-11 flex items-center justify-center rounded-full shrink-0 text-white/50 hover:text-accent-error transition-colors"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {confirmDeleteRoomKey !== room.key && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaveError(false)
+                      setSaveSuccess(false)
+                      setView({ type: 'room', roomKey: room.key })
+                    }}
+                    className="flex items-center gap-1 text-xs text-white/50 shrink-0"
+                  >
+                    {t('room.powerPointsSummary', { count: room.powerPoints.length })}
+                    <span aria-hidden="true">›</span>
+                  </button>
                 )}
               </div>
               {confirmDeleteRoomKey === room.key && (
