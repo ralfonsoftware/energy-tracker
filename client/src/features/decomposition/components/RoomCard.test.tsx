@@ -118,6 +118,57 @@ describe('RoomCard', () => {
     expect(screen.queryByText('Zero A')).not.toBeInTheDocument()
   })
 
+  it('RoomCard_MultipleDevices_UsesResponsiveGridContainer', () => {
+    const room = makeRoom({
+      devices: [
+        makeDevice({ deviceId: 'd1', name: 'Device A', approach: 'Measured', kwh: 5 }),
+        makeDevice({ deviceId: 'd2', name: 'Device B', approach: 'Measured', kwh: 3 }),
+      ],
+    })
+
+    const { container } = render(<RoomCard room={room} onConfigureDevice={vi.fn()} />)
+    const grids = container.querySelectorAll('.grid')
+
+    expect(grids).toHaveLength(1)
+    const grid = grids[0]
+    expect(grid).toHaveClass('grid-cols-1', 'md:grid-cols-2', 'lg:grid-cols-3')
+    expect(grid.children).toHaveLength(2)
+    expect(grid).toContainElement(screen.getByText('Device A'))
+    expect(grid).toContainElement(screen.getByText('Device B'))
+  })
+
+  it('RoomCard_RegularDevice_DoesNotGetFullWidthSpanClass', () => {
+    const room = makeRoom({
+      devices: [makeDevice({ deviceId: 'd1', name: 'Device A', approach: 'Measured', kwh: 5 })],
+    })
+
+    render(<RoomCard room={room} onConfigureDevice={vi.fn()} />)
+    const device = screen.getByText('Device A')
+
+    expect(device.closest('.md\\:col-span-full')).not.toBeInTheDocument()
+  })
+
+  it('RoomCard_SmartStripDevice_WrapperSpansFullGridWidth', () => {
+    const room = makeRoom({
+      devices: [
+        makeDevice({
+          deviceId: 'd1',
+          name: 'Power Strip',
+          approach: 'Measured',
+          isSmartStrip: true,
+          kwh: 5,
+          subDevices: [],
+        }),
+      ],
+    })
+
+    render(<RoomCard room={room} onConfigureDevice={vi.fn()} />)
+    const strip = screen.getByText('Power Strip')
+    const wrapper = strip.closest('.md\\:col-span-full')
+
+    expect(wrapper).toBeInTheDocument()
+  })
+
   it('RoomCard_SmartStripConfigureHintClicked_CallsOnConfigureDevice', async () => {
     const user = userEvent.setup()
     const onConfigureDevice = vi.fn()

@@ -1,5 +1,10 @@
 # Deferred Work
 
+## Deferred from: code review of story-8.4 (2026-07-17)
+
+- CSS grid reflow vs. DOM/tab reading-order — reflowing the device list from single-column to multi-column changes visual reading order relative to DOM order once items wrap into rows; this could affect keyboard/tab navigation expectations for sighted users vs. screen-reader traversal. General characteristic of any CSS grid reflow in this app (the existing `DashboardGrid.tsx` pattern has the same property), not introduced uniquely by this diff. Revisit if the app leans further into multi-column layouts. `client/src/features/decomposition/components/RoomCard.tsx`
+- Interactive viewport verification (375px/800px/1280px) not completed during story 8.4's implementation session — no Chrome browser tooling was available and Playwright isn't a project dependency. Already disclosed in the story's own Task 3 completion notes with mitigations documented; a human visual pass is recommended before/at merge, and should also confirm/refute the grid-gap decision-needed finding from this same review. `client/src/features/decomposition/components/RoomCard.tsx`
+
 ## Deferred from: code review of device-editor sticky-bar padding fix (2026-07-16)
 
 - No automated regression test guards the `pb-32` clearance between the scrollable form content and `StickyActionBar` in `DeviceEditor.tsx`/`RoomEditor.tsx` — a DOM-measurement or visual-regression test could catch a future reintroduction, but this project's frontend testing conventions explicitly avoid querying by CSS class/implementation detail, so no such test fits the established pattern without first deciding whether a new test category is warranted. `client/src/features/flat-structure/components/DeviceEditor.tsx`, `client/src/features/flat-structure/components/RoomEditor.tsx`

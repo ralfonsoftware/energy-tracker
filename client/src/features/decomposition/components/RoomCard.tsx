@@ -48,10 +48,12 @@ export function RoomCard({ room, onConfigureDevice }: Props) {
           <span className="text-body-sm text-white/55">{formatKwh(room.kwh)}</span>
         </div>
       ) : (
-        <div className="flex flex-col gap-2 px-4 pb-3.5">
+        <div className="grid grid-cols-1 gap-2 px-4 pb-3.5 md:grid-cols-2 lg:grid-cols-3">
           {partitionAndSortDevices(room.devices).map(device =>
             device.isSmartStrip ? (
-              <SmartStripCard key={device.deviceId} device={device} onConfigure={onConfigureDevice} />
+              <div key={device.deviceId} className="md:col-span-full">
+                <SmartStripCard device={device} onConfigure={onConfigureDevice} />
+              </div>
             ) : (
               <DeviceCard key={device.deviceId} device={device} />
             )
