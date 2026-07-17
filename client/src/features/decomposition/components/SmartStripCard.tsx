@@ -39,7 +39,7 @@ export function SmartStripCard({ device, onConfigure }: Props) {
         </div>
       </div>
       {subDevices.length > 0 && (
-        <div className="flex flex-col gap-1.5 px-4 pb-3.5">
+        <div className="grid grid-cols-1 gap-1.5 px-4 pb-3.5 md:grid-cols-2">
           {subDevices.map(subDevice => (
             <div
               key={subDevice.deviceId}

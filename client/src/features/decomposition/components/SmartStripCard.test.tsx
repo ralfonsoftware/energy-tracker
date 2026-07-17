@@ -92,6 +92,26 @@ describe('SmartStripCard', () => {
     expect(onConfigure).toHaveBeenCalled()
   })
 
+  it('SmartStripCard_MultipleSubDevices_UsesTwoColumnGridContainer', () => {
+    const { container } = render(
+      <SmartStripCard
+        device={makeStrip([
+          makeSubDevice({ deviceId: 'sub-1', name: 'Lamp', isConfigured: true, isUnconfigured: false }),
+          makeSubDevice({ deviceId: 'sub-2', name: 'Fan', isConfigured: true, isUnconfigured: false }),
+        ])}
+        onConfigure={vi.fn()}
+      />
+    )
+
+    const grids = container.querySelectorAll('.grid')
+
+    expect(grids).toHaveLength(1)
+    const grid = grids[0]
+    expect(grid).toHaveClass('grid-cols-1', 'md:grid-cols-2')
+    expect(grid).not.toHaveClass('lg:grid-cols-3')
+    expect(grid.children).toHaveLength(2)
+  })
+
   it('SmartStripCard_MixedSubDevices_OrdersConfiguredFirstThenByDescendingKwhWithinGroup', () => {
     render(
       <SmartStripCard

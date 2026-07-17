@@ -144,3 +144,31 @@ Claude Sonnet 5 (claude-sonnet-5)
 
 - `client/src/features/decomposition/components/RoomCard.tsx` (modified — device-list container changed from `flex flex-col` to responsive `grid`; `SmartStripCard` now wrapped in a `md:col-span-full` span wrapper)
 - `client/src/features/decomposition/components/RoomCard.test.tsx` (modified — added `RoomCard_MultipleDevices_UsesResponsiveGridContainer` and `RoomCard_SmartStripDevice_WrapperSpansFullGridWidth` test cases)
+- `client/src/features/decomposition/components/SmartStripCard.tsx` (modified — see Addendum below)
+- `client/src/features/decomposition/components/SmartStripCard.test.tsx` (modified — see Addendum below)
+
+## Addendum: Sub-Device Grid in `SmartStripCard` (2026-07-17)
+
+Ralf asked to also improve the layout of the sub-device rows inside power-point (`SmartStripCard`) cards — e.g. "Verteiler HiFi" with 9 sub-devices was a single full-width column, wasting horizontal space and forcing a long vertical scroll. Handled as a follow-up within this same story rather than a new one, following the same UX-gate-then-implement pattern as the story's own AC1.
+
+### Approved design (Sally, 2026-07-17)
+
+Sally proposed 3 options (matching the outer 1/2/3-col grid; capped at 2 columns; adaptive `auto-fit`/`minmax`). Ralf approved **"Capped at 2 columns"**:
+
+| Breakpoint | Columns | Class |
+|---|---|---|
+| Phone (<768px) | 1 | (default, unprefixed) |
+| Tablet (768–1023px) | 2 | `md:grid-cols-2` |
+| Desktop (≥1024px) | 2 | — no `lg:` step, stays at 2 |
+
+Rationale: unlike a plain `DeviceCard`, a sub-device row carries more per-item content (name + kWh + cost + an optional "Zu den Einstellungen" configure button), and this app's sub-device names include long German compounds (`Universalfernbedienung`, `Switch 2 Docking`) that need more per-cell width than a 3-column split would give them.
+
+- Unconfigured sub-device rows (dimmed, with the configure button) get **no special-case grid treatment** — they sit in a normal grid cell like any other row; the button is compact enough to wrap gracefully under a long name if needed. No `col-span-full` exception, unlike the outer grid's `SmartStripCard` treatment.
+- Order: `sortSubDevices` (configured-by-kwh-desc, then unconfigured-by-kwh-desc) is untouched — grid consumes its output via default document-order flow, same principle as this story's own AC3.
+- Scope: only `SmartStripCard.tsx`'s sub-device list container `className` changes. No changes to `RoomCard.tsx`, `DeviceCard.tsx`, or any API/hook file.
+
+### Implementation
+
+- `SmartStripCard.tsx`: sub-device container changed from `flex flex-col gap-1.5 px-4 pb-3.5` to `grid grid-cols-1 gap-1.5 px-4 pb-3.5 md:grid-cols-2`.
+- TDD: added `SmartStripCard_MultipleSubDevices_UsesTwoColumnGridContainer` to `SmartStripCard.test.tsx` (asserts a single `.grid` container, `grid-cols-1 md:grid-cols-2` classes present, `lg:grid-cols-3` explicitly absent, and both sub-devices land inside it) — confirmed red against the old `flex` markup, then green after the change. All 5 pre-existing `SmartStripCard.test.tsx` cases (including the `compareDocumentPosition`-based ordering test) pass unchanged.
+- Regression: `npx tsc --noEmit` clean; `npx vitest run` — 382/382 passing across 59 files; `npm run lint` clean (only pre-existing unrelated `router.tsx` warnings). Interactive in-browser viewport verification not performed in this session (same tooling constraint as the base story) — recommend a human visual pass alongside the base story's own pending visual check.
