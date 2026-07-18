@@ -40,7 +40,12 @@ Save/cancel actions and dropdown/overlay behavior are consistent, always visible
 **FRs covered:** FR-44, FR-45, FR-46, FR-47
 **UX items:** UX-DR2 (Glass Surface System — dropdown/overlay treatment), UX-DR12 (responsive layout breakpoints — device card grid), UX-DR13 (Decomposition card system — Room card device list).
 
-## Epic 9: Actionable Insights
+## Epic 9: Unified Save-Affordance Design & Fix
+Save/cancel actions across the app follow one consistent visual pattern and placement rule, and the power-point/device-edit save action is actually reachable without scrolling to the end of the page, on every supported browser. Closes the residual gap Epic 8 left open — sourced from Epic 8's own retrospective (Challenges #1-#2, Action Items #1-#2), not from the original PRD scope, and from a subsequent investigation that found Story 8.2's `StickyActionBar` does not structurally satisfy FR-45 — see `_bmad-output/implementation-artifacts/epic-8-retro-2026-07-18.md` and `_bmad-output/implementation-artifacts/investigations/power-points-scroll-visibility-investigation.md`.
+**FRs covered:** FR-45 (conformance — existing requirement from Epic 8, not fully met by Story 8.2; no new FR)
+**UX items:** UX-DR2 (Glass Surface System — visual treatment); a new UX-DR is assigned during Story 9.1's design gate rather than pre-specified (same pattern as Story 8.4).
+
+## Epic 10: Actionable Insights
 The app automatically discovers standby offenders, replacement candidates, budget pressure alerts, and invoice deviation hints on a daily schedule (02:00 UTC) and on-demand. Prior insights remain visible during discovery runs.
 **FRs covered:** FR-35, FR-36, FR-37, FR-38, FR-39, FR-43
 **UX items:** UX-DR10 (Progress Card for insight discovery), InsightCard variants (standby / replacement / budget / invoice types), insights insufficient-data state.

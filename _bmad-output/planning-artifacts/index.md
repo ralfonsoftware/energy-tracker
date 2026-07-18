@@ -19,7 +19,7 @@ Design and planning documents for the energy-tracker app.
 
 - **[index.md](./epics/index.md)** - Full table of contents for all epics and stories
 - **[overview.md](./epics/overview.md)** - High-level epic breakdown narrative
-- **[epic-list.md](./epics/epic-list.md)** - Concise list of all 9 epics with summaries
+- **[epic-list.md](./epics/epic-list.md)** - Concise list of all 10 epics with summaries
 - **[requirements-inventory.md](./epics/requirements-inventory.md)** - FR/NFR inventory with coverage map
 - **[epic-1-project-foundation-authenticated-app-shell.md](./epics/epic-1-project-foundation-authenticated-app-shell.md)** - Epic 1 stories: monorepo, infra, auth, app shell
 - **[epic-2-onboarding-locale-selection.md](./epics/epic-2-onboarding-locale-selection.md)** - Epic 2 stories: i18n, onboarding flow, settings
@@ -29,7 +29,8 @@ Design and planning documents for the energy-tracker app.
 - **[epic-6-smart-plug-import-device-registry.md](./epics/epic-6-smart-plug-import-device-registry.md)** - Epic 6 stories: Eve Home/Meross import pipeline
 - **[epic-7-consumption-decomposition.md](./epics/epic-7-consumption-decomposition.md)** - Epic 7 stories: decomposition engine and UI
 - **[epic-8-ui-behavior-consistency-alignment.md](./epics/epic-8-ui-behavior-consistency-alignment.md)** - Epic 8 stories: save-behavior consistency, overlay clipping fix, responsive device card grid
-- **[epic-9-actionable-insights.md](./epics/epic-9-actionable-insights.md)** - Epic 9 stories: insight detectors and insights tab
+- **[epic-9-unified-save-affordance-design-fix.md](./epics/epic-9-unified-save-affordance-design-fix.md)** - Epic 9 stories: unified save-affordance design and StickyActionBar structural fix
+- **[epic-10-actionable-insights.md](./epics/epic-10-actionable-insights.md)** - Epic 10 stories: insight detectors and insights tab
 
 ### prds/prd-energy-tracker-2026-06-20/
 

@@ -175,17 +175,17 @@ FR-31: Epic 6 — Self-measured consumption
 FR-32: Epic 7 — Decomposition view
 FR-33: Epic 7 — Residual always shown
 FR-34: Epic 7 — Decomposition unavailable state
-FR-35: Epic 9 — Standby offender detection (Eve Home only)
-FR-36: Epic 9 — Replacement candidate detection
-FR-37: Epic 9 — Budget pressure alert
-FR-38: Epic 9 — Scheduled and manual insight discovery
-FR-39: Epic 9 — Discovery progress indicator
+FR-35: Epic 10 — Standby offender detection (Eve Home only)
+FR-36: Epic 10 — Replacement candidate detection
+FR-37: Epic 10 — Budget pressure alert
+FR-38: Epic 10 — Scheduled and manual insight discovery
+FR-39: Epic 10 — Discovery progress indicator
 FR-40: Epic 2 — Locale selection
 FR-41: Epic 2 — Locale-aware rendering
 FR-42: Epic 2 — Locale-neutral storage
-FR-43: Epic 9 — Invoice deviation hint
+FR-43: Epic 10 — Invoice deviation hint
 FR-44: Epic 8 — Flat Structure room add/delete autosave
-FR-45: Epic 8 — Save/cancel action placement and viewport visibility
+FR-45: Epic 8 — Save/cancel action placement and viewport visibility (conformance completed in Epic 9 — Story 8.2's StickyActionBar did not structurally satisfy this FR)
 FR-46: Epic 8 — Dropdown/overlay visibility (unclipped rendering)
 FR-47: Epic 8 — Responsive device card grid on tablet/desktop
 ```

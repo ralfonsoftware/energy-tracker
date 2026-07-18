@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-17 (Story 8.4 code review complete, marked done)
+# last_updated: 2026-07-18 (Epic 9 inserted, Actionable Insights renumbered to Epic 10)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-17 (Story 8.4 code review complete, marked done)
+last_updated: 2026-07-18 (Epic 9 inserted, Actionable Insights renumbered to Epic 10 — sprint-change-proposal-2026-07-18-epic9-save-affordance.md)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -106,17 +106,24 @@ development_status:
   epic-7-retrospective: done
 
   # Epic 8: UI & Behavior Consistency Alignment
-  epic-8: in-progress
+  epic-8: done
   8-1-flat-structure-editor-autosave-for-room-add-delete: done
   8-2-powerpoint-and-device-edit-save-action-placement-and-viewport-fix: done
   8-3-overlay-and-dropdown-visibility-audit: done
   8-4-responsive-device-card-grid-room-card-layout-on-tablet-and-desktop: done
-  epic-8-retrospective: optional
+  epic-8-retrospective: done
 
-  # Epic 9: Actionable Insights
+  # Epic 9: Unified Save-Affordance Design & Fix
   epic-9: backlog
-  9-1-insights-infrastructure-data-model-run-tracking-schedule-and-api: backlog
-  9-2-standby-offender-and-replacement-candidate-detectors: backlog
-  9-3-budget-pressure-and-invoice-deviation-detectors: backlog
-  9-4-insights-tab-trend-chart-insight-cards-and-discovery-progress: backlog
+  9-1-unified-save-affordance-design-decision: backlog
+  9-2-fix-roomeditor-and-deviceeditor-save-bar-structural: backlog
+  9-3-align-room-list-save-affordance: backlog
   epic-9-retrospective: optional
+
+  # Epic 10: Actionable Insights
+  epic-10: backlog
+  10-1-insights-infrastructure-data-model-run-tracking-schedule-and-api: backlog
+  10-2-standby-offender-and-replacement-candidate-detectors: backlog
+  10-3-budget-pressure-and-invoice-deviation-detectors: backlog
+  10-4-insights-tab-trend-chart-insight-cards-and-discovery-progress: backlog
+  epic-10-retrospective: optional
