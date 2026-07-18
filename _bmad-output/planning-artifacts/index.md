@@ -29,7 +29,7 @@ Design and planning documents for the energy-tracker app.
 - **[epic-6-smart-plug-import-device-registry.md](./epics/epic-6-smart-plug-import-device-registry.md)** - Epic 6 stories: Eve Home/Meross import pipeline
 - **[epic-7-consumption-decomposition.md](./epics/epic-7-consumption-decomposition.md)** - Epic 7 stories: decomposition engine and UI
 - **[epic-8-ui-behavior-consistency-alignment.md](./epics/epic-8-ui-behavior-consistency-alignment.md)** - Epic 8 stories: save-behavior consistency, overlay clipping fix, responsive device card grid
-- **[epic-9-unified-save-affordance-design-fix.md](./epics/epic-9-unified-save-affordance-design-fix.md)** - Epic 9 stories: unified save-affordance design and StickyActionBar structural fix
+- **[epic-9-unified-save-affordance-fix-and-pre-epic-10-hardening.md](./epics/epic-9-unified-save-affordance-fix-and-pre-epic-10-hardening.md)** - Epic 9 stories: unified save-affordance design/fix (9.1-9.3) plus a prioritized deferred-work hardening batch (9.4-9.13)
 - **[epic-10-actionable-insights.md](./epics/epic-10-actionable-insights.md)** - Epic 10 stories: insight detectors and insights tab
 
 ### prds/prd-energy-tracker-2026-06-20/
