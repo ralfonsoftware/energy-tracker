@@ -1,5 +1,12 @@
 # Deferred Work
 
+## Deferred from: code review of spec-pr-preview-environments (2026-07-18)
+
+- Fork PRs get a read-only `GITHUB_TOKEN` and no repository secrets on `pull_request` (non-`pull_request_target`) events — this is GitHub's own protective default, not a gap this change introduces, and this repo has no external contributors today. If/when fork contributions are accepted, `deploy_preview` would silently no-op for those PRs (no secrets to auth the Azure deploy) rather than fail loudly; worth an explicit `if: github.event.pull_request.head.repo.full_name == github.repository` guard at that point for a clearer failure mode. `.github/workflows/azure-static-web-apps.yml`
+- `deploy_preview` triggers on draft PRs too (no `github.event.pull_request.draft == false` guard), consuming one of the 10 Standard-tier staging slots for PRs not yet ready for review. Low priority for a solo-dev repo; add the guard if draft-PR usage becomes routine. `.github/workflows/azure-static-web-apps.yml`
+- The `pull_request:` trigger has no `paths:` filter (unlike `push:`, which is scoped to `api/**`/`client/**`), so doc-only or infra-only PRs still run the full test suite + a preview build/deploy. Minor CI-minutes/quota waste, not a correctness issue. `.github/workflows/azure-static-web-apps.yml`
+- No handling for Azure SWA Standard tier's 10-concurrent-staging-environment cap — if exceeded, `deploy_preview` will simply fail with whatever error Azure returns, with no fallback or pruning of stale slots. Acceptable for now (a failed job is a visible, honest signal); revisit if PR volume ever approaches the limit. `.github/workflows/azure-static-web-apps.yml`
+
 ## Deferred from: code review of story-8.4 (2026-07-17)
 
 - CSS grid reflow vs. DOM/tab reading-order — reflowing the device list from single-column to multi-column changes visual reading order relative to DOM order once items wrap into rows; this could affect keyboard/tab navigation expectations for sighted users vs. screen-reader traversal. General characteristic of any CSS grid reflow in this app (the existing `DashboardGrid.tsx` pattern has the same property), not introduced uniquely by this diff. Revisit if the app leans further into multi-column layouts. `client/src/features/decomposition/components/RoomCard.tsx`
