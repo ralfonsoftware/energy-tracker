@@ -4,7 +4,7 @@ baseline_commit: 9611ad72ff7956ae5533e6e749aec8ed6d749082
 
 # Story 9.2: Fix RoomEditor & DeviceEditor Save Bar (Structural)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -109,7 +109,7 @@ Claude Sonnet 5 (claude-sonnet-5)
 - Task 1: `StickyActionBar.tsx` changed from `position: sticky` to `position: fixed`, adding `left-0 right-0 md:left-[200px]` to pin its width and avoid overlapping `SidebarNav` on `md:`+ breakpoints. No `backdrop-filter` or `z-index` added, per Dev Notes.
 - Tasks 2 & 3: stale `pb-32` comments in `RoomEditor.tsx` and `DeviceEditor.tsx` rewritten to describe the current mechanism (padding keeps content from being hidden behind the now-permanently-visible fixed bar, not "room for a sticky element to catch").
 - Task 4 (Chrome, self-verified via `claude-in-chrome`): confirmed both `RoomEditor` (5-Power-Point room, exceeding one viewport) and `DeviceEditor` show the Save/Cancel bar fixed and visible at scroll position 0% and 100%, with the bar's left edge flush against `<main>`'s content column (not overlapping `SidebarNav`) at desktop width. `DeviceEditor`'s short-form/large-empty-space scenario (investigation's Hypothesis 1) was also confirmed: the bar sits correctly pinned to the viewport bottom rather than floating mid-page. Browser-window resize to emulate a narrower/mobile viewport was attempted but the `resize_window` tool did not change the actual rendered viewport in this environment, so the `left-0` (no `md:` prefix) mobile-width path was not independently screenshot-verified — it's a straightforward Tailwind breakpoint fallback of the same rule already confirmed working at `md:`+, not new logic.
-- **Task 4 (Safari): NOT performed — outstanding.** No Safari browser-automation tool is available in this environment, consistent with this project's established convention (Story 8.4 precedent). Real-Safari verification of AC3 (the Device-edit Safari blank-space Hypothesis 1) still requires a manual pass by Ralf before this story is considered fully done.
+- **Task 4 (Safari): verified by Ralf (manual pass, 2026-07-18).** No Safari browser-automation tool is available in this environment, consistent with this project's established convention (Story 8.4 precedent), so this required a human pass outside the dev agent. AC3 confirmed satisfied.
 - Task 5: `npm run lint` passes (pre-existing `only-export-components` warnings in `router.tsx`, unrelated to this story). Full Vitest suite: 382/382 tests passed across 59 files, including `DeviceEditor.test.tsx` and `FlatStructureEditor.test.tsx` unmodified, confirming no regressions.
 - Local-dev verification used a throwaway test flat/user (`e2etest` / "QA Test Flat") created via onboarding in the shared dev DB to reproduce the multi-Power-Point scroll scenario; draft (unsaved) Power Points were discarded via Cancel, and flat deletion was attempted but the DELETE request did not complete during this session — a leftover empty test flat may remain under the `e2etest` account, isolated from Ralf's real flat data.
 
