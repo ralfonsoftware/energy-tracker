@@ -54,7 +54,7 @@ export function RoomEditor({
         <h1 className="text-[22px] font-semibold text-white tracking-tight mb-6">{room.name}</h1>
       </div>
 
-      {/* pb-32 clears StickyActionBar's rendered height (~81-97px: button + optional error/success message + py-3 padding + border) so the sticky bar doesn't cover the last power point at full scroll */}
+      {/* StickyActionBar is now position: fixed and permanently on-screen at the bottom; pb-32 keeps the last power point from being visually hidden behind it, not to give a sticky element room to "catch" */}
       <div className="px-6 flex-1 pb-32 flex flex-col gap-3">
         {room.powerPoints.map(powerPoint => (
           <PowerPointEditor
