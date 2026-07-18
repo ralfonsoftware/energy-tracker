@@ -76,6 +76,12 @@ baseline_commit: '6f563de5f058dff5ca5a8c741197a696463e87c9'
 - Ralf applies the Bicep change to live Azure himself (his standing infra-deploy convention) before the workflow change can produce a working preview.
 - Open a small test PR after both changes are live and confirm: (1) `deploy_preview` job appears and succeeds, (2) a bot comment with a preview URL appears on the PR, (3) closing the PR triggers `close_preview` and the environment disappears from the Azure Portal's *Environments* tab.
 
+**Verified live (2026-07-18), via PR #9 on this repo:**
+- `stagingEnvironmentPolicy` confirmed `Enabled` on the live `energytracker-swa` resource (`az staticwebapp show`).
+- PR-open run (`29644404636`): `test: success` → `deploy_preview: success`; `deploy`/`close_preview` correctly skipped. Azure bot commented: *"Your stage site is ready! Visit it here: https://gray-smoke-096fc4103-9.westeurope.7.azurestaticapps.net"*.
+- PR-close run (`29644644423`, PR merged): `close_preview: success`; `test`/`deploy_preview`/`deploy` all correctly skipped — confirms the `test`-job guard against wasted re-runs works.
+- Post-merge push-to-main run (`29644644357`): `test: success` → `deploy: success` (production); `deploy_preview`/`close_preview` correctly skipped — confirms the production path is untouched by this change.
+
 ## Suggested Review Order
 
 **Infra prerequisite**
