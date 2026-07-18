@@ -307,7 +307,6 @@
 ## Deferred from: party-mode review of story 7.3 (2026-07-14)
 
 - Standalone devices with `approach === 'None'` and no plug are silently excluded from the Room Card device list (Story 7.3 AC2), while the identical "no measurement" state on a Smart Power Strip sub-device gets a dimmed row + a "Go to settings" hint (AC7) — flagged by Sally as a real UX inconsistency. **→ Promoted to Story 9.6 (Epic 9)**. `client/src/features/decomposition/components/RoomCard.tsx`, `client/src/features/decomposition/components/SmartStripCard.tsx`
-- The "Go to settings" chip on unconfigured Smart Power Strip sub-devices (Story 7.3 AC7) cannot deep-link to the specific PowerPoint/device — `FlatStructureEditor.tsx`'s `view` state is keyed by client-generated draft keys, not stable route-addressable IDs. Architecture review (Winston) confirmed this is a real structural blocker. **→ Promoted to Story 9.5 (Epic 9)**. `client/src/features/flat-structure/components/FlatStructureEditor.tsx`, `client/src/features/decomposition/components/SmartStripCard.tsx`
 
 ## Deferred from: code review of story-8.3 (2026-07-16)
 

@@ -197,6 +197,6 @@ describe('RoomCard', () => {
     render(<RoomCard room={room} onConfigureDevice={onConfigureDevice} />)
     await user.click(screen.getByText('smartStripCard.configureHint'))
 
-    expect(onConfigureDevice).toHaveBeenCalled()
+    expect(onConfigureDevice).toHaveBeenCalledWith('d1')
   })
 })

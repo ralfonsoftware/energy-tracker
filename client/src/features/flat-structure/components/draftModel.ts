@@ -27,6 +27,10 @@ export type DraftPowerPoint = {
   name: string
   plugId: string
   devices: DraftDevice[]
+  // Absent = new power point, client-added, never persisted. Present = the
+  // server-side PowerPoint id, used only for deep-link view targeting
+  // (never sent back to the server).
+  powerPointId?: string
 }
 
 export type DraftRoom = {
@@ -47,6 +51,7 @@ export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
       key: crypto.randomUUID(),
       name: powerPoint.name,
       plugId: powerPoint.plugId ?? '',
+      powerPointId: powerPoint.powerPointId,
       devices: powerPoint.devices.map(device => ({
         key: crypto.randomUUID(),
         name: device.name,

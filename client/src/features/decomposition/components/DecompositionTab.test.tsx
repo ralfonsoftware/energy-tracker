@@ -156,4 +156,45 @@ describe('DecompositionTab', () => {
 
     expect(screen.queryByText('interpolatedBanner')).not.toBeInTheDocument()
   })
+
+  it('DecompositionTab_SmartStripConfigureHintClicked_NavigatesToStructureWithPowerPointId', async () => {
+    const user = userEvent.setup()
+    mockDecomposition({
+      data: makeResponse({
+        rooms: [
+          {
+            roomId: 'room-1',
+            roomName: 'Living Room',
+            kwh: 62.3,
+            cost: 14.43,
+            devices: [
+              {
+                deviceId: 'pp-strip-1',
+                name: 'Power Strip',
+                kwh: 5,
+                cost: 1.2,
+                approach: 'Measured',
+                isSmartStrip: true,
+                subDevices: [
+                  {
+                    deviceId: 'sub-1',
+                    name: 'Unknown Plug',
+                    kwh: 1,
+                    cost: 0.2,
+                    isConfigured: false,
+                    isUnconfigured: true,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    })
+
+    render(<DecompositionTab flatId="flat-1" />)
+    await user.click(screen.getByText('smartStripCard.configureHint'))
+
+    expect(mockNavigate).toHaveBeenCalledWith('/settings/structure?powerPointId=pp-strip-1')
+  })
 })

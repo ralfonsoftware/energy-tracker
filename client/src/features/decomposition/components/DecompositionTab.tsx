@@ -88,7 +88,7 @@ export function DecompositionTab({ flatId }: Props) {
             <RoomCard
               key={room.roomId}
               room={room}
-              onConfigureDevice={() => navigate('/settings/structure')}
+              onConfigureDevice={powerPointId => navigate(`/settings/structure?powerPointId=${powerPointId}`)}
             />
           ))}
         </div>

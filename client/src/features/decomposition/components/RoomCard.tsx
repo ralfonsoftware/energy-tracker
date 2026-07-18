@@ -4,7 +4,7 @@ import type { DeviceDecomposition, RoomDecomposition } from '@/features/decompos
 import { DeviceCard } from '@/features/decomposition/components/DeviceCard'
 import { SmartStripCard } from '@/features/decomposition/components/SmartStripCard'
 
-type Props = { room: RoomDecomposition; onConfigureDevice: () => void }
+type Props = { room: RoomDecomposition; onConfigureDevice: (powerPointId: string) => void }
 
 const formatNumber = (value: number) =>
   new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(value)
@@ -52,7 +52,7 @@ export function RoomCard({ room, onConfigureDevice }: Props) {
           {partitionAndSortDevices(room.devices).map(device =>
             device.isSmartStrip ? (
               <div key={device.deviceId} className="md:col-span-full">
-                <SmartStripCard device={device} onConfigure={onConfigureDevice} />
+                <SmartStripCard device={device} onConfigure={() => onConfigureDevice(device.deviceId)} />
               </div>
             ) : (
               <DeviceCard key={device.deviceId} device={device} />

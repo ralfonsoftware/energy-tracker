@@ -47,11 +47,11 @@ function setupFlatStructure(options?: {
   return { refetch }
 }
 
-function renderEditor(flatId: string | undefined = 'flat-1') {
+function renderEditor(flatId: string | undefined = 'flat-1', initialEntries: string[] = ['/']) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={initialEntries}>
         <FlatStructureEditor flatId={flatId} />
       </MemoryRouter>
     </QueryClientProvider>
@@ -936,5 +936,24 @@ describe('FlatStructureEditor', () => {
     await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
 
     expect(screen.getByRole('button', { name: 'editor.saving' })).toBeDisabled()
+  })
+
+  it('FlatStructureEditor_PowerPointIdQueryParamMatchesExistingPowerPoint_OpensThatRoomDirectly', () => {
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor('flat-1', ['/settings/structure?powerPointId=pp-2'])
+
+    expect(screen.getByText('Garage')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Charger Outlet')).toBeInTheDocument()
+  })
+
+  it('FlatStructureEditor_PowerPointIdQueryParamStale_FallsBackToRoomListView', () => {
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor('flat-1', ['/settings/structure?powerPointId=does-not-exist'])
+
+    expect(screen.getByDisplayValue('Office')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Garage')).toBeInTheDocument()
+    expect(screen.queryByDisplayValue('Desk Outlet')).not.toBeInTheDocument()
   })
 })

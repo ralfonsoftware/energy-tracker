@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, Trash2 } from 'lucide-react'
 import { useFlatStructure } from '@/features/flat-structure/hooks/useFlatStructure'
@@ -37,6 +37,8 @@ type Props = {
 export function FlatStructureEditor({ flatId }: Props) {
   const { t } = useTranslation('flat-structure')
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const powerPointId = searchParams.get('powerPointId')
   const { data, isLoading, isError, refetch } = useFlatStructure(flatId)
   const { mutate, isPending } = useUpdateFlatStructure(flatId)
 
@@ -52,20 +54,25 @@ export function FlatStructureEditor({ flatId }: Props) {
   useEffect(() => {
     if (!data || initializedFlatIdRef.current === flatId) return
     initializedFlatIdRef.current = flatId
+    let seeded: DraftRoom[]
     if (data.hasDefaultTemplate && data.rooms.length === 0) {
-      setDraftRooms(createDefaultDraftRooms(t))
+      seeded = createDefaultDraftRooms(t)
+      setDraftRooms(seeded)
       setLastSaved([])
       setShowDefaultTemplateNote(true)
     } else {
-      const seeded = toDraftRooms(data.rooms)
+      seeded = toDraftRooms(data.rooms)
       setDraftRooms(seeded)
       setLastSaved(toKeyedRooms(seeded))
       setShowDefaultTemplateNote(false)
     }
-    setView({ type: 'list' })
+    const matchedRoom = powerPointId
+      ? seeded.find(room => room.powerPoints.some(pp => pp.powerPointId === powerPointId))
+      : undefined
+    setView(matchedRoom ? { type: 'room', roomKey: matchedRoom.key } : { type: 'list' })
     setSaveError(false)
     setSaveSuccess(false)
-  }, [data, flatId, t])
+  }, [data, flatId, t, powerPointId])
 
   const handleRenameRoom = (roomKey: string, name: string) => {
     setSaveSuccess(false)
