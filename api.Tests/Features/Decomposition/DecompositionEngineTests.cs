@@ -180,7 +180,7 @@ public class DecompositionEngineTests
     }
 
     [Fact]
-    public async Task ComputeAsync_SmartPowerStrip_SplitsProportionallyByEstimateWithUnconfiguredRemainder()
+    public async Task ComputeAsync_SmartPowerStripMixed_UnconfiguredDevicesGetBlendedNominalShare()
     {
         var db = MakeDb();
         var flatId = Guid.NewGuid();
@@ -200,12 +200,38 @@ public class DecompositionEngineTests
         var a = strip.SubDevices!.Single(d => d.Name == "DeviceA");
         var b = strip.SubDevices!.Single(d => d.Name == "DeviceB");
         var c = strip.SubDevices!.Single(d => d.Name == "DeviceC");
-        a.Kwh.ShouldBe(20m); // 2/8 * 80
+        // sumConfiguredEstimates=8, nominalWeight=8/2=4, poolTotal=8+1*4=12
+        a.Kwh.ShouldBe(80m * 2m / 12m, tolerance: 0.01m); // 13.333...
+        a.IsConfigured.ShouldBeTrue();
+        b.Kwh.ShouldBe(80m * 6m / 12m, tolerance: 0.01m); // 40
+        b.IsConfigured.ShouldBeTrue();
+        c.Kwh.ShouldBe(80m * 4m / 12m, tolerance: 0.01m); // 26.666... — the blended nominal share, must be real and non-zero
+        c.IsUnconfigured.ShouldBeTrue();
+        (a.Kwh + b.Kwh + c.Kwh).ShouldBe(strip.Kwh, tolerance: 0.01m);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_SmartPowerStripFullyConfigured_SplitsProportionallyUnchanged()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Strip", plugId: "strip-3");
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceA", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 730m); // daily = 2
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceB", approach: ConsumptionApproach.SelfMeasured, selfMeasuredKwh: 6m, selfMeasuredPeriod: SelfMeasuredPeriod.Daily); // daily = 6
+        await SeedDailyRowAsync(db, flatId, "strip-3", new DateOnly(2026, 1, 1), 80m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var strip = result.Rooms.Single().Devices.Single();
+        strip.SubDevices.ShouldNotBeNull();
+        var a = strip.SubDevices!.Single(d => d.Name == "DeviceA");
+        var b = strip.SubDevices!.Single(d => d.Name == "DeviceB");
+        a.Kwh.ShouldBe(20m); // 2/8 * 80 — unchanged from the pre-fix formula since poolTotal == sumConfiguredEstimates here
         a.IsConfigured.ShouldBeTrue();
         b.Kwh.ShouldBe(60m); // 6/8 * 80
         b.IsConfigured.ShouldBeTrue();
-        c.IsUnconfigured.ShouldBeTrue();
-        (a.Kwh + b.Kwh + c.Kwh).ShouldBe(strip.Kwh, tolerance: 0.01m);
+        (a.Kwh + b.Kwh).ShouldBe(strip.Kwh, tolerance: 0.01m);
     }
 
     [Fact]
@@ -226,6 +252,83 @@ public class DecompositionEngineTests
         strip.SubDevices!.Count.ShouldBe(2);
         strip.SubDevices!.ShouldAllBe(d => d.Kwh == 25m);
         strip.SubDevices!.ShouldAllBe(d => d.IsUnconfigured);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_SmartPowerStripConfiguredEstimatesSumToZero_FallsBackToEqualSplit()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Strip", plugId: "strip-4");
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceA", approach: ConsumptionApproach.EuLabel, euAnnualKwh: null); // configured but estimate = 0
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceB", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "strip-4", new DateOnly(2026, 1, 1), 40m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var strip = result.Rooms.Single().Devices.Single();
+        strip.SubDevices.ShouldNotBeNull();
+        // sumConfiguredEstimates=0 -> nominalWeight=0 -> poolTotal=0 -> equal-split else branch, same as zero-configured-devices case
+        strip.SubDevices!.ShouldAllBe(d => d.Kwh == 20m);
+        var a = strip.SubDevices!.Single(d => d.Name == "DeviceA");
+        a.IsConfigured.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task ComputeAsync_SmartPowerStripSingleConfiguredDevice_UnconfiguredGetItsEstimateAsNominalWeight()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Strip", plugId: "strip-5");
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceA", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 730m); // daily = 2
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceB", approach: ConsumptionApproach.None);
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceC", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "strip-5", new DateOnly(2026, 1, 1), 30m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var strip = result.Rooms.Single().Devices.Single();
+        strip.SubDevices.ShouldNotBeNull();
+        // configuredIds.Count=1 -> nominalWeight = sumConfiguredEstimates/1 = the sole device's own estimate
+        // poolTotal = 2 + 2*2 = 6 -> every device (configured and unconfigured alike) gets an equal 30*2/6 = 10 share
+        // (2/6 is a repeating decimal, so use tolerance rather than exact equality)
+        strip.SubDevices!.ShouldAllBe(d => Math.Abs(d.Kwh - 10m) < 0.01m);
+        var a = strip.SubDevices!.Single(d => d.Name == "DeviceA");
+        a.IsConfigured.ShouldBeTrue();
+        strip.SubDevices!.Where(d => d.Name != "DeviceA").ShouldAllBe(d => d.IsUnconfigured);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_SmartPowerStripMultipleUnconfiguredDevices_EachGetsIdenticalNonZeroShare()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Strip", plugId: "strip-6");
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceA", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 730m); // daily = 2
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceB", approach: ConsumptionApproach.SelfMeasured, selfMeasuredKwh: 6m, selfMeasuredPeriod: SelfMeasuredPeriod.Daily); // daily = 6
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceC", approach: ConsumptionApproach.None);
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceD", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "strip-6", new DateOnly(2026, 1, 1), 80m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var strip = result.Rooms.Single().Devices.Single();
+        strip.SubDevices.ShouldNotBeNull();
+        // sumConfiguredEstimates=8, nominalWeight=8/2=4, poolTotal=8+2*4=16
+        var a = strip.SubDevices!.Single(d => d.Name == "DeviceA");
+        var b = strip.SubDevices!.Single(d => d.Name == "DeviceB");
+        var c = strip.SubDevices!.Single(d => d.Name == "DeviceC");
+        var d = strip.SubDevices!.Single(d => d.Name == "DeviceD");
+        a.Kwh.ShouldBe(10m); // 2/16 * 80
+        b.Kwh.ShouldBe(30m); // 6/16 * 80
+        c.Kwh.ShouldBe(20m); // 4/16 * 80
+        d.Kwh.ShouldBe(20m); // 4/16 * 80 — identical to c, both unconfigured
+        c.IsUnconfigured.ShouldBeTrue();
+        d.IsUnconfigured.ShouldBeTrue();
+        (a.Kwh + b.Kwh + c.Kwh + d.Kwh).ShouldBe(strip.Kwh, tolerance: 0.01m);
     }
 
     [Fact]

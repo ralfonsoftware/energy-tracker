@@ -181,29 +181,21 @@ public class DecompositionEngine(AppDbContext db)
             .Where(d => d.ConsumptionApproach != ConsumptionApproach.None)
             .Select(d => d.DeviceId)
             .ToHashSet();
+        var unconfiguredIds = pp.Devices
+            .Where(d => !configuredIds.Contains(d.DeviceId))
+            .Select(d => d.DeviceId)
+            .ToList();
         var sumConfiguredEstimates = configuredIds.Sum(id => estimates[id]);
+        var nominalWeight = configuredIds.Count > 0 ? sumConfiguredEstimates / configuredIds.Count : 0m;
+        var poolTotal = sumConfiguredEstimates + (unconfiguredIds.Count * nominalWeight);
 
         var shares = new Dictionary<Guid, decimal>();
-        if (sumConfiguredEstimates > 0m)
+        if (poolTotal > 0m)
         {
-            decimal sumConfiguredShares = 0m;
             foreach (var id in configuredIds)
-            {
-                var share = (estimates[id] / sumConfiguredEstimates) * stripMeasuredTotal;
-                shares[id] = share;
-                sumConfiguredShares += share;
-            }
-
-            var unconfiguredIds = pp.Devices
-                .Where(d => !configuredIds.Contains(d.DeviceId))
-                .Select(d => d.DeviceId)
-                .ToList();
-            if (unconfiguredIds.Count > 0)
-            {
-                var remainder = (stripMeasuredTotal - sumConfiguredShares) / unconfiguredIds.Count;
-                foreach (var id in unconfiguredIds)
-                    shares[id] = remainder;
-            }
+                shares[id] = (estimates[id] / poolTotal) * stripMeasuredTotal;
+            foreach (var id in unconfiguredIds)
+                shares[id] = (nominalWeight / poolTotal) * stripMeasuredTotal;
         }
         else
         {

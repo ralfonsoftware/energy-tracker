@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-18 (Story 9.2 done — Safari verification confirmed by Ralf)
+last_updated: 2026-07-18 (Story 9.4 done — code review passed, 3 patches applied)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -117,8 +117,8 @@ development_status:
   epic-9: in-progress
   9-1-unified-save-affordance-design-decision: done
   9-2-fix-roomeditor-and-deviceeditor-save-bar-structural: done
-  9-3-align-room-list-save-affordance: backlog
-  9-4-smart-power-strip-remainder-formula-spec-amendment-and-fix: backlog
+  9-3-align-room-list-save-affordance: done
+  9-4-smart-power-strip-remainder-formula-spec-amendment-and-fix: done
   9-5-flatstructureeditor-deep-link-addressability: backlog
   9-6-consistent-treatment-for-unmeasured-devices-standalone-vs-sub-device: backlog
   9-7-decimal-precision-validation-policy: backlog
