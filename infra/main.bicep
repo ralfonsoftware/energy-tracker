@@ -303,7 +303,7 @@ resource staticWebApp 'Microsoft.Web/staticSites@2023-12-01' = {
   location: swaLocation
   sku: { name: 'Standard', tier: 'Standard' }
   properties: {
-    stagingEnvironmentPolicy: 'Disabled'
+    stagingEnvironmentPolicy: 'Enabled'
     allowConfigFileUpdates: true
     buildProperties: {
       skipGithubActionWorkflowGeneration: true

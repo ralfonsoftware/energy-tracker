@@ -83,7 +83,7 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
       <div className="px-6 pt-4 flex-1 flex flex-col">
         <h1 className="text-[22px] font-semibold text-white tracking-tight mb-6">{t('device.title')}</h1>
 
-        {/* pb-32 clears StickyActionBar's rendered height (~81px: h-14 button + py-3 padding + border) so the sticky bar doesn't cover the last field at full scroll */}
+        {/* StickyActionBar is now position: fixed and permanently on-screen at the bottom; pb-32 keeps the last field from being visually hidden behind it, not to give a sticky element room to "catch" */}
         <div className="flex flex-col gap-4 pb-32">
           <div className="flex flex-col gap-1.5">
             <label className={sectionLabelClass}>{t('device.namePlaceholder')}</label>
