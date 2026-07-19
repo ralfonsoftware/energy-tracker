@@ -3,6 +3,7 @@ import i18n from '@/lib/i18n'
 import type { DeviceDecomposition, RoomDecomposition } from '@/features/decomposition/api/decompositionApi'
 import { DeviceCard } from '@/features/decomposition/components/DeviceCard'
 import { SmartStripCard } from '@/features/decomposition/components/SmartStripCard'
+import { UnmeasuredDeviceCard } from '@/features/decomposition/components/UnmeasuredDeviceCard'
 
 type Props = { room: RoomDecomposition; onConfigureDevice: (powerPointId: string) => void }
 
@@ -19,14 +20,16 @@ function isNoneApproachNonStrip(device: DeviceDecomposition): boolean {
 }
 
 function partitionAndSortDevices(devices: DeviceDecomposition[]): DeviceDecomposition[] {
-  const visible = devices.filter(device => !isNoneApproachNonStrip(device))
-  const measured = visible
+  const measured = devices
     .filter(device => device.approach === 'Measured' || device.isSmartStrip)
     .sort((a, b) => b.kwh - a.kwh)
-  const estimated = visible
-    .filter(device => device.approach !== 'Measured' && !device.isSmartStrip)
+  const estimated = devices
+    .filter(device => device.approach !== 'Measured' && !device.isSmartStrip && !isNoneApproachNonStrip(device))
     .sort((a, b) => b.kwh - a.kwh)
-  return [...measured, ...estimated]
+  const unmeasured = devices
+    .filter(isNoneApproachNonStrip)
+    .sort((a, b) => a.name.localeCompare(b.name))
+  return [...measured, ...estimated, ...unmeasured]
 }
 
 export function RoomCard({ room, onConfigureDevice }: Props) {
@@ -54,6 +57,12 @@ export function RoomCard({ room, onConfigureDevice }: Props) {
               <div key={device.deviceId} className="md:col-span-full">
                 <SmartStripCard device={device} onConfigure={() => onConfigureDevice(device.deviceId)} />
               </div>
+            ) : isNoneApproachNonStrip(device) ? (
+              <UnmeasuredDeviceCard
+                key={device.deviceId}
+                device={device}
+                onConfigure={() => onConfigureDevice(device.powerPointId)}
+              />
             ) : (
               <DeviceCard key={device.deviceId} device={device} />
             )

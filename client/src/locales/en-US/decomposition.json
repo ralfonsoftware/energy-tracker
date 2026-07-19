@@ -28,7 +28,9 @@
     "disclaimerSelfMeasured": "Based on self-measured average"
   },
   "roomCard": {
-    "directConsumption": "Direct consumption"
+    "directConsumption": "Direct consumption",
+    "unmeasuredHint": "Configure consumption profile to include this device in Decomposition",
+    "configureProfile": "Configure consumption profile"
   },
   "smartStripCard": {
     "configureHint": "Go to settings"

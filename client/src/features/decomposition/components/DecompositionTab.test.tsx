@@ -170,6 +170,7 @@ describe('DecompositionTab', () => {
             devices: [
               {
                 deviceId: 'pp-strip-1',
+                powerPointId: 'pp-strip-1',
                 name: 'Power Strip',
                 kwh: 5,
                 cost: 1.2,

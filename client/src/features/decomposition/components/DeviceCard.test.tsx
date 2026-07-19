@@ -9,6 +9,7 @@ vi.mock('react-i18next', () => ({
 function makeDevice(overrides: Partial<DeviceDecomposition> = {}): DeviceDecomposition {
   return {
     deviceId: 'device-1',
+    powerPointId: 'pp-1',
     name: 'Fridge',
     kwh: 12.5,
     cost: 3.1,

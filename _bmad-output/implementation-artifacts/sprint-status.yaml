@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-18 (Story 9.5 done — code review passed clean, 0 findings)
+last_updated: 2026-07-19 (Story 9.6 code review complete — done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -120,7 +120,7 @@ development_status:
   9-3-align-room-list-save-affordance: done
   9-4-smart-power-strip-remainder-formula-spec-amendment-and-fix: done
   9-5-flatstructureeditor-deep-link-addressability: done
-  9-6-consistent-treatment-for-unmeasured-devices-standalone-vs-sub-device: backlog
+  9-6-consistent-treatment-for-unmeasured-devices-standalone-vs-sub-device: done
   9-7-decimal-precision-validation-policy: backlog
   9-8-meter-reset-handling-in-kpi-calculations: backlog
   9-9-patch-null-vs-omitted-semantics-for-annualkwhbaseline: backlog

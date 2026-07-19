@@ -90,7 +90,7 @@ public class DecompositionEngine(AppDbContext db)
                     var kwh = series.Values.Sum();
                     var cost = CostForDailySeries(date => series.GetValueOrDefault(date));
                     deviceDecompositions.Add(new DeviceDecomposition(
-                        device.DeviceId, device.Name, kwh, cost,
+                        device.DeviceId, pp.PowerPointId, device.Name, kwh, cost,
                         AttributionApproach.Measured, IsSmartStrip: false, SubDevices: null));
                 }
                 else if (pp.PlugId is not null && pp.Devices.Count > 1)
@@ -111,7 +111,7 @@ public class DecompositionEngine(AppDbContext db)
                         var kwh = dailyEstimate * dayCount;
                         var cost = approach == AttributionApproach.None ? 0m : CostForDailySeries(_ => dailyEstimate);
                         deviceDecompositions.Add(new DeviceDecomposition(
-                            device.DeviceId, device.Name, kwh, cost, approach, IsSmartStrip: false, SubDevices: null));
+                            device.DeviceId, pp.PowerPointId, device.Name, kwh, cost, approach, IsSmartStrip: false, SubDevices: null));
                     }
                 }
             }
@@ -219,7 +219,7 @@ public class DecompositionEngine(AppDbContext db)
         }
 
         return new DeviceDecomposition(
-            pp.PowerPointId, pp.Name, stripMeasuredTotal, subDeviceCostSum,
+            pp.PowerPointId, pp.PowerPointId, pp.Name, stripMeasuredTotal, subDeviceCostSum,
             AttributionApproach.Measured, IsSmartStrip: true, subDevices);
     }
 

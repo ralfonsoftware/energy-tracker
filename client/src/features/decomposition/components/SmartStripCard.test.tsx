@@ -25,6 +25,7 @@ function makeSubDevice(overrides: Partial<SubDeviceDecomposition> = {}): SubDevi
 function makeStrip(subDevices: SubDeviceDecomposition[] | null): DeviceDecomposition {
   return {
     deviceId: 'strip-1',
+    powerPointId: 'strip-1',
     name: 'Power Strip',
     kwh: 5,
     cost: 1.2,

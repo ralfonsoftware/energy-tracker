@@ -10,6 +10,7 @@ vi.mock('react-i18next', () => ({
 function makeDevice(overrides: Partial<DeviceDecomposition> = {}): DeviceDecomposition {
   return {
     deviceId: 'device-1',
+    powerPointId: 'pp-1',
     name: 'Device',
     kwh: 1,
     cost: 0.2,
@@ -82,18 +83,51 @@ describe('RoomCard', () => {
     expect(strip.compareDocumentPosition(device) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('RoomCard_NoneApproachNonStripDevice_IsExcludedFromList', () => {
+  it('RoomCard_NoneApproachNonStripDevice_RendersGhostCardAndDeepLinksOnConfigureClick', async () => {
+    const user = userEvent.setup()
+    const onConfigureDevice = vi.fn()
     const room = makeRoom({
       devices: [
         makeDevice({ deviceId: 'd1', name: 'Real Device', approach: 'Measured', kwh: 5 }),
-        makeDevice({ deviceId: 'd2', name: 'Zero Device', approach: 'None', isSmartStrip: false, kwh: 0 }),
+        makeDevice({
+          deviceId: 'd2',
+          powerPointId: 'pp-ghost',
+          name: 'Zero Device',
+          approach: 'None',
+          isSmartStrip: false,
+          kwh: 0,
+        }),
+      ],
+    })
+
+    render(<RoomCard room={room} onConfigureDevice={onConfigureDevice} />)
+
+    expect(screen.getByText('Real Device')).toBeInTheDocument()
+    expect(screen.getByText('Zero Device')).toBeInTheDocument()
+    expect(screen.getByText('roomCard.unmeasuredHint')).toBeInTheDocument()
+
+    await user.click(screen.getByText('roomCard.configureProfile'))
+
+    expect(onConfigureDevice).toHaveBeenCalledWith('pp-ghost')
+  })
+
+  it('RoomCard_MixedDevicesWithUnmeasured_RendersUnmeasuredGroupAfterMeasuredAndEstimated', () => {
+    const room = makeRoom({
+      devices: [
+        makeDevice({ deviceId: 'd1', name: 'Estimated Device', approach: 'EuLabel', kwh: 3 }),
+        makeDevice({ deviceId: 'd2', name: 'Measured Device', approach: 'Measured', kwh: 2 }),
+        makeDevice({ deviceId: 'd3', name: 'Unmeasured Device', approach: 'None', isSmartStrip: false, kwh: 0 }),
       ],
     })
 
     render(<RoomCard room={room} onConfigureDevice={vi.fn()} />)
 
-    expect(screen.getByText('Real Device')).toBeInTheDocument()
-    expect(screen.queryByText('Zero Device')).not.toBeInTheDocument()
+    const measured = screen.getByText('Measured Device')
+    const estimated = screen.getByText('Estimated Device')
+    const unmeasured = screen.getByText('Unmeasured Device')
+
+    expect(measured.compareDocumentPosition(estimated) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(estimated.compareDocumentPosition(unmeasured) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('RoomCard_EmptyDevices_RendersDirectConsumptionFallback', () => {
@@ -144,6 +178,20 @@ describe('RoomCard', () => {
 
     render(<RoomCard room={room} onConfigureDevice={vi.fn()} />)
     const device = screen.getByText('Device A')
+
+    expect(device.closest('.md\\:col-span-full')).not.toBeInTheDocument()
+  })
+
+  it('RoomCard_UnmeasuredDevice_DoesNotGetFullWidthSpanClass', () => {
+    const room = makeRoom({
+      devices: [
+        makeDevice({ deviceId: 'd1', name: 'Real Device', approach: 'Measured', kwh: 5 }),
+        makeDevice({ deviceId: 'd2', name: 'Zero Device', approach: 'None', isSmartStrip: false, kwh: 0 }),
+      ],
+    })
+
+    render(<RoomCard room={room} onConfigureDevice={vi.fn()} />)
+    const device = screen.getByText('Zero Device')
 
     expect(device.closest('.md\\:col-span-full')).not.toBeInTheDocument()
   })

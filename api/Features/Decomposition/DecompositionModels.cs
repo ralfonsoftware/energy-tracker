@@ -10,7 +10,7 @@ public record SubDeviceDecomposition(
     Guid DeviceId, string Name, decimal Kwh, decimal Cost, bool IsConfigured, bool IsUnconfigured);
 
 public record DeviceDecomposition(
-    Guid DeviceId, string Name, decimal Kwh, decimal Cost,
+    Guid DeviceId, Guid PowerPointId, string Name, decimal Kwh, decimal Cost,
     AttributionApproach Approach, bool IsSmartStrip,
     IReadOnlyList<SubDeviceDecomposition>? SubDevices);
 

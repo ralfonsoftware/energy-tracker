@@ -15,6 +15,7 @@ export type SubDeviceDecomposition = {
 
 export type DeviceDecomposition = {
   deviceId: string
+  powerPointId: string
   name: string
   kwh: number
   cost: number

@@ -100,6 +100,27 @@ public class DecompositionEngineTests
         device.Approach.ShouldBe(AttributionApproach.Measured);
         device.IsSmartStrip.ShouldBeFalse();
         device.Cost.ShouldBe(1.5m);
+        device.PowerPointId.ShouldBe(pp.PowerPointId);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_StandaloneNoneApproachDevice_ExposesContainingPowerPointId()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId, "Living Room");
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Old Lamp", approach: ConsumptionApproach.None);
+        // Unrelated plug elsewhere, just to make SmartPlugDailyData non-empty for the flat.
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Old Lamp");
+        device.PowerPointId.ShouldBe(pp.PowerPointId);
+        device.PowerPointId.ShouldNotBe(device.DeviceId);
     }
 
     [Fact]
@@ -232,6 +253,8 @@ public class DecompositionEngineTests
         b.Kwh.ShouldBe(60m); // 6/8 * 80
         b.IsConfigured.ShouldBeTrue();
         (a.Kwh + b.Kwh).ShouldBe(strip.Kwh, tolerance: 0.01m);
+        strip.PowerPointId.ShouldBe(pp.PowerPointId);
+        strip.DeviceId.ShouldBe(pp.PowerPointId);
     }
 
     [Fact]

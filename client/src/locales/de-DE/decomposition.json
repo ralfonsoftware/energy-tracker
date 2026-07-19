@@ -28,7 +28,9 @@
     "disclaimerSelfMeasured": "Basierend auf selbst gemessenem Durchschnitt"
   },
   "roomCard": {
-    "directConsumption": "Direkter Verbrauch"
+    "directConsumption": "Direkter Verbrauch",
+    "unmeasuredHint": "Verbrauchsprofil konfigurieren, um dieses Gerät in die Aufschlüsselung aufzunehmen",
+    "configureProfile": "Verbrauchsprofil konfigurieren"
   },
   "smartStripCard": {
     "configureHint": "Zu den Einstellungen"
