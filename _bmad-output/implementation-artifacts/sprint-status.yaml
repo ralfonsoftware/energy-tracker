@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-18 (Story 9.5 done — deep-link addressability implemented, ready for review)
+# last_updated: 2026-07-19 (Story 9.11 done — code review complete, no blocking findings)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -125,7 +125,7 @@ development_status:
   9-8-meter-reset-handling-in-kpi-calculations: done
   9-9-patch-null-vs-omitted-semantics-for-annualkwhbaseline: done
   9-10-optimistic-concurrency-hardening-flat-structure-reading-and-tariff: done
-  9-11-kwhvalue-precision-divergence-fix: backlog
+  9-11-kwhvalue-precision-divergence-fix: done
   9-12-audit-contractstartdate-migration-for-silent-data-loss: backlog
   9-13-catch-all-404-route: backlog
   epic-9-retrospective: optional
