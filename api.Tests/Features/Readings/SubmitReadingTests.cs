@@ -149,7 +149,9 @@ public class SubmitReadingTests
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
 
-        result.ShouldBeOfType<BadRequestObjectResult>();
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var detail = (string)badRequest.Value!.GetType().GetProperty("detail")!.GetValue(badRequest.Value)!;
+        detail.ShouldBe("kwhValue must have at most 4 decimal places.");
         var readings = await db.MeterReadings.CountAsync();
         readings.ShouldBe(0);
     }
