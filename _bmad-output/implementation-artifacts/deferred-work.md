@@ -1,5 +1,10 @@
 # Deferred Work
 
+## Deferred from: code review of 9-9-patch-null-vs-omitted-semantics-for-annualkwhbaseline (2026-07-19)
+
+- No test covers a combined payload (e.g. `{"name":"X","annualKwhBaseline":null}`) to confirm no partial write occurs before the 400 short-circuits. Not currently reachable — the fix returns before any field assignment regardless of which other fields are present, so no partial-write path exists in the current code shape. `api/Features/Flats/PatchFlatFunction.cs:38-49`
+- Only `AnnualKwhBaseline` was audited for the "explicit-null-silently-ignored on a required field" defect class this story fixed; other required non-nullable PATCH fields across the API were not re-audited for the same gap. `api/Features/Flats/PatchFlatFunction.cs`
+
 ## Deferred from: code review of 9-8-meter-reset-handling-in-kpi-calculations (2026-07-19)
 
 - SVG pattern `id="meterResetHatch"` is a hardcoded, unscoped global DOM id — if `TrendChart` is ever rendered more than once on the same page (e.g. a future multi-flat comparison view), both instances' `<defs>` declare the same id and `url(#meterResetHatch)` resolves ambiguously. Currently a non-issue — `DashboardPage.tsx` renders exactly one `TrendChart` per page today. `client/src/features/dashboard/components/TrendChart.tsx:73-84`

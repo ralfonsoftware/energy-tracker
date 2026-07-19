@@ -147,12 +147,11 @@ public class PatchFlatFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_AnnualKwhBaselineExplicitNull_SilentlyLeavesExistingValueUnchanged()
+    public async Task RunAsync_AnnualKwhBaselineExplicitNull_Returns400AndLeavesExistingValueUnchanged()
     {
-        // Unlike PlannedAnnualSpend, AnnualKwhBaseline has no *Provided flag distinguishing
-        // omitted from explicit null — JSON null parses to a null JsonValue, which the
-        // guard treats identically to "not provided." Pinning current behavior; if this
-        // asymmetry is ever unintentional, see deferred-work.md.
+        // AnnualKwhBaseline is required (non-nullable at the DB level), so unlike
+        // PlannedAnnualSpend, an explicit JSON null cannot be used to clear it — it's
+        // rejected with 400 instead of silently no-opping.
         var (flat, db) = await SeedFlatAsync();
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
         var req = MakeRequest("""{"annualKwhBaseline":null}""");
@@ -160,7 +159,9 @@ public class PatchFlatFunctionTests
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
 
-        result.ShouldBeOfType<OkObjectResult>();
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var detail = (string)badRequest.Value!.GetType().GetProperty("detail")!.GetValue(badRequest.Value)!;
+        detail.ShouldBe("annualKwhBaseline cannot be cleared — it is a required field.");
         var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
         persisted.AnnualKwhBaseline.ShouldBe(3500m);
     }
@@ -178,6 +179,22 @@ public class PatchFlatFunctionTests
         result.ShouldBeOfType<OkObjectResult>();
         var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
         persisted.Name.ShouldBe("Original Name");
+        persisted.AnnualKwhBaseline.ShouldBe(3500m);
+    }
+
+    [Fact]
+    public async Task RunAsync_AnnualKwhBaselineOmitted_LeavesExistingValueUnchanged()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new PatchFlatFunction(db, new PatchFlatValidator());
+        var req = MakeRequest("""{"name":"Renamed Flat"}""");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
+        persisted.Name.ShouldBe("Renamed Flat");
         persisted.AnnualKwhBaseline.ShouldBe(3500m);
     }
 

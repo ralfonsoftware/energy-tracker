@@ -38,8 +38,12 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         decimal? kwhBaseline = null;
         if (obj["annualKwhBaseline"] is JsonValue kwhVal && kwhVal.TryGetValue<decimal>(out var kwh))
             kwhBaseline = kwh;
-        else if (obj.ContainsKey("annualKwhBaseline") && obj["annualKwhBaseline"] is not null)
+        else if (obj.ContainsKey("annualKwhBaseline"))
+        {
+            if (obj["annualKwhBaseline"] is null)
+                return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "annualKwhBaseline cannot be cleared — it is a required field." });
             return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "annualKwhBaseline must be a number." });
+        }
 
         decimal? plannedSpend = null;
         if (obj["plannedAnnualSpend"] is JsonValue spendVal && spendVal.TryGetValue<decimal>(out var spend))
