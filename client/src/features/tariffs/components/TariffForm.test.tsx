@@ -26,6 +26,7 @@ const lockedTariff: TariffResponse = {
   providerName: 'E.ON',
   contractDurationMonths: 12,
   isLocked: true,
+  rowVersion: 'AQID',
 }
 
 const unlockedTariff: TariffResponse = {
@@ -36,6 +37,7 @@ const unlockedTariff: TariffResponse = {
   providerName: 'E.ON',
   contractDurationMonths: null,
   isLocked: false,
+  rowVersion: 'AQID',
 }
 
 function setup(options?: { isPending?: boolean }) {

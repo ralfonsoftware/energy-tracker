@@ -15,6 +15,7 @@ const sampleResponse: ReadingResponse = {
   readingDate: '2026-06-30T08:00:00+02:00',
   isCorrected: true,
   originalKwhValue: 100,
+  rowVersion: 'AQID',
 }
 
 function createWrapper() {
@@ -35,7 +36,7 @@ describe('usePatchReading', () => {
     const { wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => usePatchReading('flat-1'), { wrapper })
 
-    result.current.mutate({ readingId: 'reading-1', kwhValue: 120 })
+    result.current.mutate({ readingId: 'reading-1', kwhValue: 120, rowVersion: 'AQID' })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['readings', 'flat-1'] })
@@ -46,7 +47,7 @@ describe('usePatchReading', () => {
     const { wrapper } = createWrapper()
     const { result } = renderHook(() => usePatchReading(undefined), { wrapper })
 
-    result.current.mutate({ readingId: 'reading-1', kwhValue: 120 })
+    result.current.mutate({ readingId: 'reading-1', kwhValue: 120, rowVersion: 'AQID' })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(mockPatchReading).not.toHaveBeenCalled()

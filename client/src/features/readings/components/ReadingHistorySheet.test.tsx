@@ -24,6 +24,7 @@ const sampleReadings: ReadingResponse[] = [
     readingDate: '2026-06-30T08:00:00+02:00',
     isCorrected: false,
     originalKwhValue: null,
+    rowVersion: 'AQID',
   },
   {
     readingId: 'reading-2',
@@ -31,6 +32,7 @@ const sampleReadings: ReadingResponse[] = [
     readingDate: '2026-06-29T08:00:00+02:00',
     isCorrected: true,
     originalKwhValue: 100,
+    rowVersion: 'AQID',
   },
 ]
 
@@ -139,7 +141,7 @@ describe('ReadingHistorySheet', () => {
     await user.click(screen.getByRole('button', { name: 'history.editSaveButton' }))
 
     expect(mutate).toHaveBeenCalledWith(
-      { readingId: 'reading-1', kwhValue: 130 },
+      { readingId: 'reading-1', kwhValue: 130, rowVersion: 'AQID' },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     )
 

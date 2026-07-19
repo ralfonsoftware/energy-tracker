@@ -18,6 +18,7 @@ const sampleResponse: TariffResponse[] = [
     providerName: 'E.ON',
     contractDurationMonths: null,
     isLocked: false,
+    rowVersion: 'AQID',
   },
 ]
 

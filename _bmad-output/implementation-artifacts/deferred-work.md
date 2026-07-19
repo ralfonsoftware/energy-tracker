@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of 9-10 build-fixture fix (2026-07-19)
+
+- Three other `mockUseUserSettings` call sites still omit `refetch` — `client/src/features/settings/components/AddFlatForm.test.tsx`, `client/src/features/settings/components/AccountSettings.test.tsx`, `client/src/components/FlatSwitcher.test.tsx`. They don't block the build because each casts through `as unknown as ReturnType<typeof useUserSettings>`, bypassing TS structural checking — but a component under test that ever called `.refetch()` there would throw at runtime with no compile-time warning. Add `refetch: vi.fn()` to these three for realism whenever those files are next touched.
+
 ## Deferred from: code review of 9-9-patch-null-vs-omitted-semantics-for-annualkwhbaseline (2026-07-19)
 
 - No test covers a combined payload (e.g. `{"name":"X","annualKwhBaseline":null}`) to confirm no partial write occurs before the 400 short-circuits. Not currently reachable — the fix returns before any field assignment regardless of which other fields are present, so no partial-write path exists in the current code shape. `api/Features/Flats/PatchFlatFunction.cs:38-49`

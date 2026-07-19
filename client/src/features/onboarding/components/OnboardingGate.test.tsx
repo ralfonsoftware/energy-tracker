@@ -29,26 +29,26 @@ describe('OnboardingGate', () => {
   })
 
   it('renders nothing while loading', () => {
-    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: true, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: true, isError: false, refetch: vi.fn() })
     const { container } = renderGate()
     expect(container.firstChild).toBeNull()
   })
 
   it('redirects to /onboarding when hasFlat is false', () => {
-    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: false }, isLoading: false, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: false }, isLoading: false, isError: false, refetch: vi.fn() })
     renderGate()
     expect(screen.getByText('Onboarding page')).toBeInTheDocument()
     expect(screen.queryByText('Main content')).not.toBeInTheDocument()
   })
 
   it('renders children via Outlet when hasFlat is true', () => {
-    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: true }, isLoading: false, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: true }, isLoading: false, isError: false, refetch: vi.fn() })
     renderGate()
     expect(screen.getByText('Main content')).toBeInTheDocument()
   })
 
   it('renders nothing on settings fetch error', () => {
-    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: false, isError: true })
+    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: false, isError: true, refetch: vi.fn() })
     const { container } = renderGate()
     expect(container.firstChild).toBeNull()
   })
@@ -56,7 +56,7 @@ describe('OnboardingGate', () => {
   it.each(['/insights', '/decomposition', '/settings'])(
     'redirects to /onboarding when hasFlat is false on %s',
     (path) => {
-      mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: false }, isLoading: false, isError: false })
+      mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: false }, isLoading: false, isError: false, refetch: vi.fn() })
       renderGate(path)
       expect(screen.getByText('Onboarding page')).toBeInTheDocument()
     }

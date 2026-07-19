@@ -13,6 +13,7 @@ const sampleResponse: FlatStructureResponse = {
   flatId: 'flat-1',
   hasDefaultTemplate: false,
   rooms: [],
+  rowVersion: 'AQID',
 }
 
 function createWrapper() {

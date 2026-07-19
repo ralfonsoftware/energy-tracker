@@ -44,7 +44,7 @@ describe('SettingsPage TariffSettingsRoute', () => {
   beforeEach(() => {
     tariffListSpy.mockReset()
     mockPatchFlatMutate.mockReset()
-    mockUseUserSettings.mockReturnValue({ settings, isLoading: false, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings, isLoading: false, isError: false, refetch: vi.fn() })
     mockUsePatchFlat.mockReturnValue({
       mutate: mockPatchFlatMutate,
       isPending: false,
@@ -78,7 +78,7 @@ describe('SettingsPage TariffSettingsRoute', () => {
   })
 
   it('SettingsPage_TariffsRouteLoading_RendersNothing', () => {
-    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: true, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: true, isError: false, refetch: vi.fn() })
 
     renderTariffsRoute()
 

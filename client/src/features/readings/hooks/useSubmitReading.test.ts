@@ -15,6 +15,7 @@ const sampleResponse: ReadingResponse = {
   readingDate: '2026-06-30T08:00:00+02:00',
   isCorrected: false,
   originalKwhValue: null,
+  rowVersion: 'AQID',
 }
 
 function createWrapper() {

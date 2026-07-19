@@ -40,6 +40,7 @@ const pastTariff: TariffResponse = {
   providerName: 'E.ON',
   contractDurationMonths: null,
   isLocked: false,
+  rowVersion: 'AQID',
 }
 
 const futureTariff: TariffResponse = {
@@ -50,6 +51,7 @@ const futureTariff: TariffResponse = {
   providerName: null,
   contractDurationMonths: null,
   isLocked: false,
+  rowVersion: 'AQID',
 }
 
 function setupTariffs(options?: { isLoading?: boolean; isError?: boolean; data?: TariffResponse[] }) {
@@ -181,6 +183,7 @@ describe('TariffList', () => {
         providerName: 'Vattenfall',
         contractDurationMonths: null,
         isLocked: false,
+        rowVersion: 'AQID',
       }
       setupTariffs({ data: [todayTariff] })
 

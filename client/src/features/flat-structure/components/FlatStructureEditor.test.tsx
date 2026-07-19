@@ -62,6 +62,7 @@ const defaultTemplateResponse: FlatStructureResponse = {
   flatId: 'flat-1',
   hasDefaultTemplate: true,
   rooms: [],
+  rowVersion: 'AQID',
 }
 
 function seededResponse(overrides?: Partial<FlatStructureResponse>): FlatStructureResponse {
@@ -96,6 +97,7 @@ function seededResponse(overrides?: Partial<FlatStructureResponse>): FlatStructu
         ],
       },
     ],
+    rowVersion: 'AQID',
     ...overrides,
   }
 }
@@ -375,6 +377,7 @@ describe('FlatStructureEditor', () => {
             ],
           },
         ],
+        rowVersion: 'AQID',
       },
       expect.any(Object)
     )
@@ -583,6 +586,7 @@ describe('FlatStructureEditor', () => {
             powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
+        rowVersion: 'AQID',
       },
       expect.any(Object)
     )
@@ -616,6 +620,7 @@ describe('FlatStructureEditor', () => {
             powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
+        rowVersion: 'AQID',
       },
       expect.any(Object)
     )
@@ -667,6 +672,7 @@ describe('FlatStructureEditor', () => {
             powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
+        rowVersion: 'AQID',
       },
       expect.any(Object)
     )
@@ -745,6 +751,7 @@ describe('FlatStructureEditor', () => {
             powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
+        rowVersion: 'AQID',
       },
       expect.any(Object)
     )
@@ -856,6 +863,7 @@ describe('FlatStructureEditor', () => {
             powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
+        rowVersion: 'AQID',
       },
       expect.any(Object)
     )

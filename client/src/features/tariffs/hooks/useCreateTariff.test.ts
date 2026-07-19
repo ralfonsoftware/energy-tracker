@@ -17,6 +17,7 @@ const sampleResponse: TariffResponse = {
   providerName: null,
   contractDurationMonths: null,
   isLocked: false,
+  rowVersion: 'AQID',
 }
 
 function createWrapper() {

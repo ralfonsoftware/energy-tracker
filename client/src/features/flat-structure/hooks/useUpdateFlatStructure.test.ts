@@ -13,6 +13,7 @@ const sampleResponse: FlatStructureResponse = {
   flatId: 'flat-1',
   hasDefaultTemplate: false,
   rooms: [],
+  rowVersion: 'AQID',
 }
 
 function createWrapper() {
@@ -33,7 +34,7 @@ describe('useUpdateFlatStructure', () => {
     const { wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => useUpdateFlatStructure('flat-1'), { wrapper })
 
-    result.current.mutate({ rooms: [] })
+    result.current.mutate({ rooms: [], rowVersion: 'AQID' })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['flat-structure', 'flat-1'] })
@@ -44,7 +45,7 @@ describe('useUpdateFlatStructure', () => {
     const { wrapper } = createWrapper()
     const { result } = renderHook(() => useUpdateFlatStructure(undefined), { wrapper })
 
-    result.current.mutate({ rooms: [] })
+    result.current.mutate({ rooms: [], rowVersion: 'AQID' })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(mockUpdateFlatStructure).not.toHaveBeenCalled()

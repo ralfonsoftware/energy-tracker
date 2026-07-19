@@ -30,25 +30,25 @@ function renderPage() {
 
 describe('OnboardingPage', () => {
   it('redirects to / when hasFlat is true', () => {
-    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: true }, isLoading: false, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: true }, isLoading: false, isError: false, refetch: vi.fn() })
     renderPage()
     expect(screen.getByText('Dashboard')).toBeInTheDocument()
   })
 
   it('renders intro step when hasFlat is false', () => {
-    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: false }, isLoading: false, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: { locale: null, hasFlat: false }, isLoading: false, isError: false, refetch: vi.fn() })
     renderPage()
     expect(screen.getByRole('button', { name: 'Get Started' })).toBeInTheDocument()
   })
 
   it('does not redirect while loading', () => {
-    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: true, isError: false })
+    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: true, isError: false, refetch: vi.fn() })
     renderPage()
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument()
   })
 
   it('does not redirect on settings fetch error', () => {
-    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: false, isError: true })
+    mockUseUserSettings.mockReturnValue({ settings: undefined, isLoading: false, isError: true, refetch: vi.fn() })
     renderPage()
     expect(screen.queryByText('Dashboard')).not.toBeInTheDocument()
   })

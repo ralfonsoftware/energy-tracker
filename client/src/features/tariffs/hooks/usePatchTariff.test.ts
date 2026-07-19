@@ -17,6 +17,7 @@ const sampleResponse: TariffResponse = {
   providerName: null,
   contractDurationMonths: null,
   isLocked: false,
+  rowVersion: 'AQID',
 }
 
 function createWrapper() {
@@ -37,7 +38,7 @@ describe('usePatchTariff', () => {
     const { wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => usePatchTariff('flat-1'), { wrapper })
 
-    result.current.mutate({ tariffId: 'tariff-1', body: { pricePerKwh: 0.3 } })
+    result.current.mutate({ tariffId: 'tariff-1', body: { pricePerKwh: 0.3, rowVersion: 'AQID' } })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['tariffs', 'flat-1'] })
@@ -48,7 +49,7 @@ describe('usePatchTariff', () => {
     const { wrapper } = createWrapper()
     const { result } = renderHook(() => usePatchTariff(undefined), { wrapper })
 
-    result.current.mutate({ tariffId: 'tariff-1', body: { pricePerKwh: 0.3 } })
+    result.current.mutate({ tariffId: 'tariff-1', body: { pricePerKwh: 0.3, rowVersion: 'AQID' } })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(mockPatchTariff).not.toHaveBeenCalled()
