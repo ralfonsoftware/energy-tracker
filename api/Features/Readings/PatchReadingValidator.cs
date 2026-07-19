@@ -1,3 +1,4 @@
+using EnergyTracker.Api.Shared;
 using FluentValidation;
 
 namespace EnergyTracker.Api.Features.Readings;
@@ -8,7 +9,7 @@ public class PatchReadingValidator : AbstractValidator<PatchReadingRequest>
     {
         RuleFor(r => r.KwhValue).GreaterThan(0m)
             .WithMessage("kwhValue must be greater than 0.")
-            .PrecisionScale(18, 4, true)
+            .DecimalPrecision(4)
             .WithMessage("kwhValue must have at most 4 decimal places.");
     }
 }

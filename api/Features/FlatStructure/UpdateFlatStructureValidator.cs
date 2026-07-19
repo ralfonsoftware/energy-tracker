@@ -1,4 +1,5 @@
 using EnergyTracker.Api.Data.Entities;
+using EnergyTracker.Api.Shared;
 using FluentValidation;
 
 namespace EnergyTracker.Api.Features.FlatStructure;
@@ -27,11 +28,11 @@ public class UpdateFlatStructureValidator : AbstractValidator<UpdateFlatStructur
                     d.RuleFor(dv => dv.ConsumptionApproach).IsInEnum();
                     d.RuleFor(dv => dv.SelfMeasuredPeriod).IsInEnum();
                     d.RuleFor(dv => dv.EuAnnualKwh).GreaterThanOrEqualTo(0)
-                        .PrecisionScale(18, 4, true)
+                        .DecimalPrecision(4)
                         .WithMessage("euAnnualKwh must have at most 4 decimal places.")
                         .When(dv => dv.EuAnnualKwh.HasValue);
                     d.RuleFor(dv => dv.SelfMeasuredKwh).GreaterThanOrEqualTo(0)
-                        .PrecisionScale(18, 4, true)
+                        .DecimalPrecision(4)
                         .WithMessage("selfMeasuredKwh must have at most 4 decimal places.")
                         .When(dv => dv.SelfMeasuredKwh.HasValue);
                     d.RuleFor(dv => dv.EuAnnualKwh).NotNull()
