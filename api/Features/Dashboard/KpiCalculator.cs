@@ -136,7 +136,10 @@ public class KpiCalculator
         var windowStart = windowEnd.AddDays(-6);
         var dailyConsumption = new List<DailyConsumptionPoint>();
         for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
-            dailyConsumption.Add(new DailyConsumptionPoint(date.ToString("yyyy-MM-dd"), dailySeries.GetValueOrDefault(date)));
+        {
+            var entry = dailySeries.GetValueOrDefault(date);
+            dailyConsumption.Add(new DailyConsumptionPoint(date.ToString("yyyy-MM-dd"), entry.Kwh, entry.WasMeterReset));
+        }
         var spikeDays = DetectSpikes(dailySeries, windowStart, windowEnd, flat.SpikeThreshold);
 
         return new DashboardSummary(
@@ -163,13 +166,14 @@ public class KpiCalculator
         return best;
     }
 
-    private static Dictionary<DateOnly, decimal> BuildDailySeries(IReadOnlyList<MeterReading> readings)
+    private static Dictionary<DateOnly, (decimal Kwh, bool WasMeterReset)> BuildDailySeries(IReadOnlyList<MeterReading> readings)
     {
-        var series = new Dictionary<DateOnly, decimal>();
+        var series = new Dictionary<DateOnly, (decimal Kwh, bool WasMeterReset)>();
         for (var i = 0; i < readings.Count - 1; i++)
         {
             var start = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(readings[i].ReadingDate, AppTimeZone).Date);
             var end = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(readings[i + 1].ReadingDate, AppTimeZone).Date);
+            var wasMeterReset = readings[i + 1].KwhValue < readings[i].KwhValue;
             var periodKwh = Math.Max(0m, readings[i + 1].KwhValue - readings[i].KwhValue);
             var spanDays = Math.Max(1, end.DayNumber - start.DayNumber);
             var perDayKwh = periodKwh / spanDays;
@@ -178,26 +182,27 @@ public class KpiCalculator
             for (var d = firstDay; d <= end.DayNumber; d++)
             {
                 var date = DateOnly.FromDayNumber(d);
-                series[date] = series.GetValueOrDefault(date) + perDayKwh;
+                var existing = series.GetValueOrDefault(date);
+                series[date] = (existing.Kwh + perDayKwh, existing.WasMeterReset || wasMeterReset);
             }
         }
         return series;
     }
 
     private static string[] DetectSpikes(
-        Dictionary<DateOnly, decimal> dailySeries, DateOnly windowStart, DateOnly windowEnd, decimal threshold)
+        Dictionary<DateOnly, (decimal Kwh, bool WasMeterReset)> dailySeries, DateOnly windowStart, DateOnly windowEnd, decimal threshold)
     {
         var spikes = new List<string>();
         for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
         {
-            var dayKwh = dailySeries.GetValueOrDefault(date);
+            var dayKwh = dailySeries.GetValueOrDefault(date).Kwh;
             decimal rollingSum = 0m;
             var priorDaysWithData = 0;
             for (var lookback = 1; lookback <= 7; lookback++)
             {
-                if (dailySeries.TryGetValue(date.AddDays(-lookback), out var priorKwh))
+                if (dailySeries.TryGetValue(date.AddDays(-lookback), out var prior))
                 {
-                    rollingSum += priorKwh;
+                    rollingSum += prior.Kwh;
                     priorDaysWithData++;
                 }
             }

@@ -22,12 +22,22 @@ export function TrendChart({ dashboard, flatId }: Props) {
       (dashboard?.dailyConsumption ?? []).map(point => ({
         date: point.date,
         kwh: point.kwhValue,
+        wasMeterReset: point.wasMeterReset,
         label: new Intl.DateTimeFormat(i18n.language, { weekday: 'narrow', timeZone: 'UTC' }).format(
           new Date(point.date)
         ),
       })),
     [dashboard?.dailyConsumption]
   )
+  const resetDates = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(i18n.language, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+    return chartData.filter(point => point.wasMeterReset).map(point => formatter.format(new Date(point.date)))
+  }, [chartData])
 
   // No trend data can exist yet with 0 or 1 total readings — hide the card rather than
   // render a misleading all-zero 7-day chart (mirrors the KPI tiles' cold-open dash state).
@@ -64,6 +74,18 @@ export function TrendChart({ dashboard, flatId }: Props) {
       ) : (
         <ResponsiveContainer width="100%" height={90}>
           <BarChart data={chartData} barCategoryGap={6}>
+            <defs>
+              <pattern
+                id="meterResetHatch"
+                width="4"
+                height="4"
+                patternTransform="rotate(45)"
+                patternUnits="userSpaceOnUse"
+              >
+                <rect width="4" height="4" fill="var(--color-accent-reset)" />
+                <line x1="0" y1="0" x2="0" y2="4" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              </pattern>
+            </defs>
             <XAxis
               dataKey="label"
               axisLine={false}
@@ -71,16 +93,25 @@ export function TrendChart({ dashboard, flatId }: Props) {
               interval={0}
               tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }}
             />
-            <Bar dataKey="kwh" radius={[4, 4, 2, 2]} isAnimationActive={false}>
+            <Bar dataKey="kwh" radius={[4, 4, 2, 2]} isAnimationActive={false} minPointSize={3}>
               {chartData.map(entry => (
                 <Cell
                   key={entry.date}
-                  fill={spikeSet.has(entry.date) ? 'var(--color-accent-spike)' : 'rgba(255,255,255,0.5)'}
+                  fill={
+                    entry.wasMeterReset
+                      ? 'url(#meterResetHatch)'
+                      : spikeSet.has(entry.date)
+                        ? 'var(--color-accent-spike)'
+                        : 'rgba(255,255,255,0.5)'
+                  }
                 />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      )}
+      {resetDates.length > 0 && (
+        <span className="sr-only">{t('trend.meterResetSummary', { dates: resetDates.join(', ') })}</span>
       )}
     </div>
   )

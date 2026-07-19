@@ -10,7 +10,7 @@ export type CostSummary = {
   costDetailAvailable: boolean
 }
 
-export type DailyConsumptionPoint = { date: string; kwhValue: number }
+export type DailyConsumptionPoint = { date: string; kwhValue: number; wasMeterReset: boolean }
 
 export type DashboardSummary = {
   dailyAvgKwh: number

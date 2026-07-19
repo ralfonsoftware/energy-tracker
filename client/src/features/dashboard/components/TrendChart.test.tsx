@@ -3,9 +3,12 @@ import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi } from 'vitest'
 import { TrendChart } from '@/features/dashboard/components/TrendChart'
 import type { DashboardSummary } from '@/features/dashboard/api/dashboardApi'
+import i18n from '@/lib/i18n'
 
 vi.mock('react-i18next', () => ({
-  useTranslation: () => ({ t: (k: string) => k }),
+  useTranslation: () => ({
+    t: (k: string, options?: Record<string, unknown>) => (options ? `${k}|${JSON.stringify(options)}` : k),
+  }),
 }))
 
 vi.mock('@/features/readings/hooks/useReadingHistory', () => ({
@@ -17,13 +20,13 @@ vi.mock('@/features/readings/hooks/usePatchReading', () => ({
 }))
 
 const sevenDays: DashboardSummary['dailyConsumption'] = [
-  { date: '2026-06-24', kwhValue: 5 },
-  { date: '2026-06-25', kwhValue: 6 },
-  { date: '2026-06-26', kwhValue: 4 },
-  { date: '2026-06-27', kwhValue: 5 },
-  { date: '2026-06-28', kwhValue: 20 },
-  { date: '2026-06-29', kwhValue: 6 },
-  { date: '2026-06-30', kwhValue: 5 },
+  { date: '2026-06-24', kwhValue: 5, wasMeterReset: false },
+  { date: '2026-06-25', kwhValue: 6, wasMeterReset: false },
+  { date: '2026-06-26', kwhValue: 4, wasMeterReset: false },
+  { date: '2026-06-27', kwhValue: 5, wasMeterReset: false },
+  { date: '2026-06-28', kwhValue: 20, wasMeterReset: false },
+  { date: '2026-06-29', kwhValue: 6, wasMeterReset: false },
+  { date: '2026-06-30', kwhValue: 5, wasMeterReset: false },
 ]
 
 function makeDashboard(overrides: Partial<DashboardSummary> = {}): DashboardSummary {
@@ -96,5 +99,43 @@ describe('TrendChart', () => {
     await user.click(screen.getByLabelText('trend.historyIconLabel'))
 
     expect(screen.getByText('history.title')).toBeInTheDocument()
+  })
+
+  it('TrendChart_OneMeterResetDay_ThatBarUsesResetHatchFillAndOthersDoNot', () => {
+    // kwhValue: 0 matches production reality — KpiCalculator always clamps a reset interval to 0 kWh.
+    const withReset = sevenDays.map(point =>
+      point.date === '2026-06-28' ? { ...point, kwhValue: 0, wasMeterReset: true } : point
+    )
+    const { container } = render(
+      <TrendChart dashboard={makeDashboard({ dailyConsumption: withReset })} flatId="flat-1" />
+    )
+
+    const bars = Array.from(container.querySelectorAll('.recharts-bar-rectangle path'))
+    const resetBars = bars.filter(bar => bar.getAttribute('fill') === 'url(#meterResetHatch)')
+    const normalBars = bars.filter(bar => bar.getAttribute('fill') === 'rgba(255,255,255,0.5)')
+    expect(bars).toHaveLength(7)
+    expect(resetBars).toHaveLength(1)
+    expect(normalBars).toHaveLength(6)
+  })
+
+  it('TrendChart_NoMeterResetDays_NoAccessibleSummaryRendered', () => {
+    render(<TrendChart dashboard={makeDashboard()} flatId="flat-1" />)
+
+    expect(screen.queryByText(/trend\.meterResetSummary/)).not.toBeInTheDocument()
+  })
+
+  it('TrendChart_HasMeterResetDay_RendersAccessibleSummaryTextWithLocaleFormattedDate', () => {
+    const withReset = sevenDays.map(point =>
+      point.date === '2026-06-28' ? { ...point, kwhValue: 0, wasMeterReset: true } : point
+    )
+    render(<TrendChart dashboard={makeDashboard({ dailyConsumption: withReset })} flatId="flat-1" />)
+
+    const expectedDate = new Intl.DateTimeFormat(i18n.language, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date('2026-06-28'))
+    expect(screen.getByText(`trend.meterResetSummary|${JSON.stringify({ dates: expectedDate })}`)).toBeInTheDocument()
   })
 })

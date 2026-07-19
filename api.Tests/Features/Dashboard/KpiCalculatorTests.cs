@@ -454,4 +454,43 @@ public class KpiCalculatorTests
 
         result.SpikeDays.ShouldNotContain("2026-06-30");
     }
+
+    [Fact]
+    public void Compute_ReadingLowerThanPrior_FlagsSpannedDaysAsMeterResetWithZeroKwh()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 27, 0, 0, 0, TimeSpan.Zero);
+        var date2 = new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 500m),
+            MakeReading(date2, 100m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        var resetDay = result.DailyConsumption.First(d => d.Date == "2026-06-28");
+        resetDay.WasMeterReset.ShouldBeTrue();
+        resetDay.KwhValue.ShouldBe(0m);
+        var resetDay2 = result.DailyConsumption.First(d => d.Date == "2026-06-29");
+        resetDay2.WasMeterReset.ShouldBeTrue();
+        resetDay2.KwhValue.ShouldBe(0m);
+    }
+
+    [Fact]
+    public void Compute_NormalIncreasingReadings_NeverFlagsMeterReset()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 27, 0, 0, 0, TimeSpan.Zero);
+        var date2 = new DateTimeOffset(2026, 6, 29, 0, 0, 0, TimeSpan.Zero);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 106m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.DailyConsumption.ShouldAllBe(d => d.WasMeterReset == false);
+    }
 }

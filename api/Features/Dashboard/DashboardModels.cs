@@ -22,4 +22,4 @@ public record DashboardSummary(
     DailyConsumptionPoint[] DailyConsumption
 );
 
-public record DailyConsumptionPoint(string Date, decimal KwhValue);
+public record DailyConsumptionPoint(string Date, decimal KwhValue, bool WasMeterReset);
