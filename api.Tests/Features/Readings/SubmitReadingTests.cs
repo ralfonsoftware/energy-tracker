@@ -150,8 +150,45 @@ public class SubmitReadingTests
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
 
         var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var title = (string)badRequest.Value!.GetType().GetProperty("title")!.GetValue(badRequest.Value)!;
+        var status = (int)badRequest.Value!.GetType().GetProperty("status")!.GetValue(badRequest.Value)!;
         var detail = (string)badRequest.Value!.GetType().GetProperty("detail")!.GetValue(badRequest.Value)!;
+        title.ShouldBe("Validation Error");
+        status.ShouldBe(400);
         detail.ShouldBe("kwhValue must have at most 4 decimal places.");
+        var readings = await db.MeterReadings.CountAsync();
+        readings.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_KwhValueWithExactlyFourSignificantDecimalPlaces_Succeeds()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new SubmitReadingFunction(db, new ReadingValidator());
+        var req = MakeRequest(new { kwhValue = 123.4567m, readingDate = DateTimeOffset.UtcNow });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<CreatedResult>();
+        var readings = await db.MeterReadings.CountAsync();
+        readings.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RunAsync_NegativeKwhValueWithExcessDecimalPlaces_Returns400WithBothMessages()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new SubmitReadingFunction(db, new ReadingValidator());
+        var req = MakeRequest(new { kwhValue = -1.23456m, readingDate = DateTimeOffset.UtcNow });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var detail = (string)badRequest.Value!.GetType().GetProperty("detail")!.GetValue(badRequest.Value)!;
+        detail.ShouldContain("kwhValue must be greater than 0.");
+        detail.ShouldContain("kwhValue must have at most 4 decimal places.");
         var readings = await db.MeterReadings.CountAsync();
         readings.ShouldBe(0);
     }

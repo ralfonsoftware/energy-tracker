@@ -4,7 +4,7 @@ baseline_commit: 395a4b28d8b077653339f545d4adde7dda19ed36
 
 # Story 9.11: Regression Test — KwhValue Precision Rejection
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -68,6 +68,11 @@ This already proves "400 + no row written" for a >4-decimal-place value. **The o
   - [x] Optionally use the AC's own example value `12.34567m` if writing a new fact, for a request body distinct from the pre-existing `123.56789m` case. (Extended the existing fact in place rather than duplicating; kept its original `123.56789m` value — no need for a second value.)
 - [x] Task 2: Verify the full backend test suite is green (AC: #1)
   - [x] Run `dotnet test` from the `api.Tests` directory (or repo root) and confirm all tests pass, including the modified/new fact.
+
+### Review Findings
+
+- [x] [Review][Defer→Fixed] Add boundary-adjacent precision test cases [api.Tests/Features/Readings/SubmitReadingTests.cs] — addressed post-review: added `RunAsync_KwhValueWithExactlyFourSignificantDecimalPlaces_Succeeds` (123.4567m, exactly 4 significant decimals, expects 201) and `RunAsync_NegativeKwhValueWithExcessDecimalPlaces_Returns400WithBothMessages` (-1.23456m, expects 400 with both `GreaterThan`/`DecimalPrecision` messages joined). Culture-specific decimal separators were not added as a case — this function deserializes the request body via `System.Text.Json`, which parses JSON numbers into `decimal` using invariant culture regardless of server locale; there is no culture-sensitive parsing path here to test.
+- [x] [Review][Defer→Fixed] Assert the full Problem Details payload shape [api.Tests/Features/Readings/SubmitReadingTests.cs:153] — addressed post-review: extended `RunAsync_KwhValueExceedsFourDecimalPlaces_Returns400` to also assert `title.ShouldBe("Validation Error")` and `status.ShouldBe(400)` alongside the existing `detail` assertion. Note: `SubmitReadingFunction.cs`'s validation-error response only has `{ title, status, detail }` — no `type` field (unlike some other Functions in this codebase, e.g. `CompleteOnboardingFunction.cs`) — so `type` was not asserted since it doesn't exist on this response.
 
 ## Dev Notes
 
