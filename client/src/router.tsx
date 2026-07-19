@@ -8,6 +8,7 @@ const InsightsPage = lazy(() => import('@/features/insights/InsightsPage'))
 const DecompositionPage = lazy(() => import('@/features/decomposition/DecompositionPage'))
 const SettingsPage = lazy(() => import('@/features/settings/SettingsPage'))
 const OnboardingPage = lazy(() => import('@/features/onboarding/OnboardingPage'))
+const NotFoundPage = lazy(() => import('@/components/NotFoundPage'))
 
 function Wrap({ Page }: { Page: React.ComponentType }) {
   return (
@@ -33,4 +34,5 @@ export const router = createBrowserRouter([
     ],
   },
   { path: '/onboarding', element: <Wrap Page={OnboardingPage} /> },
+  { path: '*', element: <Wrap Page={NotFoundPage} /> },
 ])

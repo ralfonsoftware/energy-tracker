@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-19 (Story 9.12 done — code review found & fixed a circular-reasoning error in the audit's core finding)
+# last_updated: 2026-07-19 (Story 9.13 done — code review found & fixed contradictory sprint-status bookkeeping and a history-trap in the 404 CTA's navigate call)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-19 (Story 9.12 done — code review found & fixed a circular-reasoning error in the audit's core finding)
+last_updated: 2026-07-19 (Story 9.13 done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -127,7 +127,7 @@ development_status:
   9-10-optimistic-concurrency-hardening-flat-structure-reading-and-tariff: done
   9-11-kwhvalue-precision-divergence-fix: done
   9-12-audit-contractstartdate-migration-for-silent-data-loss: done
-  9-13-catch-all-404-route: backlog
+  9-13-catch-all-404-route: done
   epic-9-retrospective: optional
 
   # Epic 10: Actionable Insights

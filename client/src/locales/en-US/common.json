@@ -20,5 +20,10 @@
     "loading": "Loading…",
     "addFlat": "Add flat",
     "error": "Unavailable"
+  },
+  "notFound": {
+    "heading": "Page not found",
+    "body": "The page you're looking for doesn't exist or may have moved.",
+    "cta": "Back to Dashboard"
   }
 }

@@ -20,5 +20,10 @@
     "loading": "Lädt…",
     "addFlat": "Wohnung hinzufügen",
     "error": "Nicht verfügbar"
+  },
+  "notFound": {
+    "heading": "Seite nicht gefunden",
+    "body": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+    "cta": "Zurück zum Dashboard"
   }
 }

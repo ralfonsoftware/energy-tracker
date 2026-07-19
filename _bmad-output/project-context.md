@@ -383,7 +383,6 @@ return new BadRequestObjectResult(new {
 
 #### Known gaps — do not re-implement or work around
 - No `dotnet test` / `npm test` in CI — tests do not run in CI pipeline
-- No catch-all 404 route in React Router — unknown URLs render blank (deferred)
 - No `EnableRetryOnFailure` on SQL connection (deferred)
 - No React Error Boundary around `<Outlet />` in AppShell (deferred)
 
@@ -441,4 +440,4 @@ return new BadRequestObjectResult(new {
 - Remove rules that have become obvious or are now enforced by tooling
 - The Version Gotchas section should shrink as the stack stabilises
 
-_Last updated: 2026-07-13_
+_Last updated: 2026-07-19_

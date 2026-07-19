@@ -1,5 +1,15 @@
 # Deferred Work
 
+## Deferred from: code review of 9-13-catch-all-404-route (2026-07-19)
+
+- `router.test.tsx` builds an inline stub route tree instead of importing the real `router` from `router.tsx` — a regression in the real file's route order/placement would not be caught by these tests. Pre-existing test-strategy tradeoff, mirrors `AppShell.test.tsx`'s established pattern per this story's own Dev Notes. `client/src/router.test.tsx:9-28`
+- CTA relies on `OnboardingGate`, whose pre-existing `isLoading || isError → return null` behavior can render blank if clicked during a slow/failed settings fetch. Pre-existing behavior shared by every in-app navigation to `/`, already tracked via the separate "No React Error Boundary around `<Outlet />`" Known Gap. `client/src/features/onboarding/components/OnboardingGate.tsx:6`
+- CTA copy "Back to Dashboard" is imprecise for users with `hasFlat: false` — `OnboardingGate` redirects `navigate('/')` to `/onboarding` instead. Arguably correct product behavior, just an imprecise label; needs product input if changed. `client/src/components/NotFoundPage.tsx:19`
+- `NotFoundPage` is lazy-loaded like every other route; a chunk-load failure on this fallback path has no error boundary and could reproduce the "blank page" symptom this story closes. Pre-existing risk shared by all lazy routes, already tracked via the separate Error Boundary Known Gap. `client/src/router.tsx:11`
+- No `document.title` update or aria-live announcement when landing on the 404 route. No existing per-route title convention in this codebase to extend. `client/src/components/NotFoundPage.tsx`
+- `NotFoundPage.test.tsx` mocks `react-i18next` to return raw keys, so it does not verify the `notFound.*` keys actually resolve in the locale JSON files. Same testing convention used project-wide, not unique to this diff. `client/src/components/NotFoundPage.test.tsx:7-9`
+- SPA catch-all returns HTTP 200 for genuinely dead links — no server/hosting-level 404 status. Inherent SPA architecture characteristic, unrelated to this story's scope. `client/src/router.tsx`
+
 ## Deferred from: code review of 9-10 build-fixture fix (2026-07-19)
 
 - Three other `mockUseUserSettings` call sites still omit `refetch` — `client/src/features/settings/components/AddFlatForm.test.tsx`, `client/src/features/settings/components/AccountSettings.test.tsx`, `client/src/components/FlatSwitcher.test.tsx`. They don't block the build because each casts through `as unknown as ReturnType<typeof useUserSettings>`, bypassing TS structural checking — but a component under test that ever called `.refetch()` there would throw at runtime with no compile-time warning. Add `refetch: vi.fn()` to these three for realism whenever those files are next touched.
