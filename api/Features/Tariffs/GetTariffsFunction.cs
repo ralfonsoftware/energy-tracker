@@ -47,7 +47,8 @@ public class GetTariffsFunction(AppDbContext db)
             t.MonthlyBaseFee,
             t.ProviderName,
             t.ContractDurationMonths,
-            TariffLockPolicy.IsLocked(t.ContractStartDate)))
+            TariffLockPolicy.IsLocked(t.ContractStartDate),
+            t.RowVersion))
             .ToList();
 
         return new OkObjectResult(responses);

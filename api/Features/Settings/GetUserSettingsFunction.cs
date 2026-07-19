@@ -47,7 +47,8 @@ public class GetUserSettingsFunction(AppDbContext db, LocaleResolver localeResol
             flat?.Name,
             flat?.AnnualKwhBaseline,
             flat?.PlannedAnnualSpend,
-            user.ActiveFlatId
+            user.ActiveFlatId,
+            flat?.RowVersion
         ));
     }
 }

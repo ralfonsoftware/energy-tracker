@@ -9,5 +9,6 @@ public class Tariff
     public string? ProviderName { get; set; }
     public DateTimeOffset ContractStartDate { get; set; }
     public int? ContractDurationMonths { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public Flat Flat { get; set; } = null!;
 }

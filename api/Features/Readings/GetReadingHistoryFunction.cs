@@ -38,7 +38,7 @@ public class GetReadingHistoryFunction(AppDbContext db)
         var readings = await db.MeterReadings.AsNoTracking()
             .Where(r => r.FlatId == flatGuid)
             .OrderByDescending(r => r.ReadingDate)
-            .Select(r => new ReadingResponse(r.ReadingId, r.KwhValue, r.ReadingDate, r.IsCorrected, r.OriginalKwhValue))
+            .Select(r => new ReadingResponse(r.ReadingId, r.KwhValue, r.ReadingDate, r.IsCorrected, r.OriginalKwhValue, r.RowVersion))
             .ToListAsync(ct);
 
         return new OkObjectResult(readings);

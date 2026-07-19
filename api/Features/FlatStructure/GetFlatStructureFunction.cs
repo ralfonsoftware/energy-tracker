@@ -67,7 +67,8 @@ public class GetFlatStructureFunction(AppDbContext db)
                         d.SelfMeasuredPeriod))
                     .ToList()))
                 .ToList()))
-            .ToList());
+            .ToList(),
+            RowVersion: flat.RowVersion);
 
         return new OkObjectResult(response);
     }

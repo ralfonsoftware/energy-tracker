@@ -17,6 +17,7 @@ public class TariffConfiguration : IEntityTypeConfiguration<Tariff>
         builder.Property(t => t.ProviderName).HasMaxLength(200).IsRequired(false);
         builder.Property(t => t.ContractStartDate).IsRequired();
         builder.Property(t => t.ContractDurationMonths).IsRequired(false);
+        builder.Property(t => t.RowVersion).IsRowVersion();
         builder.HasOne(t => t.Flat)
             .WithMany()
             .HasForeignKey(t => t.FlatId)

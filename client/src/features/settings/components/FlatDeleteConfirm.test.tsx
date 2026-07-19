@@ -12,13 +12,16 @@ import { useDeleteFlat } from '../hooks/useDeleteFlat'
 const mockUseDeleteFlat = vi.mocked(useDeleteFlat)
 
 type MutateOptions = { onSuccess?: () => void; onError?: () => void }
+type MutateArgs = { flatId: string; rowVersion: string }
 
 function setup() {
-  const mutate = vi.fn<(flatId: string, opts?: MutateOptions) => void>()
+  const mutate = vi.fn<(args: MutateArgs, opts?: MutateOptions) => void>()
   mockUseDeleteFlat.mockReturnValue({ mutate, isPending: false } as unknown as ReturnType<typeof useDeleteFlat>)
 
   const onCancel = vi.fn()
-  render(<FlatDeleteConfirm flatId="flat-1" flatName="My Flat" onCancel={onCancel} />)
+  render(
+    <FlatDeleteConfirm flatId="flat-1" flatName="My Flat" flatRowVersion="AQID" onCancel={onCancel} />
+  )
 
   const input = screen.getByRole('textbox')
   const deleteButton = screen.getByRole('button', { name: 'account.deleteFlat.deleteButton' })
@@ -72,7 +75,7 @@ describe('FlatDeleteConfirm', () => {
     const { mutate, input, deleteButton } = setup()
     await user.type(input, 'My Flat')
     await user.click(deleteButton)
-    expect(mutate).toHaveBeenCalledWith('flat-1', expect.any(Object))
+    expect(mutate).toHaveBeenCalledWith({ flatId: 'flat-1', rowVersion: 'AQID' }, expect.any(Object))
   })
 
   it('FlatDeleteConfirm_DeleteSucceeds_CallsOnCancel', async () => {

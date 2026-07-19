@@ -88,6 +88,10 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         else if (obj.ContainsKey("lockOverride") && obj["lockOverride"] is not null)
             return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "lockOverride must be a boolean." });
 
+        var rowVersionStr = obj["rowVersion"] is JsonValue rowVersionVal && rowVersionVal.TryGetValue<string>(out var rvs) ? rvs : null;
+        if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
+            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "rowVersion is required." });
+
         var request = new PatchTariffRequest(
             PricePerKwh: pricePerKwh,
             MonthlyBaseFee: monthlyBaseFee,
@@ -95,7 +99,8 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
             ProviderName: providerName,
             ContractDurationMonthsProvided: obj.ContainsKey("contractDurationMonths"),
             ContractDurationMonths: contractDurationMonths,
-            LockOverride: lockOverride);
+            LockOverride: lockOverride,
+            RowVersion: rowVersion);
 
         var validationResult = await validator.ValidateAsync(request, ct);
         if (!validationResult.IsValid)
@@ -131,7 +136,20 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         if (request.MonthlyBaseFee is not null)
             tariff.MonthlyBaseFee = request.MonthlyBaseFee.Value;
 
-        await db.SaveChangesAsync(ct);
+        db.ApplyRowVersionCheck(tariff, request.RowVersion);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ObjectResult(new
+            {
+                title = "Conflict", status = 409,
+                detail = "This record was modified by another request. Reload and try again."
+            }) { StatusCode = 409 };
+        }
 
         var response = new TariffResponse(
             tariff.TariffId,
@@ -140,7 +158,8 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
             tariff.MonthlyBaseFee,
             tariff.ProviderName,
             tariff.ContractDurationMonths,
-            TariffLockPolicy.IsLocked(tariff.ContractStartDate));
+            TariffLockPolicy.IsLocked(tariff.ContractStartDate),
+            tariff.RowVersion);
 
         return new OkObjectResult(response);
     }

@@ -4,10 +4,11 @@ public record PatchFlatRequest(
     string? Name,
     decimal? AnnualKwhBaseline,
     bool PlannedAnnualSpendProvided,
-    decimal? PlannedAnnualSpend
+    decimal? PlannedAnnualSpend,
+    byte[] RowVersion
 );
 
-public record FlatResponse(Guid FlatId, string Name, decimal AnnualKwhBaseline, decimal? PlannedAnnualSpend);
+public record FlatResponse(Guid FlatId, string Name, decimal AnnualKwhBaseline, decimal? PlannedAnnualSpend, byte[] RowVersion);
 
 public record FlatSummary(Guid FlatId, string Name, decimal AnnualKwhBaseline, decimal SpikeThreshold, decimal? PlannedAnnualSpend);
 

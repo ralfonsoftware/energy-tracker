@@ -23,7 +23,7 @@ function FlatStructureSettingsRoute() {
 function TariffSettingsRoute() {
   const { settings, isLoading, isError } = useUserSettings()
   const { mutate: patchFlat, isPending: isSavingSpend, isError: isSpendSaveError } = usePatchFlat()
-  const [missingFlatIdError, setMissingFlatIdError] = useState(false)
+  const [saveGuardError, setSaveGuardError] = useState(false)
   if (isLoading || isError) return null
   return (
     <TariffList
@@ -31,15 +31,18 @@ function TariffSettingsRoute() {
       annualKwhBaseline={settings?.annualKwhBaseline}
       plannedAnnualSpend={settings?.plannedAnnualSpend}
       onSavePlannedAnnualSpend={value => {
-        if (!settings?.flatId) {
-          setMissingFlatIdError(true)
+        if (!settings?.flatId || !settings.flatRowVersion) {
+          setSaveGuardError(true)
           return
         }
-        setMissingFlatIdError(false)
-        patchFlat({ flatId: settings.flatId, body: { plannedAnnualSpend: value } })
+        setSaveGuardError(false)
+        patchFlat({
+          flatId: settings.flatId,
+          body: { plannedAnnualSpend: value, rowVersion: settings.flatRowVersion },
+        })
       }}
       isSavingPlannedAnnualSpend={isSavingSpend}
-      isPlannedAnnualSpendSaveError={isSpendSaveError || (missingFlatIdError && !settings?.flatId)}
+      isPlannedAnnualSpendSaveError={isSpendSaveError || saveGuardError}
     />
   )
 }

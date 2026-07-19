@@ -14,6 +14,7 @@ public class PowerPointConfiguration : IEntityTypeConfiguration<PowerPoint>
         builder.Property(pp => pp.RoomId).IsRequired();
         builder.Property(pp => pp.Name).HasMaxLength(200).IsRequired();
         builder.Property(pp => pp.PlugId).HasMaxLength(200).IsRequired(false);
+        builder.Property(pp => pp.RowVersion).IsRowVersion();
         builder.HasOne(pp => pp.Room)
             .WithMany(room => room.PowerPoints)
             .HasForeignKey(pp => pp.RoomId)

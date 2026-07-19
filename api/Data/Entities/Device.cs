@@ -27,5 +27,6 @@ public class Device
     public decimal? EuAnnualKwh { get; set; }
     public decimal? SelfMeasuredKwh { get; set; }
     public SelfMeasuredPeriod? SelfMeasuredPeriod { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public PowerPoint PowerPoint { get; set; } = null!;
 }

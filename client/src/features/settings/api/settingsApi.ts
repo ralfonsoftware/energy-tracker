@@ -7,6 +7,7 @@ export type UserSettings = {
   flatName?: string
   annualKwhBaseline?: number
   plannedAnnualSpend?: number | null
+  flatRowVersion?: string
 }
 
 export const getUserSettings = () =>
@@ -19,6 +20,7 @@ export type PatchFlatBody = {
   name?: string
   annualKwhBaseline?: number
   plannedAnnualSpend?: number | null
+  rowVersion: string
 }
 
 export type FlatData = {
@@ -26,6 +28,7 @@ export type FlatData = {
   name: string
   annualKwhBaseline: number
   plannedAnnualSpend: number | null
+  rowVersion: string
 }
 
 export const patchFlat = (flatId: string, body: PatchFlatBody) =>
@@ -50,8 +53,8 @@ export type CreateFlatBody = {
 export const createFlat = (body: CreateFlatBody) =>
   apiClient.post<FlatSummary>('/flats', body)
 
-export const deleteFlat = (flatId: string) =>
-  apiClient.delete<void>(`/flats/${flatId}`)
+export const deleteFlat = (flatId: string, rowVersion: string) =>
+  apiClient.delete<void>(`/flats/${flatId}`, { rowVersion })
 
 export type AuthMe = { clientPrincipal: { userDetails: string } | null }
 export const getAuthMe = () =>

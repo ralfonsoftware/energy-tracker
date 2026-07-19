@@ -16,6 +16,7 @@ public class FlatConfiguration : IEntityTypeConfiguration<Flat>
         builder.Property(f => f.AnnualKwhBaseline).HasColumnType("decimal(18,4)").IsRequired();
         builder.Property(f => f.SpikeThreshold).HasColumnType("decimal(18,4)").HasDefaultValue(2.0m).HasSentinel(-1m).IsRequired();
         builder.Property(f => f.PlannedAnnualSpend).HasColumnType("decimal(18,4)").IsRequired(false);
+        builder.Property(f => f.RowVersion).IsRowVersion();
         builder.HasOne(f => f.User)
             .WithMany()
             .HasForeignKey(f => f.UserId)

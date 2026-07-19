@@ -50,10 +50,12 @@ export function FlatStructureEditor({ flatId }: Props) {
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [confirmDeleteRoomKey, setConfirmDeleteRoomKey] = useState<string | null>(null)
   const initializedFlatIdRef = useRef<string | undefined>(undefined)
+  const currentRowVersionRef = useRef<string>('')
 
   useEffect(() => {
     if (!data || initializedFlatIdRef.current === flatId) return
     initializedFlatIdRef.current = flatId
+    currentRowVersionRef.current = data.rowVersion
     let seeded: DraftRoom[]
     if (data.hasDefaultTemplate && data.rooms.length === 0) {
       seeded = createDefaultDraftRooms(t)
@@ -92,6 +94,12 @@ export function FlatStructureEditor({ flatId }: Props) {
     setDraftRooms(prev => prev.map(room => (room.key === roomKey ? updated : room)))
   }
 
+  const refreshRowVersionAfterConflict = () => {
+    refetch().then(result => {
+      if (result.data) currentRowVersionRef.current = result.data.rowVersion
+    })
+  }
+
   const handleSaveRoom = (room: DraftRoom) => {
     const trimmedName = room.name.trim()
     const roomInput = toRoomInput(room, trimmedName)
@@ -99,11 +107,12 @@ export function FlatStructureEditor({ flatId }: Props) {
       room.originalName === undefined
         ? withRoomAppended(lastSaved, room.key, roomInput)
         : withRoomUpdated(lastSaved, room.key, roomInput)
-    const payload = toWireRequest(newLastSaved)
+    const payload = toWireRequest(newLastSaved, currentRowVersionRef.current)
     setSaveError(false)
     setSaveSuccess(false)
     mutate(payload, {
-      onSuccess: () => {
+      onSuccess: response => {
+        currentRowVersionRef.current = response.rowVersion
         setLastSaved(newLastSaved)
         setDraftRooms(prev =>
           prev.map(r => (r.key === room.key ? { ...r, originalName: trimmedName } : r))
@@ -117,6 +126,7 @@ export function FlatStructureEditor({ flatId }: Props) {
           )
         }
         setSaveError(true)
+        refreshRowVersionAfterConflict()
       },
     })
   }
@@ -133,15 +143,17 @@ export function FlatStructureEditor({ flatId }: Props) {
     if (room.originalName === undefined) return
 
     const newLastSaved = withRoomRemoved(lastSaved, roomKey)
-    const payload = toWireRequest(newLastSaved)
+    const payload = toWireRequest(newLastSaved, currentRowVersionRef.current)
     mutate(payload, {
-      onSuccess: () => {
+      onSuccess: response => {
+        currentRowVersionRef.current = response.rowVersion
         setLastSaved(newLastSaved)
         setSaveSuccess(true)
       },
       onError: () => {
         setDraftRooms(prev => [...prev.slice(0, index), room, ...prev.slice(index)])
         setSaveError(true)
+        refreshRowVersionAfterConflict()
       },
     })
   }
@@ -154,9 +166,15 @@ export function FlatStructureEditor({ flatId }: Props) {
     if (hasPlugIdConflict || hasEmptyName || hasNoRooms || isPending) return
     setSaveError(false)
     setSaveSuccess(false)
-    mutate(toUpdateRequest(draftRooms), {
-      onSuccess: () => setSaveSuccess(true),
-      onError: () => setSaveError(true),
+    mutate(toUpdateRequest(draftRooms, currentRowVersionRef.current), {
+      onSuccess: response => {
+        currentRowVersionRef.current = response.rowVersion
+        setSaveSuccess(true)
+      },
+      onError: () => {
+        setSaveError(true)
+        refreshRowVersionAfterConflict()
+      },
     })
   }
 

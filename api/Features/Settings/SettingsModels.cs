@@ -7,5 +7,6 @@ public record UserSettingsResponse(
     string? FlatName,
     decimal? AnnualKwhBaseline,
     decimal? PlannedAnnualSpend,
-    Guid? ActiveFlatId
+    Guid? ActiveFlatId,
+    byte[]? FlatRowVersion
 );

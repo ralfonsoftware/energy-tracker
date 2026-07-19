@@ -90,7 +90,8 @@ public class SubmitReadingFunction(AppDbContext db, ReadingValidator validator)
             reading.KwhValue,
             reading.ReadingDate,
             reading.IsCorrected,
-            reading.OriginalKwhValue);
+            reading.OriginalKwhValue,
+            reading.RowVersion);
 
         return new CreatedResult(
             $"/api/v1/flats/{flatId}/readings/{reading.ReadingId}",

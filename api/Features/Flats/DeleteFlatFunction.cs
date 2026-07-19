@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Nodes;
 
 namespace EnergyTracker.Api.Features.Flats;
 
@@ -33,10 +34,43 @@ public class DeleteFlatFunction(AppDbContext db)
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
 
+        using var reader = new StreamReader(req.Body);
+        var body = await reader.ReadToEndAsync(ct);
+        JsonNode? node = null;
+        try { node = JsonNode.Parse(body); } catch (System.Text.Json.JsonException) { }
+
+        if (node is not JsonObject obj)
+            return new BadRequestObjectResult(new
+            {
+                title = "Bad Request", status = 400,
+                detail = "Request body must be a JSON object."
+            });
+
+        var rowVersionStr = obj["rowVersion"] is JsonValue rowVersionVal && rowVersionVal.TryGetValue<string>(out var rvs) ? rvs : null;
+        if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
+            return new BadRequestObjectResult(new
+            {
+                title = "Bad Request", status = 400,
+                detail = "rowVersion is required."
+            });
+
         await db.LoadFlatCascadeChildrenAsync(flatGuid, ct);
 
+        db.ApplyRowVersionCheck(flat, rowVersion);
         db.Flats.Remove(flat);
-        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ObjectResult(new
+            {
+                title = "Conflict", status = 409,
+                detail = "This record was modified by another request. Reload and try again."
+            }) { StatusCode = 409 };
+        }
 
         return new NoContentResult();
     }

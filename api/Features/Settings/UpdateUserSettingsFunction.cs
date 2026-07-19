@@ -138,7 +138,8 @@ public class UpdateUserSettingsFunction(AppDbContext db, ILogger<UpdateUserSetti
             flat?.Name,
             flat?.AnnualKwhBaseline,
             flat?.PlannedAnnualSpend,
-            user.ActiveFlatId
+            user.ActiveFlatId,
+            flat?.RowVersion
         ));
     }
 }

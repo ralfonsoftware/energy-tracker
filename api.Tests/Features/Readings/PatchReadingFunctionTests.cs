@@ -9,15 +9,32 @@ using Moq;
 using Shouldly;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace api.Tests.Features.Readings;
 
 public class PatchReadingFunctionTests
 {
+    private const string TestRowVersionBase64 = "AQID";
+    private static readonly byte[] TestRowVersion = [1, 2, 3];
+
     private static AppDbContext MakeDb() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+
+    private sealed class ConcurrencyConflictDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        private int _saveCount;
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            _saveCount++;
+            if (_saveCount == 1)
+                throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+            return base.SaveChangesAsync(cancellationToken);
+        }
+    }
 
     private static FunctionContext MakeFunctionContext(string userId = "user-test-123")
     {
@@ -54,16 +71,19 @@ public class PatchReadingFunctionTests
             KwhValue = kwhValue,
             ReadingDate = DateTimeOffset.UtcNow,
             IsCorrected = isCorrected,
-            OriginalKwhValue = originalKwhValue
+            OriginalKwhValue = originalKwhValue,
+            RowVersion = TestRowVersion
         };
         db.MeterReadings.Add(reading);
         await db.SaveChangesAsync();
         return reading;
     }
 
-    private static HttpRequest MakeRequest(object body)
+    private static HttpRequest MakeRequest(object body, string? rowVersion = TestRowVersionBase64)
     {
-        var json = JsonSerializer.Serialize(body);
+        var node = JsonSerializer.SerializeToNode(body)!.AsObject();
+        if (rowVersion is not null) node["rowVersion"] = rowVersion;
+        var json = node.ToJsonString();
         var ctx = new DefaultHttpContext();
         ctx.Request.ContentType = "application/json";
         ctx.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
@@ -254,5 +274,84 @@ public class PatchReadingFunctionTests
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), "not-a-guid", ctx, CancellationToken.None);
 
         result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_MissingRowVersion_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var reading = await SeedReadingAsync(db, flat.FlatId, 100m);
+        var fn = new PatchReadingFunction(db, new PatchReadingValidator());
+        var req = MakeRequest(new { kwhValue = 120m }, rowVersion: null);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), reading.ReadingId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var persisted = await db.MeterReadings.SingleAsync(r => r.ReadingId == reading.ReadingId);
+        persisted.KwhValue.ShouldBe(100m);
+    }
+
+    [Fact]
+    public async Task RunAsync_MalformedRowVersion_Returns400()
+    {
+        // byte[]-typed properties are base64-decoded by System.Text.Json during deserialization
+        // itself, so this surfaces as a JsonException ("Invalid JSON in request body") rather
+        // than this Function's own "rowVersion is required" check — still a 400.
+        var (flat, db) = await SeedFlatAsync();
+        var reading = await SeedReadingAsync(db, flat.FlatId, 100m);
+        var fn = new PatchReadingFunction(db, new PatchReadingValidator());
+        var req = MakeRequest(new { kwhValue = 120m }, rowVersion: "not-valid-base64!!");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), reading.ReadingId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var persisted = await db.MeterReadings.SingleAsync(r => r.ReadingId == reading.ReadingId);
+        persisted.KwhValue.ShouldBe(100m);
+    }
+
+    [Fact]
+    public async Task RunAsync_ConcurrentModification_Returns409Conflict()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        var reading = new MeterReading
+        {
+            ReadingId = Guid.NewGuid(),
+            FlatId = flat.FlatId,
+            KwhValue = 100m,
+            ReadingDate = DateTimeOffset.UtcNow,
+            RowVersion = TestRowVersion
+        };
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedCtx = new AppDbContext(dbOptions))
+        {
+            seedCtx.Users.Add(new User { UserId = "user-test-123" });
+            seedCtx.Flats.Add(flat);
+            seedCtx.MeterReadings.Add(reading);
+            await seedCtx.SaveChangesAsync();
+        }
+
+        var db = new ConcurrencyConflictDbContext(dbOptions);
+        var fn = new PatchReadingFunction(db, new PatchReadingValidator());
+        var req = MakeRequest(new { kwhValue = 120m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), reading.ReadingId.ToString(), ctx, CancellationToken.None);
+
+        var conflict = result.ShouldBeOfType<ObjectResult>();
+        conflict.StatusCode.ShouldBe(409);
+        using var verifyCtx = new AppDbContext(dbOptions);
+        var persisted = await verifyCtx.MeterReadings.SingleAsync(r => r.ReadingId == reading.ReadingId);
+        persisted.KwhValue.ShouldBe(100m);
     }
 }

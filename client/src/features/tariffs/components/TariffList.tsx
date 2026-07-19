@@ -101,6 +101,13 @@ export function TariffList({
                 tariff={editingTariff ?? undefined}
                 onClose={closeSheet}
                 onPendingChange={handleFormPendingChange}
+                onSaveConflict={() => {
+                  refetch().then(result => {
+                    if (!editingTariff) return
+                    const fresh = result.data?.find(t => t.tariffId === editingTariff.tariffId)
+                    if (fresh) setEditingTariff(fresh)
+                  })
+                }}
               />
             </SheetContent>
           </Sheet>

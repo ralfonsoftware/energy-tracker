@@ -102,9 +102,10 @@ export function toRoomInput(room: DraftRoom, name: string): RoomInput {
   }
 }
 
-export function toUpdateRequest(rooms: DraftRoom[]): UpdateFlatStructureRequest {
+export function toUpdateRequest(rooms: DraftRoom[], rowVersion: string): UpdateFlatStructureRequest {
   return {
     rooms: rooms.map((room, index) => ({ ...toRoomInput(room, room.name), sortOrder: index })),
+    rowVersion,
   }
 }
 
@@ -121,9 +122,10 @@ export function toKeyedRooms(rooms: DraftRoom[]): KeyedRoomInput[] {
   return rooms.map(room => ({ key: room.key, room: toRoomInput(room, room.name) }))
 }
 
-export function toWireRequest(keyedRooms: KeyedRoomInput[]): UpdateFlatStructureRequest {
+export function toWireRequest(keyedRooms: KeyedRoomInput[], rowVersion: string): UpdateFlatStructureRequest {
   return {
     rooms: keyedRooms.map(({ room }, index) => ({ ...room, sortOrder: index })),
+    rowVersion,
   }
 }
 

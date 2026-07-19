@@ -34,9 +34,13 @@ export function FlatSettingsCard({ settings }: FlatSettingsCardProps) {
 
   const handleSaveName = () => {
     if (!editName.trim() || !settings.flatId) return
+    if (!settings.flatRowVersion) {
+      setEditError(t('flat.saveError'))
+      return
+    }
     setEditError(null)
     patchFlat(
-      { flatId: settings.flatId, body: { name: editName.trim() } },
+      { flatId: settings.flatId, body: { name: editName.trim(), rowVersion: settings.flatRowVersion } },
       {
         onSuccess: () => setIsEditing(false),
         onError: () => {

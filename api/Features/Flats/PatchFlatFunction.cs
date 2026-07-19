@@ -51,11 +51,16 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         else if (obj.ContainsKey("plannedAnnualSpend") && obj["plannedAnnualSpend"] is not null)
             return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "plannedAnnualSpend must be a number or null." });
 
+        var rowVersionStr = obj["rowVersion"] is JsonValue rowVersionVal && rowVersionVal.TryGetValue<string>(out var rvs) ? rvs : null;
+        if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
+            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "rowVersion is required." });
+
         var request = new PatchFlatRequest(
             Name: obj["name"]?.GetValue<string>(),
             AnnualKwhBaseline: kwhBaseline,
             PlannedAnnualSpendProvided: obj.ContainsKey("plannedAnnualSpend"),
-            PlannedAnnualSpend: plannedSpend
+            PlannedAnnualSpend: plannedSpend,
+            RowVersion: rowVersion
         );
 
         var validationResult = await validator.ValidateAsync(request, ct);
@@ -69,8 +74,17 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         if (request.AnnualKwhBaseline is not null) flat.AnnualKwhBaseline = request.AnnualKwhBaseline.Value;
         if (request.PlannedAnnualSpendProvided) flat.PlannedAnnualSpend = request.PlannedAnnualSpend;
 
-        await db.SaveChangesAsync(ct);
+        db.ApplyRowVersionCheck(flat, request.RowVersion);
 
-        return new OkObjectResult(new FlatResponse(flat.FlatId, flat.Name, flat.AnnualKwhBaseline, flat.PlannedAnnualSpend));
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ObjectResult(new { title = "Conflict", status = 409, detail = "This record was modified by another request. Reload and try again." }) { StatusCode = 409 };
+        }
+
+        return new OkObjectResult(new FlatResponse(flat.FlatId, flat.Name, flat.AnnualKwhBaseline, flat.PlannedAnnualSpend, flat.RowVersion));
     }
 }

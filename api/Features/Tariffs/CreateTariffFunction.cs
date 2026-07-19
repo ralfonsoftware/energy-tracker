@@ -114,7 +114,8 @@ public class CreateTariffFunction(AppDbContext db, TariffValidator validator)
             tariff.MonthlyBaseFee,
             tariff.ProviderName,
             tariff.ContractDurationMonths,
-            TariffLockPolicy.IsLocked(tariff.ContractStartDate));
+            TariffLockPolicy.IsLocked(tariff.ContractStartDate),
+            tariff.RowVersion);
 
         return new CreatedResult(
             $"/api/v1/flats/{flatId}/tariffs/{tariff.TariffId}",

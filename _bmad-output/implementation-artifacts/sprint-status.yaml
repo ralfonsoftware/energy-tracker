@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-19 (Story 9.9 done — code review passed, 2 patch findings fixed, 2 minor items deferred)
+last_updated: 2026-07-19 (Story 9.10 done — code review passed, 1 decision + 4 patch findings resolved/fixed, backend 380/380, frontend 395/395)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -124,7 +124,7 @@ development_status:
   9-7-decimal-precision-validation-policy: done
   9-8-meter-reset-handling-in-kpi-calculations: done
   9-9-patch-null-vs-omitted-semantics-for-annualkwhbaseline: done
-  9-10-optimistic-concurrency-hardening-flat-structure-reading-and-tariff: backlog
+  9-10-optimistic-concurrency-hardening-flat-structure-reading-and-tariff: done
   9-11-kwhvalue-precision-divergence-fix: backlog
   9-12-audit-contractstartdate-migration-for-silent-data-loss: backlog
   9-13-catch-all-404-route: backlog

@@ -53,7 +53,7 @@ const futureTariff: TariffResponse = {
 }
 
 function setupTariffs(options?: { isLoading?: boolean; isError?: boolean; data?: TariffResponse[] }) {
-  const refetch = vi.fn()
+  const refetch = vi.fn().mockResolvedValue({ data: options?.data })
   mockUseTariffs.mockReturnValue({
     data: options?.data,
     isLoading: options?.isLoading ?? false,

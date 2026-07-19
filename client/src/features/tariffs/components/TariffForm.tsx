@@ -25,6 +25,7 @@ type Props = {
   tariff?: TariffResponse
   onClose: () => void
   onPendingChange?: (isPending: boolean) => void
+  onSaveConflict?: () => void
 }
 
 const DURATIONS = [1, 6, 12, 24] as const
@@ -39,7 +40,7 @@ function isValidFee(raw: string, locale: string) {
   return Number.isFinite(parsed) && parsed >= 0
 }
 
-export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) {
+export function TariffForm({ flatId, tariff, onClose, onPendingChange, onSaveConflict }: Props) {
   const { t, i18n } = useTranslation('tariffs')
   const isEditMode = tariff !== undefined
   const { mutate: createMutate, isPending: isCreatePending } = useCreateTariff(flatId)
@@ -157,11 +158,13 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange }: Props) 
           providerName: dirtyFields.providerName ? (data.providerName || null) : undefined,
           contractDurationMonths: dirtyFields.contractDurationMonths ? (data.contractDurationMonths ?? null) : undefined,
           lockOverride: overrideConfirmed || undefined,
+          rowVersion: tariff.rowVersion,
         },
       })
       onClose()
     } catch {
       setSubmitError(t('form.errorMessage'))
+      onSaveConflict?.()
     }
   }
 

@@ -27,6 +27,7 @@ const settings: UserSettings = {
   flatName: 'My Flat',
   annualKwhBaseline: 2500,
   plannedAnnualSpend: 1200,
+  flatRowVersion: 'AQID',
 }
 
 const mockPatchFlatMutate = vi.fn()
@@ -70,7 +71,10 @@ describe('SettingsPage TariffSettingsRoute', () => {
     const props = tariffListSpy.mock.calls[0][0] as { onSavePlannedAnnualSpend: (value: number) => void }
     props.onSavePlannedAnnualSpend(1500)
 
-    expect(mockPatchFlatMutate).toHaveBeenCalledWith({ flatId: 'flat-123', body: { plannedAnnualSpend: 1500 } })
+    expect(mockPatchFlatMutate).toHaveBeenCalledWith({
+      flatId: 'flat-123',
+      body: { plannedAnnualSpend: 1500, rowVersion: 'AQID' },
+    })
   })
 
   it('SettingsPage_TariffsRouteLoading_RendersNothing', () => {

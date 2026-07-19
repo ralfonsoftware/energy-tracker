@@ -69,6 +69,13 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
                 detail = "Request body is required."
             });
 
+        if (request.RowVersion is not { Length: > 0 })
+            return new BadRequestObjectResult(new
+            {
+                title = "Bad Request", status = 400,
+                detail = "rowVersion is required."
+            });
+
         var validationResult = await validator.ValidateAsync(request, ct);
         if (!validationResult.IsValid)
         {
@@ -83,7 +90,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         if (request.KwhValue == reading.KwhValue)
         {
             var unchangedResponse = new ReadingResponse(
-                reading.ReadingId, reading.KwhValue, reading.ReadingDate, reading.IsCorrected, reading.OriginalKwhValue);
+                reading.ReadingId, reading.KwhValue, reading.ReadingDate, reading.IsCorrected, reading.OriginalKwhValue, reading.RowVersion);
             return new OkObjectResult(unchangedResponse);
         }
 
@@ -92,10 +99,23 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         reading.KwhValue = request.KwhValue;
         reading.IsCorrected = true;
 
-        await db.SaveChangesAsync(ct);
+        db.ApplyRowVersionCheck(reading, request.RowVersion);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ObjectResult(new
+            {
+                title = "Conflict", status = 409,
+                detail = "This record was modified by another request. Reload and try again."
+            }) { StatusCode = 409 };
+        }
 
         var response = new ReadingResponse(
-            reading.ReadingId, reading.KwhValue, reading.ReadingDate, reading.IsCorrected, reading.OriginalKwhValue);
+            reading.ReadingId, reading.KwhValue, reading.ReadingDate, reading.IsCorrected, reading.OriginalKwhValue, reading.RowVersion);
         return new OkObjectResult(response);
     }
 }

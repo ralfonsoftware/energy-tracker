@@ -37,7 +37,7 @@ function setupFlatStructure(options?: {
   isError?: boolean
   data?: FlatStructureResponse
 }) {
-  const refetch = vi.fn()
+  const refetch = vi.fn().mockResolvedValue({ data: options?.data })
   mockUseFlatStructure.mockReturnValue({
     data: options?.data,
     isLoading: options?.isLoading ?? false,
@@ -382,7 +382,7 @@ describe('FlatStructureEditor', () => {
 
   it('FlatStructureEditor_SaveSucceeds_ShowsSuccessConfirmation', async () => {
     const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.())
+    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.({ flatId: 'flat-1', hasDefaultTemplate: false, rooms: [], rowVersion: 'new-version' }))
     setupFlatStructure({
       data: seededResponse({
         rooms: [
@@ -623,7 +623,7 @@ describe('FlatStructureEditor', () => {
 
   it('FlatStructureEditor_SaveRoomSucceeds_ButtonDisabledAgainAndOriginalNameUpdated', async () => {
     const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.())
+    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.({ flatId: 'flat-1', hasDefaultTemplate: false, rooms: [], rowVersion: 'new-version' }))
     setupFlatStructure({ data: seededResponse() })
 
     renderEditor()
@@ -752,7 +752,7 @@ describe('FlatStructureEditor', () => {
 
   it('FlatStructureEditor_RenameAlreadySavedNewRoomWhileEarlierUnsavedRoomStillExists_PersistsTheRename', async () => {
     const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.())
+    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.({ flatId: 'flat-1', hasDefaultTemplate: false, rooms: [], rowVersion: 'new-version' }))
     setupFlatStructure({ data: seededResponse() })
 
     renderEditor()
@@ -786,6 +786,7 @@ describe('FlatStructureEditor', () => {
           },
           { name: 'NewB Renamed', sortOrder: 2, powerPoints: [] },
         ],
+        rowVersion: 'new-version',
       },
       expect.any(Object)
     )

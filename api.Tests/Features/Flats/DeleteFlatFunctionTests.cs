@@ -7,11 +7,15 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using Shouldly;
+using System.Text;
 
 namespace api.Tests.Features.Flats;
 
 public class DeleteFlatFunctionTests
 {
+    private static readonly byte[] TestRowVersion = [1, 2, 3];
+    private const string TestRowVersionBase64 = "AQID";
+
     private static AppDbContext MakeDb(string? dbName = null) =>
         new(new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(dbName ?? Guid.NewGuid().ToString())
@@ -25,10 +29,25 @@ public class DeleteFlatFunctionTests
         return mock.Object;
     }
 
-    private static HttpRequest MakeRequest()
+    private static HttpRequest MakeRequest(string? rawJson = null)
     {
         var ctx = new DefaultHttpContext();
+        ctx.Request.ContentType = "application/json";
+        ctx.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(rawJson ?? $$"""{"rowVersion":"{{TestRowVersionBase64}}"}"""));
         return ctx.Request;
+    }
+
+    private sealed class ConcurrencyConflictDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        private int _saveCount;
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            _saveCount++;
+            if (_saveCount == 1)
+                throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+            return base.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private static Flat MakeFlat(string userId, string name = "Test Flat") => new()
@@ -37,7 +56,8 @@ public class DeleteFlatFunctionTests
         UserId = userId,
         Name = name,
         AnnualKwhBaseline = 3500m,
-        SpikeThreshold = 2.0m
+        SpikeThreshold = 2.0m,
+        RowVersion = TestRowVersion
     };
 
     private static MeterReading MakeReading(Guid flatId, DateTimeOffset readingDate) => new()
@@ -342,5 +362,67 @@ public class DeleteFlatFunctionTests
         (await db.MeterReadings.CountAsync(r => r.FlatId == flatToDelete.FlatId)).ShouldBe(0);
         (await db.Tariffs.CountAsync(t => t.FlatId == flatToDelete.FlatId)).ShouldBe(0);
         (await db.Rooms.CountAsync(r => r.FlatId == flatToDelete.FlatId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_MissingRowVersion_Returns400AndPerformsNoDeletion()
+    {
+        using var db = MakeDb();
+        var flat = MakeFlat("owner-user");
+        db.Flats.Add(flat);
+        await db.SaveChangesAsync();
+
+        var fn = new DeleteFlatFunction(db);
+        var req = MakeRequest("{}");
+        var ctx = MakeFunctionContext("owner-user");
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        (await db.Flats.CountAsync(f => f.FlatId == flat.FlatId)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RunAsync_MalformedRowVersion_Returns400AndPerformsNoDeletion()
+    {
+        using var db = MakeDb();
+        var flat = MakeFlat("owner-user");
+        db.Flats.Add(flat);
+        await db.SaveChangesAsync();
+
+        var fn = new DeleteFlatFunction(db);
+        var req = MakeRequest("""{"rowVersion":"not-valid-base64!!"}""");
+        var ctx = MakeFunctionContext("owner-user");
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        (await db.Flats.CountAsync(f => f.FlatId == flat.FlatId)).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RunAsync_ConcurrentModification_Returns409ConflictAndPerformsNoDeletion()
+    {
+        var flat = MakeFlat("owner-user");
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedCtx = new AppDbContext(dbOptions))
+        {
+            seedCtx.Flats.Add(flat);
+            await seedCtx.SaveChangesAsync();
+        }
+
+        var db = new ConcurrencyConflictDbContext(dbOptions);
+        var fn = new DeleteFlatFunction(db);
+        var req = MakeRequest();
+        var ctx = MakeFunctionContext("owner-user");
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var conflict = result.ShouldBeOfType<ObjectResult>();
+        conflict.StatusCode.ShouldBe(409);
+        using var verifyCtx = new AppDbContext(dbOptions);
+        (await verifyCtx.Flats.CountAsync(f => f.FlatId == flat.FlatId)).ShouldBe(1);
     }
 }

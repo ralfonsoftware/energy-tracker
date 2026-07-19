@@ -14,7 +14,8 @@ public record PatchTariffRequest(
     string? ProviderName,
     bool ContractDurationMonthsProvided,
     int? ContractDurationMonths,
-    bool LockOverride);
+    bool LockOverride,
+    byte[] RowVersion);
 
 public record TariffResponse(
     Guid TariffId,
@@ -23,7 +24,8 @@ public record TariffResponse(
     decimal MonthlyBaseFee,
     string? ProviderName,
     int? ContractDurationMonths,
-    bool IsLocked);
+    bool IsLocked,
+    byte[] RowVersion);
 
 public static class TariffLockPolicy
 {

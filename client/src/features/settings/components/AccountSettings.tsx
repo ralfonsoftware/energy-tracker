@@ -7,7 +7,7 @@ import { FlatDeleteConfirm } from './FlatDeleteConfirm'
 export function AccountSettings() {
   const { t } = useTranslation('settings')
   const { data: authMe } = useAuthMe()
-  const { settings } = useUserSettings()
+  const { settings, refetch } = useUserSettings()
   const [showConfirm, setShowConfirm] = useState(false)
   const [showDeleteFlatConfirm, setShowDeleteFlatConfirm] = useState(false)
 
@@ -52,12 +52,14 @@ export function AccountSettings() {
     )
   }
 
-  if (showDeleteFlatConfirm && settings?.flatId && settings.flatName) {
+  if (showDeleteFlatConfirm && settings?.flatId && settings.flatName && settings.flatRowVersion) {
     return (
       <FlatDeleteConfirm
         flatId={settings.flatId}
         flatName={settings.flatName}
+        flatRowVersion={settings.flatRowVersion}
         onCancel={() => setShowDeleteFlatConfirm(false)}
+        onDeleteConflict={() => refetch()}
       />
     )
   }

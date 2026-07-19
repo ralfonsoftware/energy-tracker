@@ -6,6 +6,7 @@ public class PowerPoint
     public Guid RoomId { get; set; }
     public required string Name { get; set; }
     public string? PlugId { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public Room Room { get; set; } = null!;
     public ICollection<Device> Devices { get; set; } = new List<Device>();
 }

@@ -9,15 +9,32 @@ using Moq;
 using Shouldly;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace api.Tests.Features.Tariffs;
 
 public class PatchTariffFunctionTests
 {
+    private const string TestRowVersionBase64 = "AQID";
+    private static readonly byte[] TestRowVersion = [1, 2, 3];
+
     private static AppDbContext MakeDb() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+
+    private sealed class ConcurrencyConflictDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        private int _saveCount;
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            _saveCount++;
+            if (_saveCount == 1)
+                throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+            return base.SaveChangesAsync(cancellationToken);
+        }
+    }
 
     private static FunctionContext MakeFunctionContext(string userId = "user-test-123")
     {
@@ -58,7 +75,8 @@ public class PatchTariffFunctionTests
             PricePerKwh = pricePerKwh,
             MonthlyBaseFee = monthlyBaseFee,
             ProviderName = providerName,
-            ContractDurationMonths = contractDurationMonths
+            ContractDurationMonths = contractDurationMonths,
+            RowVersion = TestRowVersion
         };
         db.Tariffs.Add(tariff);
         await db.SaveChangesAsync();
@@ -72,12 +90,15 @@ public class PatchTariffFunctionTests
         PricePerKwh = 0.30m,
         MonthlyBaseFee = 10m,
         ContractStartDate = DateTimeOffset.UtcNow.AddMonths(-3),
-        ContractDurationMonths = 12
+        ContractDurationMonths = 12,
+        RowVersion = TestRowVersion
     };
 
-    private static HttpRequest MakeRequest(object body)
+    private static HttpRequest MakeRequest(object body, string? rowVersion = TestRowVersionBase64)
     {
-        var json = JsonSerializer.Serialize(body);
+        var node = JsonSerializer.SerializeToNode(body)!.AsObject();
+        if (rowVersion is not null) node["rowVersion"] = rowVersion;
+        var json = node.ToJsonString();
         var ctx = new DefaultHttpContext();
         ctx.Request.ContentType = "application/json";
         ctx.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(json));
@@ -418,5 +439,82 @@ public class PatchTariffFunctionTests
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), "not-a-guid", ctx, CancellationToken.None);
 
         result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_MissingRowVersion_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.5m }, rowVersion: null);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.PricePerKwh.ShouldBe(0.30m);
+    }
+
+    [Fact]
+    public async Task RunAsync_MalformedRowVersion_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var tariff = await SeedTariffAsync(db, flat.FlatId);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.5m }, rowVersion: "not-valid-base64!!");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var persisted = await db.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.PricePerKwh.ShouldBe(0.30m);
+    }
+
+    [Fact]
+    public async Task RunAsync_ConcurrentModification_Returns409Conflict()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        var tariff = new Tariff
+        {
+            TariffId = Guid.NewGuid(),
+            FlatId = flat.FlatId,
+            ContractStartDate = DateTimeOffset.UtcNow.AddMonths(1),
+            PricePerKwh = 0.30m,
+            MonthlyBaseFee = 10m,
+            RowVersion = TestRowVersion
+        };
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedCtx = new AppDbContext(dbOptions))
+        {
+            seedCtx.Users.Add(new User { UserId = "user-test-123" });
+            seedCtx.Flats.Add(flat);
+            seedCtx.Tariffs.Add(tariff);
+            await seedCtx.SaveChangesAsync();
+        }
+
+        var db = new ConcurrencyConflictDbContext(dbOptions);
+        var fn = new PatchTariffFunction(db, new PatchTariffValidator());
+        var req = MakeRequest(new { pricePerKwh = 0.5m });
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), tariff.TariffId.ToString(), ctx, CancellationToken.None);
+
+        var conflict = result.ShouldBeOfType<ObjectResult>();
+        conflict.StatusCode.ShouldBe(409);
+        using var verifyCtx = new AppDbContext(dbOptions);
+        var persisted = await verifyCtx.Tariffs.SingleAsync(t => t.TariffId == tariff.TariffId);
+        persisted.PricePerKwh.ShouldBe(0.30m);
     }
 }

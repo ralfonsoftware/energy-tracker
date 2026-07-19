@@ -35,7 +35,7 @@ const sampleReadings: ReadingResponse[] = [
 ]
 
 function setupReadingHistory(options?: { isLoading?: boolean; isError?: boolean; data?: ReadingResponse[] }) {
-  const refetch = vi.fn()
+  const refetch = vi.fn().mockResolvedValue({ data: options?.data })
   mockUseReadingHistory.mockReturnValue({
     data: options?.data,
     isLoading: options?.isLoading ?? false,

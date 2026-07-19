@@ -25,6 +25,7 @@ const defaultSettings: UserSettings = {
   flatName: 'My Flat',
   annualKwhBaseline: 2500,
   plannedAnnualSpend: null,
+  flatRowVersion: 'AQID',
 }
 
 const mockMutate = vi.fn()
@@ -73,7 +74,7 @@ describe('FlatSettingsCard', () => {
     fireEvent.change(input, { target: { value: '  New Flat Name  ' } })
     fireEvent.click(screen.getByText('flat.save'))
     expect(mockMutate).toHaveBeenCalledWith(
-      { flatId: 'flat-123', body: { name: 'New Flat Name' } },
+      { flatId: 'flat-123', body: { name: 'New Flat Name', rowVersion: 'AQID' } },
       expect.any(Object)
     )
   })

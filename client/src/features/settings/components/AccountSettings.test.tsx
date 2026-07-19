@@ -33,6 +33,7 @@ const defaultSettings: UserSettings = {
   flatName: 'My Flat',
   annualKwhBaseline: 2500,
   plannedAnnualSpend: null,
+  flatRowVersion: 'AQID',
 }
 
 describe('AccountSettings', () => {

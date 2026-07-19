@@ -8,5 +8,6 @@ public class MeterReading
     public DateTimeOffset ReadingDate { get; set; }
     public bool IsCorrected { get; set; }
     public decimal? OriginalKwhValue { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public Flat Flat { get; set; } = null!;
 }

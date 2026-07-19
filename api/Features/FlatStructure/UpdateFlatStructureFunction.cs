@@ -61,6 +61,13 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                 detail = "Request body is required."
             });
 
+        if (request.RowVersion is not { Length: > 0 })
+            return new BadRequestObjectResult(new
+            {
+                title = "Bad Request", status = 400,
+                detail = "rowVersion is required."
+            });
+
         var validationResult = await validator.ValidateAsync(request, ct);
         if (!validationResult.IsValid)
         {
@@ -111,7 +118,22 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         }).ToList();
 
         db.Rooms.AddRange(newRooms);
-        await db.SaveChangesAsync(ct);
+
+        db.ApplyRowVersionCheck(flat, request.RowVersion);
+        db.Entry(flat).State = EntityState.Modified;
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return new ObjectResult(new
+            {
+                title = "Conflict", status = 409,
+                detail = "This record was modified by another request. Reload and try again."
+            }) { StatusCode = 409 };
+        }
 
         var response = new FlatStructureResponse(
             flatGuid,
@@ -138,7 +160,8 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                         d.SelfMeasuredPeriod))
                     .ToList()))
                 .ToList()))
-            .ToList());
+            .ToList(),
+            RowVersion: flat.RowVersion);
 
         return new OkObjectResult(response);
     }

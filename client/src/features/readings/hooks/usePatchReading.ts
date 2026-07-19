@@ -4,9 +4,17 @@ import { patchReading } from '@/features/readings/api/readingApi'
 export function usePatchReading(flatId: string | undefined) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ readingId, kwhValue }: { readingId: string; kwhValue: number }) => {
+    mutationFn: ({
+      readingId,
+      kwhValue,
+      rowVersion,
+    }: {
+      readingId: string
+      kwhValue: number
+      rowVersion: string
+    }) => {
       if (!flatId) throw new Error('flatId is required')
-      return patchReading(flatId, readingId, { kwhValue })
+      return patchReading(flatId, readingId, { kwhValue, rowVersion })
     },
     onSuccess: () =>
       Promise.all([

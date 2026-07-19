@@ -1,4 +1,6 @@
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
 using EnergyTracker.Api.Features.FlatStructure;
@@ -13,10 +15,26 @@ namespace api.Tests.Features.FlatStructure;
 
 public class UpdateFlatStructureFunctionTests
 {
+    private const string TestRowVersionBase64 = "AQID";
+    private static readonly byte[] TestRowVersion = [1, 2, 3];
+
     private static AppDbContext MakeDb() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options);
+
+    private sealed class ConcurrencyConflictDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        private int _saveCount;
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            _saveCount++;
+            if (_saveCount == 1)
+                throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+            return base.SaveChangesAsync(cancellationToken);
+        }
+    }
 
     private static FunctionContext MakeFunctionContext(string userId = "user-test-123")
     {
@@ -26,10 +44,23 @@ public class UpdateFlatStructureFunctionTests
         return mock.Object;
     }
 
-    private static HttpRequest MakeRequest(string body)
+    private static HttpRequest MakeRequest(string body, string? rowVersion = TestRowVersionBase64)
     {
+        var toSend = body;
+        if (rowVersion is not null)
+        {
+            try
+            {
+                if (JsonNode.Parse(body) is JsonObject obj)
+                {
+                    obj["rowVersion"] = rowVersion;
+                    toSend = obj.ToJsonString();
+                }
+            }
+            catch (JsonException) { /* malformed-JSON test cases: pass the raw body through unchanged */ }
+        }
         var ctx = new DefaultHttpContext();
-        ctx.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(body));
+        ctx.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes(toSend));
         return ctx.Request;
     }
 
@@ -43,7 +74,8 @@ public class UpdateFlatStructureFunctionTests
             UserId = userId,
             Name = "Test Flat",
             AnnualKwhBaseline = 3500m,
-            SpikeThreshold = 2.0m
+            SpikeThreshold = 2.0m,
+            RowVersion = TestRowVersion
         };
         db.Flats.Add(flat);
         await db.SaveChangesAsync();
@@ -233,7 +265,8 @@ public class UpdateFlatStructureFunctionTests
             UserId = "user-b",
             Name = "Flat B",
             AnnualKwhBaseline = 3500m,
-            SpikeThreshold = 2.0m
+            SpikeThreshold = 2.0m,
+            RowVersion = TestRowVersion
         };
         db.Flats.Add(flatB);
         await db.SaveChangesAsync();
@@ -676,5 +709,73 @@ public class UpdateFlatStructureFunctionTests
         var ok = result.ShouldBeOfType<OkObjectResult>();
         var response = ok.Value.ShouldBeOfType<FlatStructureResponse>();
         response.Rooms.Select(r => r.Name).ShouldBe(["First Room", "Second Room"]);
+    }
+
+    [Fact]
+    public async Task RunAsync_MissingRowVersion_Returns400AndPersistsNothing()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = MakeFunction(db);
+        var req = MakeRequest(ValidPayload, rowVersion: null);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        (await db.Rooms.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_MalformedRowVersion_Returns400AndPersistsNothing()
+    {
+        // byte[]-typed properties are base64-decoded by System.Text.Json during deserialization
+        // itself, so an undecodable rowVersion surfaces as a JsonException ("Invalid JSON in
+        // request body") rather than this Function's own "rowVersion is required" check —
+        // a different code path from the JsonNode-based Functions, but still a 400.
+        var (flat, db) = await SeedFlatAsync();
+        var fn = MakeFunction(db);
+        var req = MakeRequest(
+            """{ "rooms": [], "rowVersion": "not-valid-base64!!" }""", rowVersion: null);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        (await db.Rooms.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_ConcurrentModification_Returns409ConflictAndPersistsNothing()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m,
+            RowVersion = TestRowVersion
+        };
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedCtx = new AppDbContext(dbOptions))
+        {
+            seedCtx.Users.Add(new User { UserId = "user-test-123" });
+            seedCtx.Flats.Add(flat);
+            await seedCtx.SaveChangesAsync();
+        }
+
+        var db = new ConcurrencyConflictDbContext(dbOptions);
+        var fn = MakeFunction(db);
+        var req = MakeRequest(ValidPayload);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var conflict = result.ShouldBeOfType<ObjectResult>();
+        conflict.StatusCode.ShouldBe(409);
+        using var verifyCtx = new AppDbContext(dbOptions);
+        (await verifyCtx.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
     }
 }

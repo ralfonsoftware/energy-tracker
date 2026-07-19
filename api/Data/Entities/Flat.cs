@@ -8,5 +8,6 @@ public class Flat
     public decimal AnnualKwhBaseline { get; set; }
     public decimal SpikeThreshold { get; set; }
     public decimal? PlannedAnnualSpend { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public User User { get; set; } = null!;
 }

@@ -35,6 +35,7 @@ export type FlatStructureResponse = {
   flatId: string
   hasDefaultTemplate: boolean
   rooms: RoomResponse[]
+  rowVersion: string
 }
 
 export type DeviceInput = {
@@ -64,6 +65,7 @@ export type RoomInput = {
 
 export type UpdateFlatStructureRequest = {
   rooms: RoomInput[]
+  rowVersion: string
 }
 
 export const getFlatStructure = (flatId: string) =>

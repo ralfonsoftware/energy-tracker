@@ -8,6 +8,7 @@ export type TariffResponse = {
   providerName: string | null
   contractDurationMonths: number | null
   isLocked: boolean
+  rowVersion: string
 }
 
 export type CreateTariffRequest = {
@@ -24,6 +25,7 @@ export type PatchTariffRequest = {
   providerName?: string | null
   contractDurationMonths?: number | null
   lockOverride?: boolean
+  rowVersion: string
 }
 
 export const getTariffs = (flatId: string) =>

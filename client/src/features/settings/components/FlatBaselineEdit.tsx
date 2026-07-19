@@ -59,6 +59,10 @@ export default function FlatBaselineEdit() {
 
   const onSubmit = (data: BaselineEditFormValues) => {
     if (!settings?.flatId) return
+    if (!settings.flatRowVersion) {
+      setSubmitError(t('baselineEdit.errorBanner'))
+      return
+    }
 
     const kwhParsed = parseLocaleNumber(data.annualKwhBaseline, i18n.language)
     if (isNaN(kwhParsed) || kwhParsed <= 0) {
@@ -86,6 +90,7 @@ export default function FlatBaselineEdit() {
         body: {
           annualKwhBaseline: kwhParsed,
           plannedAnnualSpend,
+          rowVersion: settings.flatRowVersion,
         },
       },
       {

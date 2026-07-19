@@ -7,6 +7,7 @@ export type ReadingResponse = {
   readingDate: string
   isCorrected: boolean
   originalKwhValue: number | null
+  rowVersion: string
 }
 
 export const submitReading = (flatId: string, body: SubmitReadingRequest) =>
@@ -15,7 +16,7 @@ export const submitReading = (flatId: string, body: SubmitReadingRequest) =>
 export const getReadingHistory = (flatId: string) =>
   apiClient.get<ReadingResponse[]>(`/flats/${flatId}/readings`)
 
-export type PatchReadingRequest = { kwhValue: number }
+export type PatchReadingRequest = { kwhValue: number; rowVersion: string }
 
 export const patchReading = (flatId: string, readingId: string, body: PatchReadingRequest) =>
   apiClient.patch<ReadingResponse>(`/flats/${flatId}/readings/${readingId}`, body)

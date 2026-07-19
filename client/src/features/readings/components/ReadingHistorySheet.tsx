@@ -32,8 +32,16 @@ export function ReadingHistorySheet({ flatId }: Props) {
         onBack={() => setEditingReading(null)}
         onSave={kwhValue =>
           mutate(
-            { readingId: editingReading.readingId, kwhValue },
-            { onSuccess: () => setEditingReading(null) }
+            { readingId: editingReading.readingId, kwhValue, rowVersion: editingReading.rowVersion },
+            {
+              onSuccess: () => setEditingReading(null),
+              onError: () => {
+                refetch().then(result => {
+                  const fresh = result.data?.find(r => r.readingId === editingReading.readingId)
+                  if (fresh) setEditingReading(fresh)
+                })
+              },
+            }
           )
         }
       />

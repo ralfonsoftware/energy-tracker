@@ -16,6 +16,7 @@ public class MeterReadingConfiguration : IEntityTypeConfiguration<MeterReading>
         builder.Property(r => r.ReadingDate).IsRequired();
         builder.Property(r => r.IsCorrected).IsRequired().HasDefaultValue(false);
         builder.Property(r => r.OriginalKwhValue).HasColumnType("decimal(18,4)").IsRequired(false);
+        builder.Property(r => r.RowVersion).IsRowVersion();
         builder.HasOne(r => r.Flat)
             .WithMany()
             .HasForeignKey(r => r.FlatId)

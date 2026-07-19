@@ -30,7 +30,8 @@ public record RoomResponse(
 public record FlatStructureResponse(
     Guid FlatId,
     bool HasDefaultTemplate,
-    List<RoomResponse> Rooms);
+    List<RoomResponse> Rooms,
+    byte[] RowVersion);
 
 public record DeviceInput(
     string Name,
@@ -54,4 +55,4 @@ public record RoomInput(
     int SortOrder,
     List<PowerPointInput> PowerPoints);
 
-public record UpdateFlatStructureRequest(List<RoomInput> Rooms);
+public record UpdateFlatStructureRequest(List<RoomInput> Rooms, byte[] RowVersion);

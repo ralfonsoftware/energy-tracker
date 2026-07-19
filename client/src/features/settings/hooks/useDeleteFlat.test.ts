@@ -26,10 +26,10 @@ describe('useDeleteFlat', () => {
     const { wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => useDeleteFlat(), { wrapper })
 
-    result.current.mutate('flat-1')
+    result.current.mutate({ flatId: 'flat-1', rowVersion: 'AQID' })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(mockDeleteFlat).toHaveBeenCalledWith('flat-1')
+    expect(mockDeleteFlat).toHaveBeenCalledWith('flat-1', 'AQID')
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['flats'] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['settings'] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['dashboard', 'flat-1'] })
@@ -42,7 +42,7 @@ describe('useDeleteFlat', () => {
     const { wrapper, invalidateQueries } = createWrapper()
     const { result } = renderHook(() => useDeleteFlat(), { wrapper })
 
-    result.current.mutate('flat-1')
+    result.current.mutate({ flatId: 'flat-1', rowVersion: 'AQID' })
 
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(invalidateQueries).not.toHaveBeenCalled()

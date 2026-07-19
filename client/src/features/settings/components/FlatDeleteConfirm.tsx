@@ -5,10 +5,18 @@ import { useDeleteFlat } from '../hooks/useDeleteFlat'
 type Props = {
   flatId: string
   flatName: string
+  flatRowVersion: string
   onCancel: () => void
+  onDeleteConflict?: () => void
 }
 
-export function FlatDeleteConfirm({ flatId, flatName, onCancel }: Props) {
+export function FlatDeleteConfirm({
+  flatId,
+  flatName,
+  flatRowVersion,
+  onCancel,
+  onDeleteConflict,
+}: Props) {
   const { t } = useTranslation('settings')
   const { mutate: deleteFlat, isPending } = useDeleteFlat()
   const [typedValue, setTypedValue] = useState('')
@@ -19,10 +27,16 @@ export function FlatDeleteConfirm({ flatId, flatName, onCancel }: Props) {
   const handleDelete = () => {
     if (!isMatch) return
     setError(null)
-    deleteFlat(flatId, {
-      onSuccess: onCancel,
-      onError: () => setError(t('account.deleteFlat.error')),
-    })
+    deleteFlat(
+      { flatId, rowVersion: flatRowVersion },
+      {
+        onSuccess: onCancel,
+        onError: () => {
+          setError(t('account.deleteFlat.error'))
+          onDeleteConflict?.()
+        },
+      }
+    )
   }
 
   return (

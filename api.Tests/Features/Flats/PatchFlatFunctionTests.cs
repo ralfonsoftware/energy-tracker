@@ -26,6 +26,9 @@ public class PatchFlatFunctionTests
         return mock.Object;
     }
 
+    private static readonly byte[] TestRowVersion = [1, 2, 3];
+    private const string TestRowVersionBase64 = "AQID";
+
     private static async Task<(Flat flat, AppDbContext db)> SeedFlatAsync(
         string userId = "user-test-123", decimal? plannedAnnualSpend = null)
     {
@@ -38,11 +41,25 @@ public class PatchFlatFunctionTests
             Name = "Original Name",
             AnnualKwhBaseline = 3500m,
             SpikeThreshold = 2.0m,
-            PlannedAnnualSpend = plannedAnnualSpend
+            PlannedAnnualSpend = plannedAnnualSpend,
+            RowVersion = TestRowVersion
         };
         db.Flats.Add(flat);
         await db.SaveChangesAsync();
         return (flat, db);
+    }
+
+    private sealed class ConcurrencyConflictDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        private int _saveCount;
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            _saveCount++;
+            if (_saveCount == 1)
+                throw new DbUpdateConcurrencyException("Simulated concurrency conflict.");
+            return base.SaveChangesAsync(cancellationToken);
+        }
     }
 
     private static HttpRequest MakeRequest(string rawJson)
@@ -102,7 +119,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"name":"Renamed Flat"}""");
+        var req = MakeRequest($$"""{"name":"Renamed Flat","rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -119,7 +136,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"annualKwhBaseline":4200}""");
+        var req = MakeRequest($$"""{"annualKwhBaseline":4200,"rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -134,7 +151,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync(plannedAnnualSpend: 1200m);
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"name":"Renamed Flat","annualKwhBaseline":4200,"plannedAnnualSpend":1500}""");
+        var req = MakeRequest($$"""{"name":"Renamed Flat","annualKwhBaseline":4200,"plannedAnnualSpend":1500,"rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -171,7 +188,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("{}");
+        var req = MakeRequest($$"""{"rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -187,7 +204,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"name":"Renamed Flat"}""");
+        var req = MakeRequest($$"""{"name":"Renamed Flat","rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -217,7 +234,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync(plannedAnnualSpend: 1200m);
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"name":"Renamed Flat"}""");
+        var req = MakeRequest($$"""{"name":"Renamed Flat","rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -231,7 +248,7 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync(plannedAnnualSpend: 1200m);
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"plannedAnnualSpend":null}""");
+        var req = MakeRequest($$"""{"plannedAnnualSpend":null,"rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
@@ -274,13 +291,79 @@ public class PatchFlatFunctionTests
     {
         var (flat, db) = await SeedFlatAsync();
         var fn = new PatchFlatFunction(db, new PatchFlatValidator());
-        var req = MakeRequest("""{"name":"   "}""");
+        var req = MakeRequest($$"""{"name":"   ","rowVersion":"{{TestRowVersionBase64}}"}""");
         var ctx = MakeFunctionContext();
 
         var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
 
         result.ShouldBeOfType<BadRequestObjectResult>();
         var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
+        persisted.Name.ShouldBe("Original Name");
+    }
+
+    [Fact]
+    public async Task RunAsync_MissingRowVersion_Returns400BadRequest()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new PatchFlatFunction(db, new PatchFlatValidator());
+        var req = MakeRequest("""{"name":"Renamed Flat"}""");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
+        persisted.Name.ShouldBe("Original Name");
+    }
+
+    [Fact]
+    public async Task RunAsync_MalformedRowVersion_Returns400BadRequest()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new PatchFlatFunction(db, new PatchFlatValidator());
+        var req = MakeRequest("""{"name":"Renamed Flat","rowVersion":"not-valid-base64!!"}""");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
+        persisted.Name.ShouldBe("Original Name");
+    }
+
+    [Fact]
+    public async Task RunAsync_ConcurrentModification_Returns409Conflict()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Original Name",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m,
+            RowVersion = TestRowVersion
+        };
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedCtx = new AppDbContext(dbOptions))
+        {
+            seedCtx.Users.Add(new User { UserId = "user-test-123" });
+            seedCtx.Flats.Add(flat);
+            await seedCtx.SaveChangesAsync();
+        }
+
+        var db = new ConcurrencyConflictDbContext(dbOptions);
+        var fn = new PatchFlatFunction(db, new PatchFlatValidator());
+        var req = MakeRequest($$"""{"name":"Renamed Flat","rowVersion":"{{TestRowVersionBase64}}"}""");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var conflict = result.ShouldBeOfType<ObjectResult>();
+        conflict.StatusCode.ShouldBe(409);
+        using var verifyCtx = new AppDbContext(dbOptions);
+        var persisted = await verifyCtx.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
         persisted.Name.ShouldBe("Original Name");
     }
 }
