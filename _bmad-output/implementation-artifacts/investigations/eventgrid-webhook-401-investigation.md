@@ -1,5 +1,7 @@
 # Investigation: EventGrid webhook validation 401 during infra deploy
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the Standard-tier SWA linked-backend auto-Easy-Auth side effect and the `excludedPaths`/`dependsOn` fix pattern are now AD-12a in Authentication & Security. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The `blob-created-to-processimport` Event Grid subscription's webhook validation is rejected with 401 — **not** because of the `blobs_extension` system key (confirmed live and valid), but because **App Service Authentication (Easy Auth) is enabled directly on the `energytracker-api` Function App** and requires a bearer token for every request, including Event Grid's unauthenticated validation POST to `/runtime/webhooks/blobs`.

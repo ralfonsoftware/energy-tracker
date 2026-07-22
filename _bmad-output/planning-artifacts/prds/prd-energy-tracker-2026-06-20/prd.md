@@ -2,7 +2,7 @@
 title: "PRD: energy-tracker"
 status: final
 created: 2026-06-20
-updated: 2026-06-21
+updated: 2026-07-22
 ---
 
 # PRD: energy-tracker
@@ -19,7 +19,7 @@ energy-tracker is a personal energy monitoring web application that replaces a s
 
 On top of that core, the app progressively builds a picture of *where* the energy goes: smart plug file exports from Eve Home and Meross devices are parsed and reconciled against the main meter, a flat structure model maps each plug to a room and device, and EU energy label ratings fill in the gaps for uninstrumented appliances. The result is a consumption decomposition that shrinks the unexplained Residual as more plugs are added — making it possible, over time, to name standby offenders, quantify replacement payback, and know whether the month is tracking toward a surprising invoice before the invoice arrives. Partial plug coverage is the normal starting state, not a failure condition.
 
-Three design principles hold throughout: **cost-first** (every metric surfaces in euros, not just kWh; Tariff is a first-class input), **residual-aware** (unattributed consumption is explicit and always shown — the app never pretends to full coverage), and **hub-free** (no always-on hardware, no cloud subscription, no direct API integration — file uploads and manual entries are the only ingestion paths). The product is self-hosted on Azure, built for one person's flat today, but architected to accommodate additional flats and — eventually — additional users and a native iOS companion app without redesign.
+Three design principles hold throughout: **cost-first** (every metric surfaces in euros, not just kWh; Tariff is a first-class input) — with one deliberate exception: the KPI dashboard's budget-delta comparison anchors to kWh against the Annual kWh Baseline, since euro figures shift with every Tariff change and would make the delta incomparable across periods (see FR-14) — **residual-aware** (unattributed consumption is explicit and always shown — the app never pretends to full coverage), and **hub-free** (no always-on hardware, no cloud subscription, no direct API integration — file uploads and manual entries are the only ingestion paths). The product is self-hosted on Azure, built for one person's flat today, but architected to accommodate additional flats and — eventually — additional users and a native iOS companion app without redesign.
 
 ---
 
@@ -152,17 +152,25 @@ All Onboarding fields — Flat name, Annual kWh Baseline, Tariff, and planned an
 **Functional Requirements:**
 
 #### FR-8: Meter Reading submission
-The user can submit a Meter Reading (numeric kWh value) for the active Flat. The Reading is stored with the date and time of submission.
+The user can submit a Meter Reading (numeric kWh value) for the active Flat. The Reading is stored with the date and time of submission. If the entered value is lower than the Flat's last recorded Reading, the entry form displays a warning ("Lower than your last reading (X kWh) — is this correct?") but still permits the user to proceed, accommodating meter replacement or correction scenarios.
 
 **Consequences (testable):**
 - A submitted Reading is retrievable via the dashboard with its recorded date and time.
 - Server-side processing time (from request received to response dispatched, client network excluded) for a Reading submission is within the performance budget defined in §NFR-1.
+- Entering a kWh value lower than the Flat's last recorded Reading displays the warning but does not block submission.
 
 #### FR-9: Retroactive Reading entry
 The user can enter a Meter Reading for a past date. Retroactive Readings are costed at the Tariff that was active on their entered date, not the current Tariff.
 
 **Consequences (testable):**
 - A Reading entered for a past date where a different Tariff was active uses that historical Tariff for cost calculations.
+
+#### FR-48: Meter Reading correction and history
+A previously submitted Meter Reading can be edited after submission. Editing a Reading preserves and displays the original value as a correction note; no separate approval workflow or immutability requirement applies, given single-user scope. The Flat's chronological Reading history — date/time, kWh value, and any correction note — is viewable from the Dashboard and Insights trend charts.
+
+**Consequences (testable):**
+- Editing a Reading's kWh value stores the original value as a visible correction note rather than overwriting it silently.
+- The Flat's Reading history, including corrected entries, is viewable in chronological order.
 
 ---
 
@@ -205,11 +213,12 @@ All cost calculations — KPI Dashboard figures, Decomposition costs, budget pro
 **Functional Requirements:**
 
 #### FR-14: KPI Dashboard display
-The KPI Dashboard for the active Flat displays: daily average kWh, weekly average kWh, daily cost in the active Locale's currency, weekly cost in the active Locale's currency, and projected monthly cost in the active Locale's currency.
+The KPI Dashboard for the active Flat displays: daily average kWh, weekly average kWh, daily cost in the active Locale's currency, weekly cost in the active Locale's currency, and projected monthly cost in the active Locale's currency. The dashboard additionally displays a budget delta against a daily budget derived from the Annual kWh Baseline (Annual kWh Baseline ÷ 365). The delta is expressed in kWh (e.g., "↓ 0.8 kWh under budget"), not euros — kWh is the stable anchor across Tariff changes, whereas euro figures shift with every Tariff update (see §1 Vision).
 
 **Consequences (testable):**
 - Each of the five KPI figures is visible on the Dashboard.
 - All currency figures match independently calculated values for the same period.
+- The budget-delta figure is denominated in kWh, not currency, and remains numerically stable across a Tariff change within the same period.
 
 #### FR-15: Immediate Dashboard update
 Dashboard figures update immediately after a new Meter Reading is saved, without requiring a page refresh.
@@ -226,10 +235,11 @@ Dashboard figures update immediately after a new Meter Reading is saved, without
 **Functional Requirements:**
 
 #### FR-16: Consumption trend visualization
-The app displays a trend chart of historical daily consumption for the active Flat, derived from Meter Readings.
+The app displays a trend chart of historical daily consumption for the active Flat, derived from Meter Readings. The Insights tab's trend chart defaults to a 30-day period — a broader window than the Dashboard's shorter sparkline, providing the context needed for standby-offender and budget-pressure insight patterns without duplicating the Dashboard view.
 
 **Consequences (testable):**
 - The trend chart correctly reflects historical Meter Readings for a given date range.
+- The Insights tab's trend chart opens showing a 30-day period by default.
 
 #### FR-17: Spike detection
 The app detects daily consumption spikes that exceed a configurable threshold above the 7-day rolling average. The default threshold is 2× the rolling average. A spike is visually encoded in the trend chart as a distinctly styled bar (amber). Full spike context is accessible from the Insights tab. No separate banner or notification is generated. The threshold is user-configurable per Flat.
@@ -284,10 +294,11 @@ When the user initiates Flat Structure setup for the first time on a Flat, a def
 - Opening Flat Structure setup for a Flat with no existing structure presents the five default Rooms.
 
 #### FR-23: Flat deletion with cascade
-Deleting a Flat permanently removes all data associated with it: all Meter Readings, Tariff entries, Smart Plug Data, Flat Structure, and Device registrations. No orphaned records remain.
+Deleting a Flat permanently removes all data associated with it: all Meter Readings, Tariff entries, Smart Plug Data, Flat Structure, and Device registrations. No orphaned records remain. Deleting a Flat requires the user to type the Flat's exact name to enable the Delete action, matching the friction of the data's irreversibility.
 
 **Consequences (testable):**
 - After deleting a Flat, no Meter Readings, Tariff entries, Smart Plug records, or Device registrations for that Flat exist in the data store.
+- The Delete action for a Flat is disabled until the user has typed the Flat's exact name into a confirmation field.
 
 ---
 
@@ -336,11 +347,18 @@ Import failures are logged internally and surfaced to the user as one of three c
 - An internal processing failure surfaces a "processing failed — retry" message.
 - A service outage surfaces a "service temporarily unavailable — retry later" message.
 
+#### FR-49: Smart Plug import progress indicator
+Once a Smart Plug import is initiated, a persistent progress indicator remains visible on the import surface until background processing completes. The user is not blocked from using the rest of the app while an import is processing.
+
+**Consequences (testable):**
+- A persistent progress indicator is visible on the import surface from initiation until the import job completes.
+- The user can navigate to other app surfaces while an import is processing.
+
 ---
 
 ### 4.9 Device Registry
 
-**Description:** The user can register Devices with metadata and configure their energy consumption via one of two approaches: EU energy label (class + annual kWh figure) or self-measured average (daily or weekly kWh). Both approaches contribute an estimated baseline to the Decomposition. Devices without a consumption approach configured appear in the Flat Structure but contribute zero to Decomposition with a prompt to configure consumption. Realizes UJ-2. *(Release 2)*
+**Description:** The user can register Devices with metadata and configure their energy consumption via one of two approaches: EU energy label (class + annual kWh figure) or self-measured average (daily or weekly kWh). Both approaches contribute an estimated baseline to the Decomposition. A standalone Device (no Smart Plug, no Smart Power Strip assignment) with no consumption approach configured shows no kWh or cost figure in Decomposition — not a zero value, since no measurement or estimate exists for it — with a prompt to configure its consumption profile. Realizes UJ-2. *(Release 2)*
 
 **Functional Requirements:**
 
@@ -351,16 +369,24 @@ The user can register a Device with: type, manufacturer, and model (required); p
 - A Device with the required fields can be saved and appears in the Flat Structure at its assigned Power Point.
 
 #### FR-30: EU energy label consumption
-The user can configure a Device's consumption via EU energy label: energy class rating and the label's stated annual kWh figure. The app derives a daily estimate from the annual figure. The Device appears in Decomposition with the derived daily estimate, marked as estimated.
+The user can configure a Device's consumption via EU energy label. The label's stated annual kWh figure is required — it drives the daily estimate used in Decomposition. The energy class rating is optional, recorded for potential future use such as replacement-candidate detection. The app derives a daily estimate from the annual figure. The Device appears in Decomposition with the derived daily estimate, marked as estimated.
 
 **Consequences (testable):**
 - A Device configured via EU label displays its annual kWh and derived daily estimate in the Decomposition view, marked as estimated.
+- A Device cannot be saved with an EU label approach unless the annual kWh figure is provided; the energy class rating may be left blank.
 
 #### FR-31: Self-measured consumption
-The user can configure a Device's consumption as a self-measured average: a daily or weekly kWh value entered by the user. The Device appears in Decomposition with the configured value, marked as estimated.
+The user can configure a Device's consumption as a self-measured average: a daily or weekly kWh value entered by the user. The period defaults to Daily; the user can switch it to Weekly via a toggle before entering the kWh value. The Device appears in Decomposition with the configured value, marked as estimated.
 
 **Consequences (testable):**
 - A Device configured with a self-measured daily or weekly value displays that value in the Decomposition view, marked as estimated.
+- The self-measured consumption form opens with Daily selected by default.
+
+#### FR-50: Unmeasured standalone device — no figure shown
+A standalone Device (no Smart Plug, no Smart Power Strip assignment) with no consumption approach configured displays no kWh or cost figure in Decomposition — distinct from a Smart Power Strip's unconfigured sub-device, which receives a real nominal share under FR-32. A prompt to configure the Device's consumption profile is shown in its place.
+
+**Consequences (testable):**
+- A standalone Device with `ConsumptionApproach = None` shows no kWh/cost figure and no zero value in the Decomposition view — only a configuration prompt.
 
 ---
 
@@ -371,12 +397,13 @@ The user can configure a Device's consumption as a self-measured average: a dail
 **Functional Requirements:**
 
 #### FR-32: Decomposition view
-For any period with Smart Plug Data, the Decomposition view shows attributed consumption per Room and per Device, derived from Smart Plug Data plus Device estimated baselines (EU label and self-measured).
+For any period with Smart Plug Data, the Decomposition view shows attributed consumption per Room and per Device, derived from Smart Plug Data plus Device estimated baselines (EU label and self-measured). The view offers a period selector — This week, This month, Last month, This year, Custom — defaulting to This month. Last month is a first-class option, supporting review early in the current month before it has accumulated meaningful data.
 
 **Consequences (testable):**
 - The Decomposition view for a period with Smart Plug Data shows per-Room and per-Device consumption figures.
 - Attributed totals + Residual = Main Meter total for the period (within ±0.1 kWh for clean periods; within ±1.0 kWh for periods containing interpolated values — see FR-27).
-- For a Smart Power Strip, the strip's measured total is displayed as the authoritative kWh figure. Configured sub-devices (with EU label or self-measured values) receive a proportional estimated share; unconfigured sub-devices receive an equal share of the remaining proportion, displayed at reduced visual prominence with a prompt to configure their device profile.
+- For a Smart Power Strip, the strip's measured total is displayed as the authoritative kWh figure. Each configured sub-device's share is weighted by its own estimated kWh relative to the pool of configured estimates plus one nominal weight per unconfigured sub-device (the average estimated kWh across configured sub-devices); each unconfigured sub-device receives an identical nominal share, displayed at reduced visual prominence with a prompt to configure its device profile. When a strip has zero configured sub-devices, every sub-device receives an equal split of the strip's measured total. All shares sum to exactly the strip's measured total (see architecture.md AD-8a for the exact formula).
+- The Decomposition view opens showing This month by default; Last month is selectable and shows that period's figures.
 
 #### FR-33: Residual always shown
 The Residual is shown in the Decomposition view for every period with Smart Plug Data, including when the Residual is zero. The Residual is never suppressed.
@@ -475,6 +502,38 @@ All data is stored and transmitted locale-neutrally: ISO 8601 datetimes with tim
 
 ---
 
+### 4.13 UI & Behavior Consistency
+
+**Description:** A cross-cutting set of interaction and layout requirements added post-Epic-7 retro (Release 3), closing consistency gaps that surfaced across multiple existing surfaces (Flat Structure editing, save/cancel affordances, dropdown/overlay rendering, and responsive device layout) rather than describing a new feature.
+
+**Functional Requirements:**
+
+#### FR-44: Flat Structure autosave for structural edits
+Structural edits to Flat Structure — adding or deleting a Room — save automatically on each change; no separate manual "Save" action is required for structural changes.
+
+**Consequences (testable):**
+- Adding or deleting a Room persists immediately, without requiring a separate Save action.
+
+#### FR-45: Save/cancel action placement and viewport visibility
+Every save/cancel action in a form or sheet is positioned adjacent to the fields it commits, and remains within the visible viewport without requiring the user to scroll to find it, across all supported browsers (including Safari).
+
+**Consequences (testable):**
+- A save/cancel action for any form or sheet is visible within the viewport without scrolling, on every supported browser.
+
+#### FR-46: Dropdown/overlay visibility
+Every dropdown/overlay/popover in the app renders fully visible and unclipped within the viewport, regardless of its trigger's position on the page.
+
+**Consequences (testable):**
+- A dropdown/overlay/popover opened from any trigger position renders fully visible, with no portion clipped by an ancestor element.
+
+#### FR-47: Responsive device card grid
+On tablet and desktop viewports, device cards within a Room Card lay out in a responsive multi-column grid instead of a single full-width column per device.
+
+**Consequences (testable):**
+- On a tablet or desktop viewport, a Room Card with multiple Devices lays out its device cards in a multi-column grid rather than one full-width column per device.
+
+---
+
 ## 5. Non-Goals (Explicit)
 
 - Native iOS app (any release in this spec; architecture must not prevent it in future)
@@ -516,7 +575,16 @@ All data is stored and transmitted locale-neutrally: ISO 8601 datetimes with tim
 - Actionable Insights: standby offenders, replacement candidates, budget alerts, invoice deviation hints (FR-35, FR-36, FR-37, FR-43)
 - Scheduled and manual insight discovery with progress indicator (FR-38, FR-39)
 
-### 6.3 Out of Scope (Both Releases)
+### 6.3 Release 3 — UI & Behavior Consistency (In Scope)
+
+*Added post-Epic-7 retro. Cross-cutting interaction/layout fixes across existing Release 1/2 surfaces — no new feature area.*
+
+- Flat Structure autosave for structural edits (FR-44)
+- Save/cancel action placement and viewport visibility (FR-45)
+- Dropdown/overlay visibility (FR-46)
+- Responsive device card grid on tablet/desktop (FR-47)
+
+### 6.4 Out of Scope (All Releases)
 
 See §5 Non-Goals for the full explicit exclusions list.
 

@@ -1,5 +1,7 @@
 # Investigation: Audit of `ContractStartDate` migration for silent tariff data loss
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the underlying platform fact — Azure SQL Basic-tier PITR is hard-capped at 7 days, no LTR fallback unless separately provisioned — is now a permanent note in Technical Constraints & Dependencies, independent of this specific incident. This investigation itself remains closed as an accepted, unrecoverable risk (no code fix); this file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What was asked.** Confirm whether any flat's tariff history was silently altered by migration

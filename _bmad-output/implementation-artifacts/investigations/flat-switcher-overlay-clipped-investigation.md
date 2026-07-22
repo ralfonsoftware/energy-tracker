@@ -1,5 +1,7 @@
 # Investigation: Flat switcher dropdown panel clipped by header's backdrop-filter box
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the `backdrop-filter` compositing-layer clipping gotcha and the portal-based-overlay rule are now AD-19a in Frontend Architecture. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The flat switcher dropdown (opened via the "Zuhause ▾" button) is visually cut off at the

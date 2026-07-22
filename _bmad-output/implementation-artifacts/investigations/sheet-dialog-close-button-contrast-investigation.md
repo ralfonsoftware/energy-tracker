@@ -1,5 +1,7 @@
 # Investigation: Sheet/Dialog close (X) button has near-invisible contrast
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the dead shadcn token / per-site override pattern is now AD-19c in Frontend Architecture. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The shadcn `SheetContent`/`DialogContent` built-in close button renders an `X` icon with no

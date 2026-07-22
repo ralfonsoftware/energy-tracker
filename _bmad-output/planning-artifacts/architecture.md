@@ -50,8 +50,9 @@ The central domain invariant is **period-accurate tariff costing**: every cost f
 - **Messaging:** Azure Storage Account queues (internal lightweight messaging)
 - **Persistent store:** Azure SQL Basic DTU (~€5/month, 2 GB, 5 DTUs) — decided in this session
 - **Security posture:** Managed identities for all service-to-service; Key Vault for remaining secrets; no private endpoints
-- **UI system:** shadcn/ui; WCAG 2.2 AA accessibility floor; Reduce Motion support required
+- **UI system:** shadcn/ui; WCAG 2.2 AA accessibility floor; Reduce Motion support required; both light and dark themes are required — neither is optional — with dark mode expected to be the more commonly used mode for evening/basement meter reads
 - **Currency:** C# `decimal` throughout (fixed-decimal); no floating-point monetary values at any layer
+- **Backup/recovery ceiling:** Azure SQL Basic-tier point-in-time restore (PITR) is hard-capped at 7 days by the platform — not configurable higher via Bicep, Portal, or CLI — with no long-term retention (LTR) fallback unless separately provisioned. Any migration that backfills or discards existing column data (e.g., a `WHERE col IS NULL` backfill before a column drop) must reconcile old values before the drop; a missed reconciliation window becomes permanently unrecoverable once 7 days elapse (see `contractstartdate-data-loss-audit-investigation.md`, closed as an accepted, unrecoverable risk).
 
 ### Decisions Made in This Step
 
@@ -204,6 +205,9 @@ FluentValidation validators live inside each VSA slice alongside the Function. N
 **AD-8: Hard deletes throughout; correction-in-place for readings**
 Flat deletion cascades all child data (FR-23). Meter Readings are edited in-place with `IsCorrected = true` and `OriginalKwhValue` preserved on the row (not a separate audit table).
 
+**AD-8a: Smart Power Strip decomposition allocation formula (D-44, amended 2026-07-18)**
+Each configured device's share is `(device_estimated_kWh / pool_total) × strip_measured_total`, where `pool_total` = sum of configured devices' estimates + (unconfigured_device_count × nominal_weight), and `nominal_weight` is the average estimated kWh across configured devices. Each unconfigured device receives an identical share of `(nominal_weight / pool_total) × strip_measured_total`. When a strip has zero configured devices, every device receives an equal split of `strip_measured_total ÷ device_count`. All shares sum to exactly `strip_measured_total` by construction.
+
 **Entity model:**
 
 | Table | Key columns |
@@ -237,6 +241,9 @@ With managed identity covering all current service connections, no secrets requi
 **AD-12: Tenant isolation via middleware**
 `TenantResolver` runs in Azure Functions middleware registered in `Program.cs`. Every function receives a resolved `UserId` context. All EF Core queries filter by `UserId` (via `Flat`) — never raw unscoped queries.
 
+**AD-12a: Standard-tier SWA linked backend auto-enables Easy Auth on the Function App**
+Linking an external Functions app as a Standard-tier SWA's custom backend (AD-4) automatically provisions App Service Authentication V2 (Easy Auth) on the Function App itself, with `requireAuthentication: true` and the `azureStaticWebApps` identity provider — an automatic platform side effect, not something this repo's Bicep declares by default. It gates every request to the Function App's raw hostname, including unauthenticated platform callbacks such as Event Grid's blob-trigger webhook validation POST to `/runtime/webhooks/blobs`. Any Event-Grid- or webhook-triggered function added to this app must have its path added to `globalValidation.excludedPaths` via an explicit `authsettingsV2` Bicep resource, and any resource depending on that exclusion (e.g., an `eventSubscriptions` resource) must declare `dependsOn` it explicitly — Bicep does not infer this ordering from the implicit `listKeys()` dependency alone (see `eventgrid-webhook-401-investigation.md`).
+
 ### API & Communication
 
 **AD-13: REST with path-based API versioning**
@@ -267,6 +274,9 @@ Consistent error envelope across all endpoints. The three import error categorie
 **AD-15: Azure Storage Queue for import/insight internal messaging**
 JSON envelopes: `{ importJobId, flatId, blobPath, userId }`. Blob-triggered Function reads blob path directly; queue handles any decoupled internal signals.
 
+**AD-15a: `Microsoft.AspNetCore.Http.Json.JsonOptions` and `Mvc.JsonOptions` are separate configuration graphs**
+ASP.NET Core (including the isolated-worker Functions host) exposes two independent JSON serializer configuration graphs: `Http.Json.JsonOptions` (governs minimal-API `Results.Json()`/`WriteAsJsonAsync`) and `Mvc.JsonOptions` (governs `ObjectResult`/`OkObjectResult`, which every Function in this codebase uses to return responses). Configuring only one graph — e.g. registering camelCase naming and `JsonStringEnumConverter` solely on `Http.Json.JsonOptions` — silently serializes enum-typed fields as raw integers on every `ObjectResult` endpoint, with no compiler or runtime warning. Both graphs are configured identically via `api/Shared/JsonSerializationDefaults.cs`, applied to both option types from `Program.cs`. Any future shared serialization setting (naming policy, converters) belongs there, not in a single `Configure<TOptions>` call.
+
 ### Frontend Architecture
 
 **AD-16: TanStack Query v5 for all server state; no global store**
@@ -294,6 +304,15 @@ Each tab (Dashboard, Insights, Decomposition, Settings) lazy-loaded via Vite's b
 /settings/account  → Account (sign out, flat deletion)
 ```
 
+**AD-19a: Portal-based overlays only inside `backdrop-filter` ancestors**
+WebKit (Safari/iOS) renders any element with `backdrop-filter` in an isolated compositing layer bounded by that element's own box; an absolutely-positioned descendant that overflows this box is visually clipped at the ancestor's edge, even with no `overflow` rule set anywhere in the CSS. Any dropdown or overlay panel nested inside `<Header>` (which applies `backdropFilter: blur(20px)`) or any other `backdrop-filter` ancestor must render via a portal-based primitive (`Popover`/`PopoverContent` from `components/ui/popover`), never a hand-rolled `position: absolute` child. `FlatSwitcher.tsx` and `LocaleDropdown.tsx` are the reference implementations of this pattern (see `flat-switcher-overlay-clipped-investigation.md`).
+
+**AD-19b: `document.scrollingElement` is the real scroll container, not `<main>`**
+`AppShell.tsx`'s `<main>` declares `overflow-y-auto`, but its box grows to fit all content rather than being height-capped, so the rule never actually engages — page scrolling happens at `<html>` (`document.scrollingElement`), not `<main>`. Any layout logic that measures or anchors against a scroll container — sticky positioning, scroll-position math, `IntersectionObserver` roots — must target `document.scrollingElement`, not `<main>`. Separately, as a general CSS fact: `position: sticky` on a trailing sibling only "sticks" for the tail portion of the scroll range proportional to the buffer reserved before it (e.g. `pb-32`) versus how far content exceeds the viewport; for long lists this degrades to a plain static element visible only near the very bottom. This is the underlying reason D-45 (see Structure Patterns) replaced `StickyActionBar`'s sticky mechanism with `position: fixed` rather than tuning the buffer size (see `power-points-scroll-visibility-investigation.md`).
+
+**AD-19c: shadcn Sheet/Dialog close button needs an explicit per-site color override**
+This project's Tailwind v4 `@theme` block replaced shadcn's default `background`/`foreground`/`secondary`/`ring` semantic tokens with its own `text-primary/secondary/tertiary` and `glass-surface` scale, but never defined the originals. The generated `sheet.tsx`/`dialog.tsx` close (`X`) button relies on those now-undefined tokens (`ring-offset-background`, `focus:ring-ring`, `data-[state=open]:bg-secondary`) and sets no explicit text color, so it silently inherits browser-default black and is invisible on this app's dark glass-panel backgrounds. Every `SheetContent`/`DialogContent` usage must add an explicit override — `[&>button]:text-white/60 [&>button]:hover:text-white [&>button]:ring-offset-transparent [&>button]:focus:ring-white/40 [&>button]:data-[state=open]:bg-white/10` — at the call site; never hand-edit the generated component. `TariffForm.tsx` is the reference implementation (see `sheet-dialog-close-button-contrast-investigation.md`).
+
 ### Infrastructure & Deployment
 
 **AD-20: GitHub Actions CI/CD — single pipeline**
@@ -305,11 +324,17 @@ Personal project — one production environment. Local dev: `local.settings.json
 **AD-22: Application Insights for monitoring**
 Attached to the Functions app. Free tier sufficient for personal-project invocation volumes. Built-in failure alerting, invocation traces, dependency tracking.
 
+**AD-22a: `tsc -b` type-checks test files as part of the production build, with no pre-merge gate**
+`npm run build` (`tsc -b && vite build`) type-checks every `*.test.ts(x)` file alongside production source — there is no `tsconfig` exclusion separating test files from the build's type-check scope, and no pre-merge CI gate catches this before `main` (single pipeline, no staging, per AD-20/AD-21). Widening a shared response/hook-return type therefore requires migrating every test fixture that constructs it — including consumers in other feature slices — or the next push fails at deploy time rather than at review time (see `story-9-10-deploy-failure-investigation.md`).
+
+**AD-22b: SWA Free tier cannot support a linked backend — Standard tier is required**
+Azure Static Web Apps Free tier does not support linked backends — only Standard tier (or above) allows a `Microsoft.Web/staticSites/linkedBackends` sub-resource pointing at an external, separately-deployed Functions app. Since AD-4 requires a standalone linked Functions app (SWA managed functions cannot support blob or timer triggers), the SWA resource must be provisioned at Standard tier (see `api-404-swa-investigation.md`). The resource table below reflects the corrected tier.
+
 **Complete Azure resource set:**
 
 | Resource | Tier | Notes |
 |---|---|---|
-| Azure Static Web App | Free | Frontend hosting + SWA Easy Auth |
+| Azure Static Web App | Standard | Frontend hosting + SWA Easy Auth + linked Functions backend (AD-22b) |
 | Azure Functions app | Flex Consumption (Linux) | .NET 10 isolated, ReadyToRun |
 | Azure Storage Account | Standard LRS | Blob (imports) + Queues (messaging) |
 | Azure SQL Server + DB | Basic DTU (~€5/mo) | EF Core, managed identity auth |
@@ -389,6 +414,9 @@ client/src/
 - Backend: `api.Tests/` project at monorepo root, mirroring `api/Features/` — e.g., `api.Tests/Features/Readings/SubmitReadingTests.cs`
 - Frontend: co-located `.test.tsx` / `.test.ts` files next to the file under test
 
+**Persistent bottom-anchored action bars (D-45, 2026-07-18):**
+One visual language, two placement rules. Full-screen edit contexts (`RoomEditor.tsx`'s Power Point save, `DeviceEditor.tsx`'s Cancel/Save) use `position: fixed`, matching the same mechanism `BottomTabBar.tsx` already uses (fixed, bottom-anchored, safe-area-hardened) — not `position: sticky`, which does not reliably anchor within scrollable containers on mobile (see AD-19b for why `sticky` fails specifically). Scrollable content reserves matching bottom padding (`pb-32`) so the fixed bar never covers the last field. The room list (`FlatStructureEditor.tsx`'s per-room saves + page-level "Speichern") keeps placement inline/per-row instead — collapsing many independent per-room save actions into one global bar would be an interaction regression — but is reskinned to the same border/background/accent/pending-spinner treatment as the fixed bar, so it reads as the same system without forcing an ill-fitting placement.
+
 ### Format Patterns
 
 **HTTP status codes:**
@@ -466,6 +494,9 @@ List<string> errors = [..existingErrors, "New validation error"];
 
 **Backend decimal invariant:**
 `decimal` for all kWh, cost, tariff, and baseline values in entities, DTOs, and computation. `float` and `double` are banned for energy and monetary values. Any story touching these types must explicitly note this constraint.
+
+**Derive dependent quantities from a shared base; don't accumulate them independently:**
+When two computed quantities must agree by construction for a comparison between them to be meaningful (e.g., a "covered" vs. "total" day count), derive one from the other (`covered = total − uncovered`) rather than accumulating both independently from raw interval sums. Independent accumulation is vulnerable to floating-point/decimal rounding non-associativity — e.g., .NET's `TimeSpan.TotalDays` is `ticks * DaysPerTick` (multiplication by a precomputed reciprocal, not division) — which can flip a strict inequality even when both values round to the same displayed integer. This governs `KpiCalculator.cs`'s `HasCostGap`/`CoveredDays`/`TotalDays` and applies to any future coverage-ratio or gap-detection logic (see `cost-gap-badge-mismatch-investigation.md`).
 
 **CancellationToken threading:**
 Every async method accepts and forwards `CancellationToken ct` — Function entry, service methods, EF Core queries (`.ToListAsync(ct)`, `.FirstOrDefaultAsync(ct)`). No `CancellationToken.None` in implementation code.

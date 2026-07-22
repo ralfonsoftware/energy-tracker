@@ -1,5 +1,7 @@
 # Investigation: Power-points-view / device-edit Save bar scroll-visibility
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the fixed-vs-sticky positioning decision itself was already captured as UX D-45 / architecture.md Structure Patterns. This pass added the two facts distinct from that decision — `<main>`'s inert scroll container (`document.scrollingElement` is the real one) and the general "sticky trailing-sibling only sticks for the tail of the scroll range" CSS math — as AD-19b in Frontend Architecture. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** `StickyActionBar`'s `position: sticky; bottom: 0` never gets a chance to "stick" early in `RoomEditor` because the trailing buffer after the last content item (`pb-32`, ~128px) is tiny compared to how much the power-point list typically exceeds the viewport — so for any room with a non-trivial number of power points, the Save bar is functionally a normal end-of-page element, invisible until the user scrolls ~93%+ of the way down. Live-repro-confirmed on the Wohnzimmer room (5 power points): bar absent at 58% scroll, present only at 100% scroll.

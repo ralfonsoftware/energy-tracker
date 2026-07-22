@@ -1,5 +1,7 @@
 # Investigation: Story 9.10 deployment — frontend build failure
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the durable pipeline fact — `tsc -b` type-checks test files as part of the production build with no pre-merge gate — is now AD-22a in Infrastructure & Deployment, independent of this specific incident. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The `Build frontend` step of the Azure Static Web Apps CI/CD pipeline (run [29688486010](https://github.com/ralfonsoftware/energy-tracker/actions/runs/29688486010/job/88197024162)) failed at `tsc -b` with 32 TypeScript errors across 15 `*.test.tsx`/`*.test.ts` files, all stemming from commit `395a4b2` (story 9.10, "Optimistic-Concurrency Hardening") widening several DTO/hook contracts with new required fields without updating every test file that constructs those shapes.

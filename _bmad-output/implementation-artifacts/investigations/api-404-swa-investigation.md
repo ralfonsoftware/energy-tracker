@@ -1,5 +1,7 @@
 # Investigation: API 404 — SWA has no linked backend
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the SWA Standard-tier requirement is now AD-22b in Infrastructure & Deployment, and the resource table is corrected. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The SWA (`gray-smoke-096fc4103.7.azurestaticapps.net`) is on the Free tier with an empty `linkedBackends` list; it has no managed API configured, so every `/api/*` request returns 404 — the separately deployed `energytracker-api` Functions app is never reached.

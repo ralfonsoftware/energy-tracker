@@ -1,10 +1,12 @@
 # Investigation: Story 6.6 Import Progress Card never shows "Complete" in Azure
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the dual-`JsonOptions` split-brain gotcha (`Http.Json.JsonOptions` vs `Mvc.JsonOptions`) is now AD-15a in API & Communication. Status/Root Cause fields below closed out the same pass — the fix is confirmed live in `api/Shared/JsonSerializationDefaults.cs`, called from `api/Program.cs:64`, which registers the enum-string converter on both option types. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The backend import pipeline (blob upload → EventGrid trigger → `ProcessImport`) completes successfully in under 1 second on every run (Confirmed via App Insights, both test uploads), but the frontend's polling (`useImportJobStatus`) never observes a `Complete` status and keeps polling every 3s indefinitely — the Progress Card is stuck on the spinner forever, and only disappears on reload because its state lives in an in-memory TanStack Query cache that isn't persisted.
-2. **Where the case stands.** Root cause is Hypothesized with high confidence: an ASP.NET Core JSON-serialization split-brain. `Program.cs` only configures `Microsoft.AspNetCore.Http.Json.JsonOptions` with a `JsonStringEnumConverter`, but every function (including `GetImportStatusFunction`) returns results via `OkObjectResult`/`ObjectResult`, which is executed by ASP.NET Core's MVC object-result pipeline and consults `Microsoft.AspNetCore.Mvc.JsonOptions` instead — a separate options object that is never configured in this codebase and therefore serializes the `ImportStatus` enum as its raw integer value (`2` for `Complete`), not the string the frontend types and compares against.
-3. **What's needed next.** A 2-minute confirm/refute: reproduce the upload and inspect the raw response body of `GET /api/v1/flats/{flatId}/imports/{jobId}` in browser DevTools → Network. If `"status"` is a bare number instead of a quoted string, the hypothesis is Confirmed and the fix is to register the enum converter on `Microsoft.AspNetCore.Mvc.JsonOptions` (or move the shared JSON config so both option types share it).
+2. **Where the case stands.** Root cause is **Confirmed** (closed 2026-07-22): an ASP.NET Core JSON-serialization split-brain. `Program.cs` originally only configured `Microsoft.AspNetCore.Http.Json.JsonOptions` with a `JsonStringEnumConverter`, but every function (including `GetImportStatusFunction`) returns results via `OkObjectResult`/`ObjectResult`, which is executed by ASP.NET Core's MVC object-result pipeline and consults `Microsoft.AspNetCore.Mvc.JsonOptions` instead — a separate options object that was never configured and therefore serialized the `ImportStatus` enum as its raw integer value (`2` for `Complete`), not the string the frontend types and compares against.
+3. **Resolution shipped.** `api/Shared/JsonSerializationDefaults.cs` now applies the enum-string converter (+ camelCase policy) to *both* `Http.Json.JsonOptions` and `Mvc.JsonOptions` via a single `ConfigureAspNetCoreJsonOptions(builder.Services)` call in `api/Program.cs:64`, so the two option types can no longer drift apart.
 
 ## Case Info
 
@@ -12,7 +14,8 @@
 | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Ticket           | N/A (user-reported after manual Azure test of Story 6.6)                                                             |
 | Date opened      | 2026-07-07                                                                                                            |
-| Status           | Active                                                                                                                |
+| Date closed      | 2026-07-22                                                                                                            |
+| Status           | Resolved                                                                                                              |
 | System           | Azure Static Web Apps (Standard) + linked Function App `energytracker-api` (Flex Consumption, linux) + Azure SQL, resource group `energytracker-rg` |
 | Evidence sources | Azure Application Insights / Log Analytics (`energytracker-logs`), Azure Storage blob listing, Function App function list, source code (`api/`, `client/`), git history, `infra/main.bicep` |
 
@@ -88,7 +91,7 @@ There is no corresponding `Configure<Microsoft.AspNetCore.Mvc.JsonOptions>` anyw
 
 ### Hypothesis 1: `ObjectResult` uses `Mvc.JsonOptions` (unconfigured) instead of `Http.Json.JsonOptions` (configured), so `status`/`errorCategory` serialize as integers
 
-**Status:** Open (high-confidence, cheap to confirm)
+**Status:** Confirmed — fixed (2026-07-22)
 
 **Theory:** See Deduction 1.
 
@@ -98,7 +101,7 @@ There is no corresponding `Configure<Microsoft.AspNetCore.Mvc.JsonOptions>` anyw
 
 **Would refute:** The raw response body shows `"status": "Complete"` as a quoted string — in that case the break must be somewhere else (e.g. a TanStack Query cache-key mismatch, or the SWA `staticwebapp.config.json` routing this specific path to something unexpected). Re-open investigation toward the frontend request/response path if refuted.
 
-**Resolution:** Not yet resolved — no direct capture of the raw response body was available in this session (browser DevTools access wasn't part of the evidence gathered). This is the single next step.
+**Resolution:** Confirmed and fixed (2026-07-22). `api/Shared/JsonSerializationDefaults.cs` registers the enum-string converter on both `Http.Json.JsonOptions` and `Mvc.JsonOptions`, applied from `api/Program.cs:64` — see AD-15a in `architecture.md`.
 
 ## Missing Evidence
 

@@ -1,5 +1,7 @@
 # Investigation: Cost-gap warning badge shown despite "185 of 185 days" full coverage
 
+> **Folded into `architecture.md`** (2026-07-22 doc consolidation, Epic 9 retro Action Item #2): the general "derive dependent quantities from a shared base" invariant is now documented in Implementation Patterns & Consistency Rules > Process Patterns. This file remains as the historical record.
+
 ## Hand-off Brief
 
 1. **What happened.** The dashboard shows a ⚠ "Tarif deckt 185 von 185 Tagen" badge (implying full

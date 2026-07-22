@@ -53,6 +53,8 @@ FR-43: The app computes a rolling annual kWh figure and generates an invoice dev
 
 **Release 3 (UI & Behavior Consistency, added post-Epic-7 retro):**
 
+*(2026-07-22 doc consolidation: FR-44–FR-47 were defined here and in `epic-list.md` but never promoted into `prd.md` itself. They now also live in `prd.md` §4.13 "UI & Behavior Consistency" and §6.3 — this inventory entry and that PRD section should be kept in sync going forward.)*
+
 FR-44: Structural edits to Flat Structure (adding or deleting a Room) save automatically on each change; no separate manual "Save" action is required for structural changes.
 FR-45: Every save/cancel action in a form or sheet is positioned adjacent to the fields it commits, and remains within the visible viewport without requiring the user to scroll to find it, across all supported browsers (including Safari).
 FR-46: Every dropdown/overlay/popover in the app renders fully visible and unclipped within the viewport, regardless of its trigger's position on the page.
