@@ -4,6 +4,7 @@ import { EuroBurnGradient } from './EuroBurnGradient'
 import { BottomTabBar } from './BottomTabBar'
 import { SidebarNav } from './SidebarNav'
 import { Header } from './Header'
+import { ErrorBoundary } from './ErrorBoundary'
 
 export default function AppShell() {
   const mainRef = useRef<HTMLElement>(null)
@@ -25,7 +26,9 @@ export default function AppShell() {
           className="flex-1 overflow-y-auto pb-[calc(84px_+_env(safe-area-inset-bottom,0px))] md:pb-0"
         >
           <Header />
-          <Outlet />
+          <ErrorBoundary resetKey={`${pathname}${search}${hash}`}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
       <div className="md:hidden">

@@ -25,5 +25,10 @@
     "heading": "Seite nicht gefunden",
     "body": "Die gesuchte Seite existiert nicht oder wurde verschoben.",
     "cta": "Zurück zum Dashboard"
+  },
+  "errorBoundary": {
+    "heading": "Etwas ist schiefgelaufen",
+    "body": "Ein unerwarteter Fehler ist aufgetreten. Versuche, zum Dashboard zurückzukehren.",
+    "cta": "Zurück zum Dashboard"
   }
 }

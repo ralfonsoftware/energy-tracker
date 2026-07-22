@@ -1,4 +1,4 @@
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { createMemoryRouter, RouterProvider } from 'react-router-dom'
 import AppShell from './AppShell'
@@ -60,5 +60,92 @@ describe('AppShell', () => {
 
     const main = screen.getByText('page-one').closest('main')
     expect(main?.className).toContain('pb-[calc(84px_+_env(safe-area-inset-bottom,0px))]')
+  })
+
+  it('AppShell_ChildRouteThrows_ShowsFallbackWithoutUnmountingChrome', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    function Boom(): never {
+      throw new Error('boom')
+    }
+    const router = createMemoryRouter(
+      [
+        {
+          element: <AppShell />,
+          children: [{ path: '/', element: <Boom /> }],
+        },
+      ],
+      { initialEntries: ['/'] }
+    )
+    render(<RouterProvider router={router} />)
+
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+    expect(screen.getByTestId('sidebar-nav')).toBeInTheDocument()
+    expect(screen.getByTestId('bottom-tab-bar')).toBeInTheDocument()
+    expect(screen.getByTestId('header')).toBeInTheDocument()
+
+    consoleError.mockRestore()
+  })
+
+  it('AppShell_NavigateAwayAfterError_ClearsFallbackAndRendersNewRoute', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    function Boom(): never {
+      throw new Error('boom')
+    }
+    const router = createMemoryRouter(
+      [
+        {
+          element: <AppShell />,
+          children: [
+            { path: '/', element: <Boom /> },
+            { path: '/settings', element: <div>settings-page</div> },
+          ],
+        },
+      ],
+      { initialEntries: ['/'] }
+    )
+    render(<RouterProvider router={router} />)
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+
+    await act(async () => {
+      await router.navigate('/settings')
+    })
+
+    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
+    expect(screen.getByText('settings-page')).toBeInTheDocument()
+
+    consoleError.mockRestore()
+  })
+
+  it('AppShell_CtaClickedOnRootRouteError_RecoversEvenThoughPathnameIsUnchanged', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    let shouldThrow = true
+    function MaybeBoom() {
+      if (shouldThrow) {
+        throw new Error('boom')
+      }
+      return <div>recovered-content</div>
+    }
+    const router = createMemoryRouter(
+      [
+        {
+          element: <AppShell />,
+          children: [{ path: '/', element: <MaybeBoom /> }],
+        },
+      ],
+      { initialEntries: ['/'] }
+    )
+    render(<RouterProvider router={router} />)
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+
+    shouldThrow = false
+    fireEvent.click(screen.getByText('Back to Dashboard'))
+
+    expect(screen.queryByText('Something went wrong')).not.toBeInTheDocument()
+    expect(screen.getByText('recovered-content')).toBeInTheDocument()
+
+    consoleError.mockRestore()
   })
 })

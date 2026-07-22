@@ -25,5 +25,10 @@
     "heading": "Page not found",
     "body": "The page you're looking for doesn't exist or may have moved.",
     "cta": "Back to Dashboard"
+  },
+  "errorBoundary": {
+    "heading": "Something went wrong",
+    "body": "An unexpected error occurred. Try going back to the dashboard.",
+    "cta": "Back to Dashboard"
   }
 }
