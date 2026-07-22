@@ -45,6 +45,7 @@ function setup(options?: { isPending?: boolean }) {
     settings: defaultSettings,
     isLoading: false,
     isError: false,
+    refetch: vi.fn(),
   } as unknown as ReturnType<typeof useUserSettings>)
 
   const createMutate = vi.fn<(variables: unknown, opts?: MutateOptions<FlatSummary>) => void>()

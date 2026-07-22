@@ -1,5 +1,17 @@
 # Deferred Work
 
+## Deferred from: code review of epic-9-retro-technical-debt-cleanup (refetch mocks) (2026-07-22)
+
+- `AccountSettings.test.tsx` mocks `FlatDeleteConfirm` exposing only its `onCancel` path — no test ever invokes `onDeleteConflict`, so the `onDeleteConflict={() => refetch()}` wiring in `AccountSettings.tsx:62` (fired when a delete-flat request hits a 409 conflict) is never exercised. A future regression that breaks or drops that wiring would pass all existing tests silently. Pre-existing gap, not introduced by this diff (which only added the `refetch: vi.fn()` mock field to prevent a runtime throw, not a test for the invocation path itself). `client/src/features/settings/components/AccountSettings.test.tsx`, `client/src/features/settings/components/AccountSettings.tsx:62`, `client/src/features/settings/components/FlatDeleteConfirm.tsx:36`
+
+## Deferred from: quick-dev token-budget split of epic-9-retro tech-debt cleanup (2026-07-22)
+
+Carved off `spec-epic-9-retro-technical-debt-cleanup.md` (bundled all 4 logged Epic 9 retro Technical Debt items) after it measured ~2400 tokens, over the 900-1600 target. Narrowed that spec to the `mockUseUserSettings` refetch fix only; the other 3 goals below are each meant to run as their own quick-dev pass.
+
+- **Router structural regression test** — `router.test.tsx` exercises a hand-rolled stub route tree instead of the real `router` from `router.tsx`, so a route-order/path regression in the real file wouldn't be caught. Fix: add a test asserting on the real `router.routes` structure (paths/order), without rendering the full lazy-loaded component tree. Keep the existing 3 behavior tests as-is (different, valid concern — mirrors `AppShell.test.tsx`'s stub-tree isolation pattern). `client/src/router.tsx`, `client/src/router.test.tsx`
+- **React Error Boundary around `<Outlet />`** — no boundary in `AppShell.tsx`; any child-page runtime throw unmounts the entire shell. Fix: new `ErrorBoundary` class component (React has no hook-based boundary) + `ErrorFallback` presentational component styled like `NotFoundPage.tsx`, wrapping `<Outlet />` in `AppShell.tsx`. Needs new `errorBoundary.*` i18n keys in `common` namespace (both locales). CTA navigation must use `window.location.href = '/'`, not `useNavigate` (unavailable in `componentDidCatch`). `client/src/components/AppShell.tsx`
+- **Scope `TrendChart`'s hardcoded SVG pattern id** — `id="meterResetHatch"` (line ~79) is a hardcoded global DOM id; a problem only if `TrendChart` ever renders twice on one page. Fix: `useId()`-scoped id for both the `<pattern id>` and its `url(#...)` reference; update the test's fixed-string `url(#meterResetHatch)` assertion (`TrendChart.test.tsx:114`) to match the actual rendered id instead. `client/src/features/dashboard/components/TrendChart.tsx`
+
 ## Deferred from: code review of 9-13-catch-all-404-route (2026-07-19)
 
 - `router.test.tsx` builds an inline stub route tree instead of importing the real `router` from `router.tsx` — a regression in the real file's route order/placement would not be caught by these tests. Pre-existing test-strategy tradeoff, mirrors `AppShell.test.tsx`'s established pattern per this story's own Dev Notes. `client/src/router.test.tsx:9-28`

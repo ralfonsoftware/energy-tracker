@@ -44,6 +44,7 @@ describe('AccountSettings', () => {
       settings: defaultSettings,
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useUserSettings>)
 
     Object.defineProperty(window, 'location', {
@@ -90,6 +91,7 @@ describe('AccountSettings', () => {
       settings: { ...defaultSettings, hasFlat: false, flatId: undefined, flatName: undefined },
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useUserSettings>)
     render(<AccountSettings />)
     expect(screen.queryByText('account.deleteFlat.button')).not.toBeInTheDocument()
@@ -118,6 +120,7 @@ describe('AccountSettings', () => {
       settings: { ...defaultSettings, hasFlat: false, flatId: undefined, flatName: undefined },
       isLoading: false,
       isError: false,
+      refetch: vi.fn(),
     } as unknown as ReturnType<typeof useUserSettings>)
     rerender(<AccountSettings />)
 

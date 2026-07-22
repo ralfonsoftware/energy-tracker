@@ -49,6 +49,7 @@ function setup(
     settings: { ...defaultSettings, ...settingsOverride },
     isLoading,
     isError: false,
+    refetch: vi.fn(),
   } as unknown as ReturnType<typeof useUserSettings>)
   mockUseFlats.mockReturnValue({
     data: flatsOverride.data ?? flats,
