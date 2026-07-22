@@ -53,7 +53,6 @@ builder.Services.AddSingleton<ReadingValidator>();
 builder.Services.AddSingleton<PatchReadingValidator>();
 builder.Services.AddSingleton<TariffValidator>();
 builder.Services.AddSingleton<PatchTariffValidator>();
-builder.Services.AddScoped<TariffResolver>();
 builder.Services.AddScoped<EveHomeParser>();
 builder.Services.AddScoped<MerossParser>();
 builder.Services.AddScoped<InterpolationEngine>();

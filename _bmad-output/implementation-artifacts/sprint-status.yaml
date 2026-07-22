@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-19 (Story 9.13 done — code review found & fixed contradictory sprint-status bookkeeping and a history-trap in the 404 CTA's navigate call)
+# last_updated: 2026-07-22 (Epic 9 retrospective done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-19 (Story 9.13 done)
+last_updated: 2026-07-22 (Epic 9 retrospective done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -114,7 +114,7 @@ development_status:
   epic-8-retrospective: done
 
   # Epic 9: Unified Save-Affordance Fix & Pre-Epic-10 Hardening
-  epic-9: in-progress
+  epic-9: done
   9-1-unified-save-affordance-design-decision: done
   9-2-fix-roomeditor-and-deviceeditor-save-bar-structural: done
   9-3-align-room-list-save-affordance: done
@@ -128,7 +128,7 @@ development_status:
   9-11-kwhvalue-precision-divergence-fix: done
   9-12-audit-contractstartdate-migration-for-silent-data-loss: done
   9-13-catch-all-404-route: done
-  epic-9-retrospective: optional
+  epic-9-retrospective: done
 
   # Epic 10: Actionable Insights
   epic-10: backlog

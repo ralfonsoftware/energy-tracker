@@ -298,7 +298,7 @@ return new BadRequestObjectResult(new {
 
 **Test placement**
 - `api.Tests/Features/{Feature}/{Class}Tests.cs` — mirrors `api/Features/{Feature}/`
-- `api.Tests/Shared/` for shared infrastructure (e.g., `TariffResolverTests.cs`)
+- `api.Tests/Shared/` for shared infrastructure (e.g., `ConcurrencyExtensions`, `DecimalPrecisionValidatorExtensions`)
 
 **EF Core in tests**
 - `InMemory` provider for unit-speed tests — does not enforce FK constraints, column types, or `decimal` precision
@@ -306,7 +306,7 @@ return new BadRequestObjectResult(new {
 - Future integration tests use SQLite or real SQL Server — do not add new InMemory tests for schema-constraint scenarios
 
 **Highest-value targets**
-- Pure computation: `KpiCalculator`, `TariffResolver`, `InterpolationEngine`, `ReconciliationEngine`
+- Pure computation: `KpiCalculator`, `InterpolationEngine`, `ReconciliationEngine`
 - Validators: test all rule branches, especially contract-lock (`TariffValidator`)
 - Functions: test handler method directly with mock `AppDbContext` + `FunctionContext` — not via HTTP
 
@@ -419,7 +419,7 @@ return new BadRequestObjectResult(new {
 - `AuthorizationLevel.Anonymous` on all triggers — SWA Easy Auth is the gate, not Functions auth
 
 #### Data integrity invariants
-- Period-accurate tariff costing: every cost figure uses the tariff active on the date of consumption. **Correction (2026-07-13, Story 7.1 code review):** `TariffResolver.ResolveAsync(flatId, date, ct)` has zero real callers anywhere in this codebase (confirmed by full-repo grep) — it is dead code, not "the only correct path." The actual live pattern is `KpiCalculator.cs:155-164`'s in-memory `ResolveTariff(tariffs, date)`: load the flat's `Tariff` list once, then resolve each day in-memory (latest `Tariff` with `ContractStartDate <= date`). This avoids an N+1 per-day DB round-trip. Every engine needing period-accurate costing (`KpiCalculator`, `DecompositionEngine`) duplicates this helper verbatim per this codebase's established per-engine duplication convention — do not call `TariffResolver.ResolveAsync` in a per-day loop
+- Period-accurate tariff costing: every cost figure uses the tariff active on the date of consumption. **Update (2026-07-22, Epic 9 retro cleanup):** the old `TariffResolver.ResolveAsync(flatId, date, ct)` class (flagged as dead code since Story 7.1's code review, zero real callers) has been deleted entirely — do not recreate it. The live pattern is `KpiCalculator.cs`'s in-memory `ResolveTariff(tariffs, date)`: load the flat's `Tariff` list once, then resolve each day in-memory (latest `Tariff` with `ContractStartDate <= date`). This avoids an N+1 per-day DB round-trip. Every engine needing period-accurate costing (`KpiCalculator`, `DecompositionEngine`) duplicates this helper verbatim per this codebase's established per-engine duplication convention
 - `Insights.Data` JSON column is opaque — deserialize in application layer; no LINQ predicates against its properties
 - `IsInterpolated = true` must be set on all gap-filled rows in `SmartPlugDailyData`
 - `IsCorrected = true` + `OriginalKwhValue` preserved on edited meter readings — no hard delete of reading history
@@ -440,4 +440,4 @@ return new BadRequestObjectResult(new {
 - Remove rules that have become obvious or are now enforced by tooling
 - The Version Gotchas section should shrink as the stack stabilises
 
-_Last updated: 2026-07-19_
+_Last updated: 2026-07-22_
