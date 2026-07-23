@@ -3,6 +3,7 @@ import { vi } from 'vitest'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router-dom'
 import { OnboardingGate } from '@/features/onboarding/components/OnboardingGate'
 import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
+import { routes } from './router'
 
 vi.mock('@/features/settings/hooks/useUserSettings')
 
@@ -73,5 +74,28 @@ describe('router', () => {
 
     expect(screen.getByText('dashboard-stub')).toBeInTheDocument()
     expect(screen.queryByText('notfound-stub')).not.toBeInTheDocument()
+  })
+})
+
+describe('routes (real route config from router.tsx)', () => {
+  it('Routes_TopLevel_OnboardingGateThenOnboardingThenCatchAllInOrder', () => {
+    expect(routes).toHaveLength(3)
+    expect(routes[0].path).toBeUndefined()
+    expect(routes[0].children).toHaveLength(1)
+    expect(routes[1].path).toBe('/onboarding')
+    expect(routes[2].path).toBe('*')
+  })
+
+  it('Routes_AppShellChildren_FourPagesInOrder', () => {
+    const appShellEntry = routes[0].children?.[0]
+    expect(appShellEntry?.path).toBeUndefined()
+    const appShellChildren = appShellEntry?.children ?? []
+
+    expect(appShellChildren.map(route => route.path)).toEqual([
+      '/',
+      '/insights',
+      '/decomposition/*',
+      '/settings/*',
+    ])
   })
 })

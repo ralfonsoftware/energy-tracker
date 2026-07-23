@@ -18,7 +18,7 @@ function Wrap({ Page }: { Page: React.ComponentType }) {
   )
 }
 
-export const router = createBrowserRouter([
+export const routes = [
   {
     element: <OnboardingGate />,
     children: [
@@ -35,4 +35,6 @@ export const router = createBrowserRouter([
   },
   { path: '/onboarding', element: <Wrap Page={OnboardingPage} /> },
   { path: '*', element: <Wrap Page={NotFoundPage} /> },
-])
+]
+
+export const router = createBrowserRouter(routes)
