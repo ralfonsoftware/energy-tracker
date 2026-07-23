@@ -1,5 +1,11 @@
 # Deferred Work
 
+## Deferred from: code review of dev-up/dev-down scripts (2026-07-23)
+
+- `wait_for_port` in `scripts/dev-up.sh` only checks that a port accepts TCP connections, not that the service behind it is actually fully initialized — func/vite/swa can open their listener slightly before the app is ready to serve real requests. Accepted as a reasonable simplification for local dev tooling (matches common `wait-for-it`-style script conventions); a real HTTP health-check probe would be more precise but adds complexity disproportionate to this scope. `scripts/dev-up.sh`
+- No process-identity check guards against PID reuse in `is_running()`/`dev-down.sh`'s kill loop — a tracked PID that died and got reused by an unrelated OS process could theoretically be misidentified as still-running (false "already up") or get killed by `dev-down.sh`. A keyword-based identity check was attempted and reverted (see `spec-dev-up-down-scripts.md`'s Spec Change Log) after it broke idempotency for `npm`/`npx`-wrapped processes. Low-probability risk for single-developer local tooling; revisit if this is ever used in a shared/CI context. `scripts/dev-up.sh`, `scripts/dev-down.sh`
+- Hardcoded readiness timeouts (15s/45s/30s) have no override mechanism — could be too short on a slower machine. Not added now (no reported need); add a `DEV_UP_TIMEOUT_MULTIPLIER` env var or similar if this becomes a real problem. `scripts/dev-up.sh`
+
 ## Deferred from: code review of router structural regression test (2026-07-23)
 
 - The new `routes` structural tests in `client/src/router.test.tsx` only assert on `route.path` values/order, never on `route.element` — a route accidentally wired to the wrong page component (e.g. `/insights` rendering `SettingsPage`) would pass undetected, even though that's arguably the same "silent route drift" defect class the retro item was written to close. Not fixed now: `router.tsx`'s lazy page consts (`DashboardPage`, `InsightsPage`, etc.) are module-local, not exported, so asserting on `element` identity would require exporting them too — widening `router.tsx`'s public surface further, which cuts against keeping the module lean. Worth a follow-up if this router config grows more complex or a real wrong-component-wiring incident occurs. `client/src/router.tsx`, `client/src/router.test.tsx`

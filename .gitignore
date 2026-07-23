@@ -109,6 +109,11 @@ api.Tests/obj/
 # ─── energy-tracker: Publish output ───────────────────────────
 publish/
 
+# ─── energy-tracker: Local dev stack (scripts/dev-up.sh) ──────
+scripts/.dev-pids
+scripts/.dev-logs/
+scripts/.azurite-data/
+
 # ─── energy-tracker: Bicep compiled output ────────────────────
 infra/main.json
 
