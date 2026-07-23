@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, type RouteObject } from 'react-router-dom'
 import AppShell from '@/components/AppShell'
 import { OnboardingGate } from '@/features/onboarding/components/OnboardingGate'
 
@@ -18,7 +18,7 @@ function Wrap({ Page }: { Page: React.ComponentType }) {
   )
 }
 
-export const routes = [
+export const routes: RouteObject[] = [
   {
     element: <OnboardingGate />,
     children: [
