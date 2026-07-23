@@ -16,10 +16,19 @@ import { useUserSettings } from '../hooks/useUserSettings'
 const mockUseUserSettings = vi.mocked(useUserSettings)
 
 vi.mock('./FlatDeleteConfirm', () => ({
-  FlatDeleteConfirm: ({ flatName, onCancel }: { flatName: string; onCancel: () => void }) => (
+  FlatDeleteConfirm: ({
+    flatName,
+    onCancel,
+    onDeleteConflict,
+  }: {
+    flatName: string
+    onCancel: () => void
+    onDeleteConflict?: () => void
+  }) => (
     <div>
       flat-delete-confirm:{flatName}
       <button onClick={onCancel}>mock-cancel</button>
+      <button onClick={onDeleteConflict}>mock-delete-conflict</button>
     </div>
   ),
 }))
@@ -125,6 +134,22 @@ describe('AccountSettings', () => {
     rerender(<AccountSettings />)
 
     expect(screen.queryByText(/flat-delete-confirm/)).not.toBeInTheDocument()
+  })
+
+  it('FlatDeleteConfirm onDeleteConflict triggers a settings refetch', () => {
+    const refetch = vi.fn()
+    mockUseUserSettings.mockReturnValue({
+      settings: defaultSettings,
+      isLoading: false,
+      isError: false,
+      refetch,
+    } as unknown as ReturnType<typeof useUserSettings>)
+
+    render(<AccountSettings />)
+    fireEvent.click(screen.getByText('account.deleteFlat.button'))
+    fireEvent.click(screen.getByText('mock-delete-conflict'))
+
+    expect(refetch).toHaveBeenCalledTimes(1)
   })
 
   it('Delete Flat and sign-out confirms are mutually exclusive', () => {

@@ -111,7 +111,8 @@ describe('TrendChart', () => {
     )
 
     const bars = Array.from(container.querySelectorAll('.recharts-bar-rectangle path'))
-    const resetBars = bars.filter(bar => bar.getAttribute('fill') === 'url(#meterResetHatch)')
+    const patternId = container.querySelector('pattern')?.getAttribute('id')
+    const resetBars = bars.filter(bar => bar.getAttribute('fill') === `url(#${patternId})`)
     const normalBars = bars.filter(bar => bar.getAttribute('fill') === 'rgba(255,255,255,0.5)')
     expect(bars).toHaveLength(7)
     expect(resetBars).toHaveLength(1)

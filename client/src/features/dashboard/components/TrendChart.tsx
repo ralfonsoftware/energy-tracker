@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { BarChart, Bar, XAxis, Cell, ResponsiveContainer } from 'recharts'
 import { History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +15,7 @@ type Props = {
 export function TrendChart({ dashboard, flatId }: Props) {
   const { t } = useTranslation('dashboard')
   const [historyOpen, setHistoryOpen] = useState(false)
+  const resetHatchId = `meterResetHatch-${useId()}`
 
   const spikeSet = useMemo(() => new Set(dashboard?.spikeDays ?? []), [dashboard?.spikeDays])
   const chartData = useMemo(
@@ -76,7 +77,7 @@ export function TrendChart({ dashboard, flatId }: Props) {
           <BarChart data={chartData} barCategoryGap={6}>
             <defs>
               <pattern
-                id="meterResetHatch"
+                id={resetHatchId}
                 width="4"
                 height="4"
                 patternTransform="rotate(45)"
@@ -99,7 +100,7 @@ export function TrendChart({ dashboard, flatId }: Props) {
                   key={entry.date}
                   fill={
                     entry.wasMeterReset
-                      ? 'url(#meterResetHatch)'
+                      ? `url(#${resetHatchId})`
                       : spikeSet.has(entry.date)
                         ? 'var(--color-accent-spike)'
                         : 'rgba(255,255,255,0.5)'
