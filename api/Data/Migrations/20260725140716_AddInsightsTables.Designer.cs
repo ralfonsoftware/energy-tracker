@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EnergyTracker.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260725133706_AddInsightsTables")]
+    [Migration("20260725140716_AddInsightsTables")]
     partial class AddInsightsTables
     {
         /// <inheritdoc />
@@ -487,8 +487,7 @@ namespace EnergyTracker.Api.Data.Migrations
                 {
                     b.HasOne("EnergyTracker.Api.Data.Entities.Device", "Device")
                         .WithMany()
-                        .HasForeignKey("DeviceId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("DeviceId");
 
                     b.HasOne("EnergyTracker.Api.Data.Entities.Flat", "Flat")
                         .WithMany()
@@ -498,8 +497,7 @@ namespace EnergyTracker.Api.Data.Migrations
 
                     b.HasOne("EnergyTracker.Api.Data.Entities.InsightRun", "Run")
                         .WithMany()
-                        .HasForeignKey("RunId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .HasForeignKey("RunId");
 
                     b.Navigation("Device");
 

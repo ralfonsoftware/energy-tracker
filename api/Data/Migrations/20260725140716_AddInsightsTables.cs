@@ -51,8 +51,7 @@ namespace EnergyTracker.Api.Data.Migrations
                         name: "FK_Insights_Devices_DeviceId",
                         column: x => x.DeviceId,
                         principalTable: "Devices",
-                        principalColumn: "DeviceId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "DeviceId");
                     table.ForeignKey(
                         name: "FK_Insights_Flats_FlatId",
                         column: x => x.FlatId,
@@ -63,8 +62,7 @@ namespace EnergyTracker.Api.Data.Migrations
                         name: "FK_Insights_InsightRuns_RunId",
                         column: x => x.RunId,
                         principalTable: "InsightRuns",
-                        principalColumn: "RunId",
-                        onDelete: ReferentialAction.SetNull);
+                        principalColumn: "RunId");
                 });
 
             migrationBuilder.CreateIndex(

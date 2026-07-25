@@ -23,21 +23,31 @@ public class InsightConfiguration : IEntityTypeConfiguration<Insight>
             .HasForeignKey(i => i.FlatId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        // SetNull (not Cascade): Insight already has a direct cascade path from Flat via
-        // FlatId. Device also cascades from Flat via Room -> PowerPoint -> Device. If
-        // DeviceId cascaded too, SQL Server would reject the model at migration/deploy
-        // time for multiple cascade paths reaching Insights from Flat.
+        // ClientSetNull (not SetNull): Insight already has a direct cascade path from Flat
+        // via FlatId. Device also cascades from Flat via Room -> PowerPoint -> Device, so
+        // Insights is reachable from Flat via a second path (Flat -> Room -> PowerPoint ->
+        // Device -> Insights). SQL Server's multiple-cascade-paths check (Error 1785)
+        // counts SetNull the same as Cascade when computing conflicting paths — a
+        // DB-enforced SetNull here still conflicts with the direct Flat -> Insights cascade
+        // above (confirmed empirically: SetNull alone was rejected by SQL Server even after
+        // the InsightRuns path below was fixed). ClientSetNull nulls DeviceId in EF's change
+        // tracker instead (NO ACTION at the DB level), avoiding the conflict.
         builder.HasOne(i => i.Device)
             .WithMany()
             .HasForeignKey(i => i.DeviceId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.ClientSetNull);
 
-        // SetNull: epic-specified — an InsightRun's deletion must not remove the
-        // Insight rows it produced.
+        // ClientSetNull (not SetNull): epic-specified — an InsightRun's deletion must not
+        // remove the Insight rows it produced. Flat also cascades to InsightRuns directly
+        // (InsightRunConfiguration), so Insights is reachable from Flat via a second path
+        // (Flat -> InsightRuns -> Insights), which conflicts with the direct Flat ->
+        // Insights cascade above for the same Error 1785 reason as the Device path.
+        // ClientSetNull nulls RunId in EF's change tracker instead (NO ACTION at the DB
+        // level), avoiding the conflict.
         builder.HasOne(i => i.Run)
             .WithMany()
             .HasForeignKey(i => i.RunId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.ClientSetNull);
 
         builder.HasIndex(i => new { i.FlatId, i.Type, i.CreatedAt })
             .HasDatabaseName("IX_Insights_FlatId_Type_CreatedAt")
