@@ -15,6 +15,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ImportJob> ImportJobs => Set<ImportJob>();
     public DbSet<SmartPlugDailyData> SmartPlugDailyData => Set<SmartPlugDailyData>();
     public DbSet<SmartPlugIntervalData> SmartPlugIntervalData => Set<SmartPlugIntervalData>();
+    public DbSet<InsightRun> InsightRuns => Set<InsightRun>();
+    public DbSet<Insight> Insights => Set<Insight>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

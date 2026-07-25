@@ -105,6 +105,24 @@ public class DeleteFlatFunctionTests
         WhValue = 150m
     };
 
+    private static InsightRun MakeInsightRun(Guid flatId) => new()
+    {
+        RunId = Guid.NewGuid(),
+        FlatId = flatId,
+        Status = InsightRunStatus.Complete,
+        StartedAt = DateTimeOffset.UtcNow
+    };
+
+    private static Insight MakeInsight(Guid flatId, Guid? runId) => new()
+    {
+        InsightId = Guid.NewGuid(),
+        FlatId = flatId,
+        RunId = runId,
+        Type = InsightType.Standby,
+        Data = "{}",
+        CreatedAt = DateTimeOffset.UtcNow
+    };
+
     private static async Task<(Room room, PowerPoint powerPoint, Device device)> SeedStructureAsync(AppDbContext db, Guid flatId)
     {
         var room = new Room { RoomId = Guid.NewGuid(), FlatId = flatId, Name = "Room", SortOrder = 0 };
@@ -252,6 +270,36 @@ public class DeleteFlatFunctionTests
         (await db.ImportJobs.CountAsync(j => j.FlatId == flat.FlatId)).ShouldBe(0);
         (await db.SmartPlugDailyData.CountAsync(d => d.FlatId == flat.FlatId)).ShouldBe(0);
         (await db.SmartPlugIntervalData.CountAsync(d => d.FlatId == flat.FlatId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_ValidDelete_CascadeDeletesInsightRunsAndInsights()
+    {
+        // Same rationale as the ImportJobs/SmartPlugData test above: seed via a separate
+        // DbContext instance so the rows are persisted but untracked by the context
+        // DeleteFlatFunction runs against.
+        var dbName = Guid.NewGuid().ToString();
+        var flat = MakeFlat("owner-user");
+        InsightRun insightRun;
+        using (var seedDb = MakeDb(dbName))
+        {
+            seedDb.Flats.Add(flat);
+            insightRun = MakeInsightRun(flat.FlatId);
+            seedDb.InsightRuns.Add(insightRun);
+            seedDb.Insights.Add(MakeInsight(flat.FlatId, insightRun.RunId));
+            await seedDb.SaveChangesAsync();
+        }
+
+        using var db = MakeDb(dbName);
+        var fn = new DeleteFlatFunction(db);
+        var req = MakeRequest();
+        var ctx = MakeFunctionContext("owner-user");
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<NoContentResult>();
+        (await db.InsightRuns.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
+        (await db.Insights.CountAsync(i => i.FlatId == flat.FlatId)).ShouldBe(0);
     }
 
     [Fact]

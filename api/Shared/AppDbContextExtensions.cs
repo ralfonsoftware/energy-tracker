@@ -24,5 +24,7 @@ public static class AppDbContextExtensions
         await db.ImportJobs.Where(j => j.FlatId == flatId).LoadAsync(ct);
         await db.SmartPlugDailyData.Where(d => d.FlatId == flatId).LoadAsync(ct);
         await db.SmartPlugIntervalData.Where(d => d.FlatId == flatId).LoadAsync(ct);
+        await db.InsightRuns.Where(r => r.FlatId == flatId).LoadAsync(ct);
+        await db.Insights.Where(i => i.FlatId == flatId).LoadAsync(ct);
     }
 }

@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of story-10.1 (2026-07-25)
+
+- No idempotency guard against duplicate detector execution on queue-message redelivery — `ProcessInsightsFunction` commits `run.Status = Processing` before running the four detectors; if the Functions host is killed at that point, Azure's queue-trigger retry mechanism re-invokes `RunAsync` with the same message, and nothing prevents the (currently no-op) detectors from re-running. Not an active bug today — all four detectors are no-op stubs in this story, so no `Insight` rows can be duplicated yet. The guard can't be correctly designed until the real detector write pattern exists. `blocks: Story 10.2, Story 10.3`. `api/Features/Insights/ProcessInsightsFunction.cs:43-46`
+
 ## Deferred from: code review of router structural regression test (2026-07-23)
 
 - The new `routes` structural tests in `client/src/router.test.tsx` only assert on `route.path` values/order, never on `route.element` — a route accidentally wired to the wrong page component (e.g. `/insights` rendering `SettingsPage`) would pass undetected, even though that's arguably the same "silent route drift" defect class the retro item was written to close. Not fixed now: `router.tsx`'s lazy page consts (`DashboardPage`, `InsightsPage`, etc.) are module-local, not exported, so asserting on `element` identity would require exporting them too — widening `router.tsx`'s public surface further, which cuts against keeping the module lean. Worth a follow-up if this router config grows more complex or a real wrong-component-wiring incident occurs. `client/src/router.tsx`, `client/src/router.test.tsx`
