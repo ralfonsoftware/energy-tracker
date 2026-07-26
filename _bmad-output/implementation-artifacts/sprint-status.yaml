@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-26 (Epic 10 retrospective complete)
+# last_updated: 2026-07-26 (Epic 11 added — post-Epic-10 hardening batch)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-26 (Epic 10 retrospective complete)
+last_updated: 2026-07-26 (Epic 11 added — post-Epic-10 hardening batch)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -137,3 +137,19 @@ development_status:
   10-3-budget-pressure-and-invoice-deviation-detectors: done
   10-4-insights-tab-trend-chart-insight-cards-and-discovery-progress: done
   epic-10-retrospective: done
+
+  # Epic 11: Post-Epic-10 Hardening & Technical Debt Resolution
+  epic-11: backlog
+  11-1-centralize-resolvetariff-into-a-shared-utility: backlog
+  11-2-insights-discovery-redelivery-db-level-idempotency-guard: backlog
+  11-3-enforce-unique-plugid-across-power-points: backlog
+  11-4-patchflatfunction-malformed-name-field-returns-400-not-500: backlog
+  11-5-rfc-9457-type-field-consistency-sweep: backlog
+  11-6-frontend-network-error-reshaping-in-apiclient: backlog
+  11-7-keyboard-accessible-custom-dropdowns: backlog
+  11-8-room-list-per-row-save-state-consistency: backlog
+  11-9-accessible-spike-bar-indicator-design-gated: backlog
+  11-10-http-level-test-coverage-onboarding-and-patchflat: backlog
+  11-11-localdate-ts-correctness-hardening: backlog
+  11-12-sqlite-integration-test-tier-for-schema-constraint-scenarios: backlog
+  epic-11-retrospective: optional
