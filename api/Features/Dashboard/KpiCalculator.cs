@@ -1,4 +1,5 @@
 using EnergyTracker.Api.Data.Entities;
+using EnergyTracker.Api.Shared;
 
 namespace EnergyTracker.Api.Features.Dashboard;
 
@@ -79,7 +80,7 @@ public class KpiCalculator
 
             if (tariffs.Count > 0)
             {
-                var tariff = ResolveTariff(tariffs, readings[i].ReadingDate);
+                var tariff = TariffResolution.Resolve(tariffs, readings[i].ReadingDate);
                 if (tariff is not null)
                 {
                     totalCost += periodKwh * tariff.PricePerKwh;
@@ -112,7 +113,7 @@ public class KpiCalculator
             // displayed denominator and the one used for the figure always agree.
             var dailyAvgCost = coveredDaysInt > 0 ? totalCost / coveredDaysInt : 0m;
 
-            var currentTariff = ResolveTariff(tariffs, now);
+            var currentTariff = TariffResolution.Resolve(tariffs, now);
             var projectedMonthlyCost = currentTariff is not null
                 ? dailyAvgKwh * currentTariff.PricePerKwh * 30m
                 : 0m;
@@ -155,17 +156,6 @@ public class KpiCalculator
             DailyConsumption: dailyConsumption.ToArray(),
             ReadingHistoryDays: (int)Math.Floor(totalDays)
         );
-    }
-
-    private static Tariff? ResolveTariff(IReadOnlyList<Tariff> tariffs, DateTimeOffset date)
-    {
-        Tariff? best = null;
-        foreach (var t in tariffs)
-        {
-            if (t.ContractStartDate <= date && (best is null || t.ContractStartDate > best.ContractStartDate))
-                best = t;
-        }
-        return best;
     }
 
     private static Dictionary<DateOnly, (decimal Kwh, bool WasMeterReset)> BuildDailySeries(IReadOnlyList<MeterReading> readings)

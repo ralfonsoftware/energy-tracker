@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
+using EnergyTracker.Api.Shared;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnergyTracker.Api.Features.Insights;
@@ -65,7 +66,7 @@ public class InvoiceDeviationDetector(AppDbContext db)
         }
 
         var tariffs = await db.Tariffs.AsNoTracking().Where(t => t.FlatId == flatId).ToListAsync(ct);
-        var tariff = ResolveTariff(tariffs, DateTimeOffset.UtcNow);
+        var tariff = TariffResolution.Resolve(tariffs, DateTimeOffset.UtcNow);
         if (tariff is null)
         {
             await db.SaveChangesAsync(ct);
@@ -110,18 +111,5 @@ public class InvoiceDeviationDetector(AppDbContext db)
 
         var window = readings.Skip(anchorIndex).ToList();
         return window.Count < 2 ? null : window;
-    }
-
-    // Duplicated verbatim from KpiCalculator.cs/DecompositionEngine.cs per this codebase's
-    // established per-engine duplication convention — TariffResolver was deleted, don't recreate it.
-    private static Tariff? ResolveTariff(IReadOnlyList<Tariff> tariffs, DateTimeOffset date)
-    {
-        Tariff? best = null;
-        foreach (var t in tariffs)
-        {
-            if (t.ContractStartDate <= date && (best is null || t.ContractStartDate > best.ContractStartDate))
-                best = t;
-        }
-        return best;
     }
 }

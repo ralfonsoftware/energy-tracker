@@ -1,5 +1,6 @@
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
+using EnergyTracker.Api.Shared;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnergyTracker.Api.Features.Decomposition;
@@ -64,7 +65,7 @@ public class DecompositionEngine(AppDbContext db)
             decimal cost = 0m;
             for (var date = startDate; date <= endDate; date = date.AddDays(1))
             {
-                var tariff = ResolveTariff(tariffs, ToLocalMidnight(date));
+                var tariff = TariffResolution.Resolve(tariffs, ToLocalMidnight(date));
                 if (tariff is not null)
                     cost += dailyKwh(date) * tariff.PricePerKwh;
             }
@@ -242,19 +243,6 @@ public class DecompositionEngine(AppDbContext db)
 
     private static DateTimeOffset ToLocalMidnight(DateOnly date) =>
         new(date.Year, date.Month, date.Day, 0, 0, 0, AppTimeZone.GetUtcOffset(date.ToDateTime(TimeOnly.MinValue)));
-
-    // Duplicated verbatim from KpiCalculator.cs:155-164 per AC11/Task 5 — the DB-backed resolver
-    // service has zero real callers today; this in-memory pattern is the codebase's only live precedent.
-    private static Tariff? ResolveTariff(IReadOnlyList<Tariff> tariffs, DateTimeOffset date)
-    {
-        Tariff? best = null;
-        foreach (var t in tariffs)
-        {
-            if (t.ContractStartDate <= date && (best is null || t.ContractStartDate > best.ContractStartDate))
-                best = t;
-        }
-        return best;
-    }
 
     // Duplicated verbatim from ReconciliationEngine.cs:64-82 per AC10/Task 2.
     private static decimal? TryComputeMainMeterTotal(List<MeterReading> readings, DateOnly periodStart, DateOnly periodEnd)

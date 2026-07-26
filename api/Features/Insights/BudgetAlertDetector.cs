@@ -1,6 +1,7 @@
 using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
+using EnergyTracker.Api.Shared;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnergyTracker.Api.Features.Insights;
@@ -40,7 +41,7 @@ public class BudgetAlertDetector(AppDbContext db)
         for (var i = 0; i < window.Count - 1; i++)
         {
             var periodKwh = Math.Max(0m, window[i + 1].KwhValue - window[i].KwhValue);
-            var tariff = ResolveTariff(tariffs, window[i].ReadingDate);
+            var tariff = TariffResolution.Resolve(tariffs, window[i].ReadingDate);
             if (tariff is not null)
                 totalCost += periodKwh * tariff.PricePerKwh;
         }
@@ -101,18 +102,5 @@ public class BudgetAlertDetector(AppDbContext db)
 
         var window = readings.Skip(anchorIndex).ToList();
         return window.Count < 2 ? null : window;
-    }
-
-    // Duplicated verbatim from KpiCalculator.cs/DecompositionEngine.cs per this codebase's
-    // established per-engine duplication convention — TariffResolver was deleted, don't recreate it.
-    private static Tariff? ResolveTariff(IReadOnlyList<Tariff> tariffs, DateTimeOffset date)
-    {
-        Tariff? best = null;
-        foreach (var t in tariffs)
-        {
-            if (t.ContractStartDate <= date && (best is null || t.ContractStartDate > best.ContractStartDate))
-                best = t;
-        }
-        return best;
     }
 }

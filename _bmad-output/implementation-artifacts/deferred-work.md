@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of story-11.1 (2026-07-26)
+
+- Six call sites pass semantically different "date" values into the same shared `TariffResolution.Resolve` function (`DecompositionEngine`'s timezone-adjusted local midnight vs. `KpiCalculator`'s raw `ReadingDate`/`now` vs. the other four's `DateTimeOffset.UtcNow`) — centralizing the comparison algorithm didn't unify what each caller considers "the date." Pre-existing across all six original duplicated methods, not introduced by this diff. `api/Features/Dashboard/KpiCalculator.cs`, `api/Features/Decomposition/DecompositionEngine.cs`, `api/Features/Insights/BudgetAlertDetector.cs`, `InvoiceDeviationDetector.cs`, `ReplacementDetector.cs`, `StandbyDetector.cs`
+
 ## Deferred from: code review of story-10.4 (2026-07-26)
 
 - `TrendChart`'s date-label formatter doesn't react to i18n language changes — `labelFormatter`/`chartData` memoize on `[days]`/`[dashboard?.dailyConsumption, labelFormatter]`, never on `i18n.language`, so switching locale at runtime leaves stale-locale labels until `days` changes. Pre-existing before this diff (the original inline formatter had the same missing dependency); this diff only relocated it into its own memo. `client/src/features/dashboard/components/TrendChart.tsx:16-21`
