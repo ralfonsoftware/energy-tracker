@@ -55,6 +55,21 @@ public class ProcessInsightsFunctionTests
         }
     }
 
+    // EF Core's InMemory provider does not auto-generate a new RowVersion value on save the
+    // way a real SQL Server "rowversion" column does — it only detects a conflict if the
+    // concurrency-token value actually differs between an entry's original snapshot and the
+    // store's current value. This simulates that real-DB auto-bump for InsightRun so the
+    // concurrency race below is reproducible under InMemory, without any production code change.
+    private sealed class RowVersionSimulatingDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            foreach (var entry in ChangeTracker.Entries<InsightRun>().Where(e => e.State == EntityState.Modified))
+                entry.Property(r => r.RowVersion).CurrentValue = Guid.NewGuid().ToByteArray();
+            return base.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private static AppDbContext MakeDb() =>
         new(new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
@@ -210,6 +225,174 @@ public class ProcessInsightsFunctionTests
         var remaining = await db.Insights.Where(i => i.RunId == run.RunId).ToListAsync();
         remaining.ShouldNotContain(i => i.InsightId == staleInsight.InsightId);
         remaining.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task RunAsync_ConcurrentRedeliveryForSameRunId_ExactlyOneInvocationWinsAndWritesInsights()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        var run = new InsightRun
+        {
+            RunId = Guid.NewGuid(),
+            FlatId = flat.FlatId,
+            Status = InsightRunStatus.Pending,
+            StartedAt = DateTimeOffset.UtcNow
+        };
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedDb = new AppDbContext(dbOptions))
+        {
+            seedDb.Flats.Add(flat);
+            seedDb.InsightRuns.Add(run);
+            await seedDb.SaveChangesAsync();
+        }
+
+        // Two independently-tracked contexts against the same backing store simulate the
+        // visibility-timeout race: a single shared context can't reproduce this (see Dev Notes).
+        var dbA = new RowVersionSimulatingDbContext(dbOptions);
+        var fnA = new ProcessInsightsFunction(
+            dbA,
+            new WritingStandbyDetector(dbA),
+            new ReplacementDetector(dbA),
+            new BudgetAlertDetector(dbA),
+            new InvoiceDeviationDetector(dbA),
+            Mock.Of<ILogger<ProcessInsightsFunction>>());
+
+        var dbB = new RowVersionSimulatingDbContext(dbOptions);
+        var fnB = new ProcessInsightsFunction(
+            dbB,
+            new WritingStandbyDetector(dbB),
+            new ReplacementDetector(dbB),
+            new BudgetAlertDetector(dbB),
+            new InvoiceDeviationDetector(dbB),
+            Mock.Of<ILogger<ProcessInsightsFunction>>());
+
+        var message = MakeMessage(flat.FlatId, run.RunId);
+
+        // Each context independently loads (and tracks) the InsightRun before either commits its
+        // Processing claim, so both capture the same pre-claim RowVersion — this is what actually
+        // reproduces the race: RunAsync's own internal load resolves to this already-tracked
+        // instance (EF Core identity resolution) rather than re-fetching, so the loser's original
+        // RowVersion is guaranteed stale by the time its SaveChangesAsync runs, regardless of
+        // whether the two RunAsync calls are scheduled truly concurrently or not.
+        _ = await dbA.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+        _ = await dbB.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+
+        await Task.WhenAll(
+            fnA.RunAsync(message, MakeFunctionContext(), CancellationToken.None),
+            fnB.RunAsync(message, MakeFunctionContext(), CancellationToken.None));
+
+        // Identity resolution returns each context's own already-tracked `run` instance, whose
+        // in-memory Status reflects how far that invocation got: Complete if it won the claim
+        // and finished, or still Processing (never reverted) if it lost the claim and returned early.
+        var runAsSeenByA = await dbA.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+        var runAsSeenByB = await dbB.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+        var outcomes = new[] { runAsSeenByA.Status, runAsSeenByB.Status };
+        outcomes.ShouldContain(InsightRunStatus.Complete);
+        outcomes.ShouldContain(InsightRunStatus.Processing);
+
+        var loserDb = runAsSeenByA.Status == InsightRunStatus.Complete ? dbB : dbA;
+        loserDb.ChangeTracker.Entries<Insight>().ShouldBeEmpty();
+
+        using var verifyDb = new AppDbContext(dbOptions);
+        var insights = await verifyDb.Insights.Where(i => i.RunId == run.RunId).ToListAsync();
+        insights.ShouldHaveSingleItem();
+
+        var finalRun = await verifyDb.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+        finalRun.Status.ShouldBe(InsightRunStatus.Complete);
+    }
+
+    [Fact]
+    public async Task RunAsync_RedeliveryWhileAlreadyProcessing_SkipsWithoutRunningDetectors()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        // Simulates a redelivered message arriving while a still-running first invocation has
+        // already committed the Pending-to-Processing claim — re-assigning the same Processing
+        // value is a no-op EF Core wouldn't detect, so the guard must key off the loaded Status
+        // itself, not rely on SaveChangesAsync throwing.
+        var run = new InsightRun
+        {
+            RunId = Guid.NewGuid(),
+            FlatId = flat.FlatId,
+            Status = InsightRunStatus.Processing,
+            StartedAt = DateTimeOffset.UtcNow
+        };
+        var db = MakeDb();
+        db.Flats.Add(flat);
+        db.InsightRuns.Add(run);
+        await db.SaveChangesAsync();
+
+        var fn = new ProcessInsightsFunction(
+            db,
+            new WritingStandbyDetector(db),
+            new ReplacementDetector(db),
+            new BudgetAlertDetector(db),
+            new InvoiceDeviationDetector(db),
+            Mock.Of<ILogger<ProcessInsightsFunction>>());
+
+        await fn.RunAsync(MakeMessage(flat.FlatId, run.RunId), MakeFunctionContext(), CancellationToken.None);
+
+        var updated = await db.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+        updated.Status.ShouldBe(InsightRunStatus.Processing);
+        updated.CompletedAt.ShouldBeNull();
+        (await db.Insights.Where(i => i.RunId == run.RunId).ToListAsync()).ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task RunAsync_RedeliveryAfterAlreadyComplete_SkipsWithoutReopeningRun()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m
+        };
+        var completedAt = DateTimeOffset.UtcNow;
+        // Simulates a very late redelivery arriving after the run already finished successfully.
+        // Unlike the already-Processing case, Complete-to-Processing IS a real value change, so
+        // without the Status guard this would succeed and silently reopen a finished run.
+        var run = new InsightRun
+        {
+            RunId = Guid.NewGuid(),
+            FlatId = flat.FlatId,
+            Status = InsightRunStatus.Complete,
+            StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5),
+            CompletedAt = completedAt
+        };
+        var db = MakeDb();
+        db.Flats.Add(flat);
+        db.InsightRuns.Add(run);
+        await db.SaveChangesAsync();
+
+        var fn = new ProcessInsightsFunction(
+            db,
+            new WritingStandbyDetector(db),
+            new ReplacementDetector(db),
+            new BudgetAlertDetector(db),
+            new InvoiceDeviationDetector(db),
+            Mock.Of<ILogger<ProcessInsightsFunction>>());
+
+        await fn.RunAsync(MakeMessage(flat.FlatId, run.RunId), MakeFunctionContext(), CancellationToken.None);
+
+        var updated = await db.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
+        updated.Status.ShouldBe(InsightRunStatus.Complete);
+        updated.CompletedAt.ShouldBe(completedAt);
+        (await db.Insights.Where(i => i.RunId == run.RunId).ToListAsync()).ShouldBeEmpty();
     }
 
     [Fact]

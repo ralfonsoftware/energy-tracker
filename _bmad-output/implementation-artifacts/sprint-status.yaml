@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-26 (Epic 11 added — post-Epic-10 hardening batch)
+# last_updated: 2026-07-26 (Story 11.2 created — ready-for-dev)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-26 (Story 11.1 code review complete, marked done)
+last_updated: 2026-07-26 (Story 11.2 code review complete, marked done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -141,7 +141,7 @@ development_status:
   # Epic 11: Post-Epic-10 Hardening & Technical Debt Resolution
   epic-11: in-progress
   11-1-centralize-resolvetariff-into-a-shared-utility: done
-  11-2-insights-discovery-redelivery-db-level-idempotency-guard: backlog
+  11-2-insights-discovery-redelivery-db-level-idempotency-guard: done
   11-3-enforce-unique-plugid-across-power-points: backlog
   11-4-patchflatfunction-malformed-name-field-returns-400-not-500: backlog
   11-5-rfc-9457-type-field-consistency-sweep: backlog

@@ -51,20 +51,54 @@ public class ProcessInsightsFunction(
 
         try
         {
+            if (run.Status != InsightRunStatus.Pending)
+            {
+                // A concurrent invocation (Azure's visibility-timeout redelivery racing a
+                // still-running or already-finished attempt) has already claimed or finished
+                // this RunId. Re-assigning Status to Processing when it is already Processing
+                // is a no-op value change that EF Core's change tracker would not detect — the
+                // SaveChangesAsync below would silently do nothing instead of throwing — and
+                // assigning it when already Complete/Failed would be a genuine but wrong value
+                // change that succeeds and reopens a finished run. Checking the freshly-loaded
+                // Status here, before attempting any transition, is what makes the claim
+                // actually exclusive; the RowVersion-based DbUpdateConcurrencyException catch
+                // below only covers two invocations racing from the same Pending starting point.
+                logger.LogInformation("InsightRun {RunId} redelivery found the run already {Status}; skipping.", discoveryMessage.RunId, run.Status);
+                return;
+            }
+
+            try
+            {
+                run.Status = InsightRunStatus.Processing;
+                await db.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                // Both invocations loaded the row while it was still Pending (the guard above
+                // doesn't catch this case) and raced to commit the Pending-to-Processing
+                // transition — a concurrent invocation won and changed the RowVersion first.
+                // This is a normal, expected outcome of at-least-once queue delivery, not an
+                // error — the winner is already processing, so this invocation must return
+                // without touching any Insight rows. Caught here, specifically, so it never
+                // falls through to the generic Exception handler below and never enters the
+                // stale-cleanup/detector block at all.
+                logger.LogInformation("InsightRun {RunId} redelivery lost the processing claim to a concurrent invocation.", discoveryMessage.RunId);
+                return;
+            }
+
             // Guards against Azure's at-least-once queue delivery re-invoking RunAsync after a
             // prior attempt was killed mid-run: clear any partial detector writes from that
             // attempt before running the detectors again, so redelivery can never produce
-            // duplicate Insight rows. Runs inside this try block so a failure here also lands
-            // the run in Failed status, same as any other failure in this method.
+            // duplicate Insight rows. Runs only after this invocation has won the exclusive
+            // Processing claim above (via the Status guard and the RowVersion race both), and
+            // inside this try block so a failure here also lands the run in Failed status, same
+            // as any other failure in this method.
             var staleInsights = await db.Insights.Where(i => i.RunId == discoveryMessage.RunId).ToListAsync(ct);
             if (staleInsights.Count > 0)
             {
                 db.Insights.RemoveRange(staleInsights);
                 await db.SaveChangesAsync(ct);
             }
-
-            run.Status = InsightRunStatus.Processing;
-            await db.SaveChangesAsync(ct);
 
             // Each detector runs inside its own guarded call so one detector's failure
             // never stops the other three (per AC #4) — only a failure outside all four

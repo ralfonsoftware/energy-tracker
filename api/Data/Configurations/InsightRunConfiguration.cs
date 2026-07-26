@@ -15,6 +15,7 @@ public class InsightRunConfiguration : IEntityTypeConfiguration<InsightRun>
         builder.Property(r => r.Status).IsRequired();
         builder.Property(r => r.StartedAt).IsRequired();
         builder.Property(r => r.CompletedAt).IsRequired(false);
+        builder.Property(r => r.RowVersion).IsRowVersion();
         builder.HasOne(r => r.Flat)
             .WithMany()
             .HasForeignKey(r => r.FlatId)

@@ -15,5 +15,6 @@ public class InsightRun
     public InsightRunStatus Status { get; set; }
     public DateTimeOffset StartedAt { get; set; }
     public DateTimeOffset? CompletedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public Flat Flat { get; set; } = null!;
 }
