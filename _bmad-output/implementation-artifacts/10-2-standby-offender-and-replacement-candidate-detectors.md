@@ -4,7 +4,7 @@ baseline_commit: 0bec76568ed878dd8729416a6a190d2cde9b820b
 
 # Story 10.2: Standby Offender & Replacement Candidate Detectors
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -30,32 +30,32 @@ So that I can take targeted action rather than guessing where to investigate.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `StandbyDetector.cs` real implementation (AC: #1, #2, #3)
-  - [ ] Query `Rooms` (`AsNoTracking`, `Include(r => r.PowerPoints).ThenInclude(pp => pp.Devices)`) for the flat, exactly like `DecompositionEngine.ComputeAsync` — mirror this pattern, don't invent a new one
-  - [ ] For each `PowerPoint` with a non-null `PlugId` and exactly 1 `Device` (single-device attribution — see Dev Notes on why smart strips are excluded): query `SmartPlugIntervalData` for that `PlugId` within the last 30 days
-  - [ ] Classify Eve Home vs Meross by presence/absence of rows in the query result — do not add a new "plug type" column or field anywhere
-  - [ ] Compute distinct calendar-day count from `Timestamp` (already local wall-clock with a synthetic zero offset — see Dev Notes, no timezone conversion); skip device if < 7 distinct days
-  - [ ] Filter rows to `Timestamp.Hour >= 22 || Timestamp.Hour < 8` (out-of-use); convert each row's `WhValue` to watts via the 10-minute-interval assumption; compute the mean; skip device if mean ≤ 2 W
-  - [ ] Resolve the flat's current tariff via the in-memory `ResolveTariff` helper (duplicate verbatim from `KpiCalculator.cs`/`DecompositionEngine.cs` per this codebase's established per-engine duplication convention — do not extract a shared utility, do not recreate the deleted `TariffResolver` class); skip device if no tariff resolves
-  - [ ] Compute `estimatedMonthlyKwh`/`estimatedMonthlyCost` from mean watts × out-of-use window duration × 30 days (see Dev Notes for the exact formula)
-  - [ ] Serialize `{ deviceName, meanStandbyWatts, estimatedMonthlyKwh, estimatedMonthlyCost }` (camelCase) and add an `Insight` row (`Type = Standby`, `DeviceId` set, `FlatId`, `RunId`, `CreatedAt = DateTimeOffset.UtcNow`)
-  - [ ] `SaveChangesAsync(ct)` at the end of `DetectAsync` (detector persists directly, per Story 10.1's established contract)
-- [ ] Task 2: `ReplacementDetector.cs` real implementation (AC: #4)
-  - [ ] Same `Rooms`/`PowerPoints`/`Devices` query shape as Task 1
-  - [ ] Compute annual kWh per device across all 3 sources per the Dev Notes formula (measured via single-device `PowerPoint`+`SmartPlugDailyData`; `EuAnnualKwh` directly for `EuLabel`; `SelfMeasuredKwh` × 365/52 for `SelfMeasured`); skip devices with `ConsumptionApproach.None` and no measured data
-  - [ ] Resolve current tariff (same helper as Task 1) to get `estimatedAnnualCost = annualKwh × PricePerKwh`; skip device if unresolvable
-  - [ ] Rank all devices with a computable annual cost descending; take `ceil(count × 0.2)` (minimum 1) as the top-20% band
-  - [ ] Normalize each candidate's `EuLabelClass` against the ordered scale (see Dev Notes); among the top-20% band, flag devices whose normalized class is "C" or worse; unrecognized/blank classes are excluded, not errors
-  - [ ] Compute `suggestedClass` (one step better) and `estimatedSavingsEur` (fixed per-step heuristic, see Dev Notes)
-  - [ ] Serialize `{ deviceName, estimatedAnnualKwh, estimatedAnnualCost, suggestedClass, estimatedSavingsEur }` (camelCase) and add an `Insight` row (`Type = Replacement`, `DeviceId` set)
-  - [ ] `SaveChangesAsync(ct)` at the end of `DetectAsync`
-- [ ] Task 3: Idempotency guard in `ProcessInsightsFunction.cs` (AC: #6)
-  - [ ] Immediately after loading `run` (and confirming it's non-null) and before `run.Status = Processing`, delete any existing `db.Insights` rows where `RunId == discoveryMessage.RunId`
-  - [ ] `SaveChangesAsync(ct)` for the delete before proceeding to set `Status = Processing` and invoke detectors
-- [ ] Task 4: Backend tests (AC: #5)
-  - [ ] `StandbyDetectorTests.cs` — cases listed in AC #5; mirror `DecompositionEngineTests.cs`'s `MakeDb`/`SeedRoomAsync`/`SeedPowerPointAsync`/`SeedDeviceAsync` seeding helpers, add a `SeedIntervalRowAsync` helper for `SmartPlugIntervalData`
-  - [ ] `ReplacementDetectorTests.cs` — cases listed in AC #5, covering all 3 consumption sources and the class-normalization edge cases
-  - [ ] Extend `ProcessInsightsFunctionTests.cs` with a redelivery test: seed a pre-existing `Insight` row for a `runId`, re-invoke `RunAsync` with a message for that same `runId`, assert the pre-existing row is gone and only the new detector run's rows remain
+- [x] Task 1: `StandbyDetector.cs` real implementation (AC: #1, #2, #3)
+  - [x] Query `Rooms` (`AsNoTracking`, `Include(r => r.PowerPoints).ThenInclude(pp => pp.Devices)`) for the flat, exactly like `DecompositionEngine.ComputeAsync` — mirror this pattern, don't invent a new one
+  - [x] For each `PowerPoint` with a non-null `PlugId` and exactly 1 `Device` (single-device attribution — see Dev Notes on why smart strips are excluded): query `SmartPlugIntervalData` for that `PlugId` within the last 30 days
+  - [x] Classify Eve Home vs Meross by presence/absence of rows in the query result — do not add a new "plug type" column or field anywhere
+  - [x] Compute distinct calendar-day count from `Timestamp` (already local wall-clock with a synthetic zero offset — see Dev Notes, no timezone conversion); skip device if < 7 distinct days
+  - [x] Filter rows to `Timestamp.Hour >= 22 || Timestamp.Hour < 8` (out-of-use); convert each row's `WhValue` to watts via the 10-minute-interval assumption; compute the mean; skip device if mean ≤ 2 W
+  - [x] Resolve the flat's current tariff via the in-memory `ResolveTariff` helper (duplicate verbatim from `KpiCalculator.cs`/`DecompositionEngine.cs` per this codebase's established per-engine duplication convention — do not extract a shared utility, do not recreate the deleted `TariffResolver` class); skip device if no tariff resolves
+  - [x] Compute `estimatedMonthlyKwh`/`estimatedMonthlyCost` from mean watts × out-of-use window duration × 30 days (see Dev Notes for the exact formula)
+  - [x] Serialize `{ deviceName, meanStandbyWatts, estimatedMonthlyKwh, estimatedMonthlyCost }` (camelCase) and add an `Insight` row (`Type = Standby`, `DeviceId` set, `FlatId`, `RunId`, `CreatedAt = DateTimeOffset.UtcNow`)
+  - [x] `SaveChangesAsync(ct)` at the end of `DetectAsync` (detector persists directly, per Story 10.1's established contract)
+- [x] Task 2: `ReplacementDetector.cs` real implementation (AC: #4)
+  - [x] Same `Rooms`/`PowerPoints`/`Devices` query shape as Task 1
+  - [x] Compute annual kWh per device across all 3 sources per the Dev Notes formula (measured via single-device `PowerPoint`+`SmartPlugDailyData`; `EuAnnualKwh` directly for `EuLabel`; `SelfMeasuredKwh` × 365/52 for `SelfMeasured`); skip devices with `ConsumptionApproach.None` and no measured data
+  - [x] Resolve current tariff (same helper as Task 1) to get `estimatedAnnualCost = annualKwh × PricePerKwh`; skip device if unresolvable
+  - [x] Rank all devices with a computable annual cost descending; take `ceil(count × 0.2)` (minimum 1) as the top-20% band
+  - [x] Normalize each candidate's `EuLabelClass` against the ordered scale (see Dev Notes); among the top-20% band, flag devices whose normalized class is "C" or worse; unrecognized/blank classes are excluded, not errors
+  - [x] Compute `suggestedClass` (one step better) and `estimatedSavingsEur` (fixed per-step heuristic, see Dev Notes)
+  - [x] Serialize `{ deviceName, estimatedAnnualKwh, estimatedAnnualCost, suggestedClass, estimatedSavingsEur }` (camelCase) and add an `Insight` row (`Type = Replacement`, `DeviceId` set)
+  - [x] `SaveChangesAsync(ct)` at the end of `DetectAsync`
+- [x] Task 3: Idempotency guard in `ProcessInsightsFunction.cs` (AC: #6)
+  - [x] Immediately after loading `run` (and confirming it's non-null) and before `run.Status = Processing`, delete any existing `db.Insights` rows where `RunId == discoveryMessage.RunId`
+  - [x] `SaveChangesAsync(ct)` for the delete before proceeding to set `Status = Processing` and invoke detectors
+- [x] Task 4: Backend tests (AC: #5)
+  - [x] `StandbyDetectorTests.cs` — cases listed in AC #5; mirror `DecompositionEngineTests.cs`'s `MakeDb`/`SeedRoomAsync`/`SeedPowerPointAsync`/`SeedDeviceAsync` seeding helpers, add a `SeedIntervalRowAsync` helper for `SmartPlugIntervalData`
+  - [x] `ReplacementDetectorTests.cs` — cases listed in AC #5, covering all 3 consumption sources and the class-normalization edge cases
+  - [x] Extend `ProcessInsightsFunctionTests.cs` with a redelivery test: seed a pre-existing `Insight` row for a `runId`, re-invoke `RunAsync` with a message for that same `runId`, assert the pre-existing row is gone and only the new detector run's rows remain
 
 ## Dev Notes
 
@@ -133,8 +133,45 @@ Follows `api/Features/{Feature}/` VSA slice convention — no new files outside 
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5)
+
 ### Debug Log References
+
+None — implementation proceeded without needing a debug log; `dotnet build`/`dotnet test` output confirmed correctness at each step.
 
 ### Completion Notes List
 
+- `StandbyDetector.cs`: implemented Eve Home standby detection exactly per AC #1–#3 and the Dev Notes formulas. Single-device `PowerPoint`+`PlugId` attribution only (smart strips silently skipped); Meross-only plugs (zero `SmartPlugIntervalData` rows) excluded without error; 7-distinct-day floor computed over all interval rows in the 30-day window (not just out-of-use rows); 22:00–08:00 out-of-use window and 2 W threshold hardcoded as constants; `ResolveTariff` duplicated verbatim from `KpiCalculator.cs`/`DecompositionEngine.cs` per established convention.
+- `ReplacementDetector.cs`: implemented replacement-candidate detection per AC #4. Per-device annual kWh computed across all 3 sources (measured single-device plug, `EuLabel`, `SelfMeasured`); `EuLabelClass` normalized against the fixed `A+++`...`G` ordered scale (trim + uppercase, exact match only — unrecognized/blank silently excluded); top-20% band computed over *all* devices with a computable annual cost (`ceil(count × 0.2)`, min 1) before the "C or worse" filter is applied within that band; `suggestedClass` = one step better on the scale; `estimatedSavingsEur` = 15% of `estimatedAnnualCost` (fixed heuristic per Dev Notes — flagging here per story instructions in case a different multiplier is wanted later).
+- `ProcessInsightsFunction.cs`: added the idempotency guard exactly as specified in Dev Notes — load-then-`RemoveRange` (not `ExecuteDeleteAsync`, which the EF Core InMemory provider used by the whole test suite doesn't support) of any pre-existing `Insight` rows for the `RunId`, committed before `Status = Processing` and before any detector runs.
+- Tests: added `StandbyDetectorTests.cs` (6 cases) and `ReplacementDetectorTests.cs` (9 cases) covering every scenario listed in AC #5, plus a redelivery/idempotency test in `ProcessInsightsFunctionTests.cs`. Full backend suite: 412/412 passing, no regressions. `dotnet format --verify-no-changes` confirms none of the files touched in this story introduce new formatting violations (pre-existing drift elsewhere in the codebase is untouched, out of scope).
+- No frontend changes — out of scope per Dev Notes (Story 10.4).
+
 ### File List
+
+- `api/Features/Insights/StandbyDetector.cs` (modified — stub → real implementation)
+- `api/Features/Insights/ReplacementDetector.cs` (modified — stub → real implementation)
+- `api/Features/Insights/ProcessInsightsFunction.cs` (modified — idempotency guard)
+- `api.Tests/Features/Insights/StandbyDetectorTests.cs` (new)
+- `api.Tests/Features/Insights/ReplacementDetectorTests.cs` (new)
+- `api.Tests/Features/Insights/ProcessInsightsFunctionTests.cs` (modified — redelivery test)
+
+## Change Log
+
+- 2026-07-25: Implemented `StandbyDetector`/`ReplacementDetector` real detection logic, added the `ProcessInsightsFunction` idempotency guard, and added corresponding backend tests. All tasks/ACs complete; status moved to review.
+- 2026-07-26: Code review round completed — 7 patches applied (see Review Findings below), 1 item deferred; status moved to done.
+
+### Review Findings
+
+- [x] [Review][Patch] `ReplacementDetector` has no fallback from measured to configured-approach data when measured data is insufficient — `DetectAsync` (`api/Features/Insights/ReplacementDetector.cs:52-64`) treats `isSingleDeviceMeasured` as exclusive: if `ComputeMeasuredAnnualKwhAsync` returns `null` (fewer than 7 distinct days of `SmartPlugDailyData`), the device is excluded entirely even if it also has a valid `ConsumptionApproach.EuLabel`/`SelfMeasured` configuration that could compute an annual kWh figure. **Resolved:** fall back to `ComputeApproachAnnualKwh(device)` when measured data is insufficient, instead of excluding the device outright. Fixed.
+
+- [x] [Review][Resolved-No-Change] Multi-device (smart-strip) `PowerPoint` devices remain eligible for `ReplacementDetector` via `EuLabel`/`SelfMeasured` [api/Features/Insights/ReplacementDetector.cs:54-64] — re-examined against AC #4's literal wording ("measured via a **1:1** PowerPoint+SmartPlugDailyData, or `ConsumptionApproach.EuLabel`, or `ConsumptionApproach.SelfMeasured`"): the 1:1 single-device constraint is only stated for the *measured* source. Dev Notes' bullet is titled "excluded from both detectors' **measured-data branch**" — for `StandbyDetector` that's a full exclusion (measured is its only source), but for `ReplacementDetector` it only rules out the measured branch, not the two independent approach-based sources. **Decision:** keep current behavior — multi-device PowerPoint devices stay eligible via `EuLabel`/`SelfMeasured`. Added `DetectAsync_MultiDevicePowerPoint_StillEligibleViaEuLabel` to `ReplacementDetectorTests.cs` to lock in this intentional behavior.
+- [x] [Review][Patch] Idempotency-guard delete is not covered by the run's failure-handling try/catch [api/Features/Insights/ProcessInsightsFunction.cs:55-60] — the new `db.Insights.RemoveRange(staleInsights); await db.SaveChangesAsync(ct);` block sits between the `run is null` check and the `try { run.Status = Processing; ... }` block. If this `SaveChangesAsync` throws, the exception propagates uncaught: `run.Status` is never set to `Failed`, no `logger.LogError` fires for this run, unlike every other failure path in `RunAsync`. **Fixed:** moved the guard inside the existing try block.
+- [x] [Review][Patch] Redelivery test doesn't verify Task 4's literal requirement ("only the new detector run's rows remain") [api.Tests/Features/Insights/ProcessInsightsFunctionTests.cs:164-183] — `RunAsync_RedeliveredMessage_ClearsStaleInsightsBeforeReprocessing` seeds a flat via `SeedFlatAndRunAsync()`, which creates no `Rooms`/`Tariffs`, so both real detectors necessarily write zero rows on the redelivered run. The assertion `remaining.ShouldNotContain(i => i.InsightId == staleInsight.InsightId)` passes vacuously against an empty list rather than verifying coexistence with genuinely new rows from the redelivered run. **Fixed:** added a `WritingStandbyDetector` test double and renamed the test to `...ClearsStaleInsightsAndKeepsOnlyNewRun`, asserting exactly one remaining row that isn't the stale one.
+- [x] [Review][Patch] Non-deterministic tie-break in top-20%-band selection [api/Features/Insights/ReplacementDetector.cs:68-71] — `candidates.OrderByDescending(c => c.AnnualCost).Take(bandSize)` has no secondary sort key; devices tied exactly on `AnnualCost` at the band boundary are chosen based on unspecified enumeration order rather than a deterministic rule. **Fixed:** added `.ThenBy(c => c.Device.DeviceId)`.
+- [x] [Review][Patch] N+1 query pattern in both detectors [api/Features/Insights/StandbyDetector.cs:35-38, api/Features/Insights/ReplacementDetector.cs:56-57] — one `SmartPlugIntervalData`/`SmartPlugDailyData` query is issued per `PowerPoint` inside the device loop instead of batching all relevant `PlugId`s into a single query. Low priority — real-world per-flat device counts are small — but worth a follow-up if flats scale up. **Fixed:** both detectors now batch-fetch all relevant `PlugId`s in a single query and group in memory.
+- [x] [Review][Patch] Missing test coverage for `EuLabelClass = "A"` [api.Tests/Features/Insights/ReplacementDetectorTests.cs] — AC #5 names both `"A"` and `"B"` should write no `Insight`, but `DetectAsync_ClassAOrB_WritesNoInsight` only seeded `euLabelClass: "B"`. **Fixed:** converted to a `[Theory]` covering both `"A"` and `"B"`.
+- [x] [Review][Patch] Missing test coverage for `SelfMeasuredPeriod` non-Weekly branch [api.Tests/Features/Insights/ReplacementDetectorTests.cs] — `ComputeApproachAnnualKwh`'s `SelfMeasured` formula has two branches (`× 52` for Weekly, `× 365` otherwise); only the Weekly branch had a test. **Fixed:** added `DetectAsync_SelfMeasuredDailySource_ComputesCorrectAnnualKwh`.
+- [x] [Review][Defer] `ResolveTariff`'s tie-break on equal `ContractStartDate` is arbitrary [api/Features/Insights/StandbyDetector.cs:60-70, api/Features/Insights/ReplacementDetector.cs:135-144] — deferred, pre-existing pattern duplicated verbatim from `KpiCalculator.cs`/`DecompositionEngine.cs` per this story's explicit Dev Notes instruction not to change it; the same latent tie-break issue already exists in both source implementations.
+
+**Dismissed as noise (7):** EU label scale conflating legacy/modern grades into one ordered array (explicit story-creation-time Dev Notes decision, already flagged to the user in the spec itself); `estimatedSavingsEur` 15% heuristic "uncertain" (explicitly spec-mandated value, already flagged in Dev Notes); `MinDistinctDays = 7` reused in `ReplacementDetector` (explicitly mandated by Dev Notes line 76, "same 7-day floor as StandbyDetector, for consistency"); no rounding applied to decimal monetary/energy fields before storage (presentation-layer concern, explicitly out of scope — Story 10.4); no logging around the idempotency-clear path (not spec-required, consistent with other silent-skip paths in these detectors); `StandbyDetector` re-resolving the tariff on every loop iteration instead of once (correctness-neutral inefficiency, trivial style nit); Blind Hunter's "test files not present in diff to verify 412/412 claim" (artifact of the intentionally diff-only review scope, not a real issue).

@@ -51,6 +51,18 @@ public class ProcessInsightsFunction(
 
         try
         {
+            // Guards against Azure's at-least-once queue delivery re-invoking RunAsync after a
+            // prior attempt was killed mid-run: clear any partial detector writes from that
+            // attempt before running the detectors again, so redelivery can never produce
+            // duplicate Insight rows. Runs inside this try block so a failure here also lands
+            // the run in Failed status, same as any other failure in this method.
+            var staleInsights = await db.Insights.Where(i => i.RunId == discoveryMessage.RunId).ToListAsync(ct);
+            if (staleInsights.Count > 0)
+            {
+                db.Insights.RemoveRange(staleInsights);
+                await db.SaveChangesAsync(ct);
+            }
+
             run.Status = InsightRunStatus.Processing;
             await db.SaveChangesAsync(ct);
 

@@ -20,6 +20,25 @@ public class ProcessInsightsFunctionTests
             throw new InvalidOperationException("simulated detector failure");
     }
 
+    // Stands in for a real detector to prove the redelivered run actually writes fresh
+    // Insight rows, not just that the stale one from the prior attempt is gone.
+    private class WritingStandbyDetector(AppDbContext db) : StandbyDetector(db)
+    {
+        public override async Task DetectAsync(Guid flatId, Guid runId, CancellationToken ct)
+        {
+            db.Insights.Add(new Insight
+            {
+                InsightId = Guid.NewGuid(),
+                FlatId = flatId,
+                RunId = runId,
+                Type = InsightType.Standby,
+                Data = "{}",
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+            await db.SaveChangesAsync(ct);
+        }
+    }
+
     // Throws on the first SaveChangesAsync call (persisting the Processing transition),
     // then succeeds — simulating a genuine transient failure distinct from a detector's
     // own isolated exception, so the outer catch can record Status = Failed.
@@ -158,6 +177,39 @@ public class ProcessInsightsFunctionTests
         var updated = await verifyDb.InsightRuns.SingleAsync(r => r.RunId == run.RunId);
         updated.Status.ShouldBe(InsightRunStatus.Failed);
         updated.CompletedAt.ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_RedeliveredMessage_ClearsStaleInsightsAndKeepsOnlyNewRun()
+    {
+        var (flat, run, db) = await SeedFlatAndRunAsync();
+        // Simulates a partial write left behind by a prior attempt that was killed mid-run
+        // before completing — this row must not survive a redelivery of the same message.
+        var staleInsight = new Insight
+        {
+            InsightId = Guid.NewGuid(),
+            FlatId = flat.FlatId,
+            RunId = run.RunId,
+            Type = InsightType.Standby,
+            Data = "{}",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        db.Insights.Add(staleInsight);
+        await db.SaveChangesAsync();
+
+        var fn = new ProcessInsightsFunction(
+            db,
+            new WritingStandbyDetector(db),
+            new ReplacementDetector(db),
+            new BudgetAlertDetector(db),
+            new InvoiceDeviationDetector(db),
+            Mock.Of<ILogger<ProcessInsightsFunction>>());
+
+        await fn.RunAsync(MakeMessage(flat.FlatId, run.RunId), MakeFunctionContext(), CancellationToken.None);
+
+        var remaining = await db.Insights.Where(i => i.RunId == run.RunId).ToListAsync();
+        remaining.ShouldNotContain(i => i.InsightId == staleInsight.InsightId);
+        remaining.ShouldHaveSingleItem();
     }
 
     [Fact]
