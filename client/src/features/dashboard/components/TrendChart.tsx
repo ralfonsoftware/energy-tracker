@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react'
+import { useId, useMemo, useState, type ReactNode } from 'react'
 import { BarChart, Bar, XAxis, Cell, ResponsiveContainer } from 'recharts'
 import { History } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -10,26 +10,35 @@ import type { DashboardSummary } from '@/features/dashboard/api/dashboardApi'
 type Props = {
   dashboard: DashboardSummary | undefined
   flatId: string | undefined
+  days?: number
+  headerExtra?: ReactNode
 }
 
-export function TrendChart({ dashboard, flatId }: Props) {
+export function TrendChart({ dashboard, flatId, days = 7, headerExtra }: Props) {
   const { t } = useTranslation('dashboard')
   const [historyOpen, setHistoryOpen] = useState(false)
   const resetHatchId = `meterResetHatch-${useId()}`
 
   const spikeSet = useMemo(() => new Set(dashboard?.spikeDays ?? []), [dashboard?.spikeDays])
+  const labelFormatter = useMemo(
+    () =>
+      days > 7
+        ? new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'short', timeZone: 'UTC' })
+        : new Intl.DateTimeFormat(i18n.language, { weekday: 'narrow', timeZone: 'UTC' }),
+    [days]
+  )
   const chartData = useMemo(
     () =>
       (dashboard?.dailyConsumption ?? []).map(point => ({
         date: point.date,
         kwh: point.kwhValue,
         wasMeterReset: point.wasMeterReset,
-        label: new Intl.DateTimeFormat(i18n.language, { weekday: 'narrow', timeZone: 'UTC' }).format(
-          new Date(point.date)
-        ),
+        label: labelFormatter.format(new Date(point.date)),
       })),
-    [dashboard?.dailyConsumption]
+    [dashboard?.dailyConsumption, labelFormatter]
   )
+  // Sparse ticks for wider windows: show ~5-6 labels regardless of how many bars are rendered.
+  const tickInterval = days > 7 ? Math.max(0, Math.ceil(days / 6) - 1) : 0
   const resetDates = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(i18n.language, {
       day: '2-digit',
@@ -47,28 +56,31 @@ export function TrendChart({ dashboard, flatId }: Props) {
   return (
     <div className="relative z-10 mx-4 mb-6 rounded-card border border-glass-border bg-glass-surface p-4 backdrop-blur-[20px] backdrop-saturate-[180%]">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-label-caps text-text-tertiary">{t('trend.cardTitle')}</span>
-        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              aria-label={t('trend.historyIconLabel')}
-              className="flex h-11 w-11 items-center justify-center text-text-secondary"
+        <span className="text-label-caps text-text-tertiary">{t('trend.cardTitle', { days })}</span>
+        <div className="flex items-center gap-1">
+          {headerExtra}
+          <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+            <SheetTrigger asChild>
+              <button
+                type="button"
+                aria-label={t('trend.historyIconLabel')}
+                className="flex h-11 w-11 items-center justify-center text-text-secondary"
+              >
+                <History size={20} />
+              </button>
+            </SheetTrigger>
+            <SheetContent
+              side="bottom"
+              className="rounded-t-sheet border-t border-white/[0.14] bg-[rgba(10,15,25,0.92)] backdrop-blur-[20px] backdrop-saturate-[1.8] px-6 pb-8 pt-3 [&>button]:right-2 [&>button]:top-2 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:text-white/60 [&>button]:hover:text-white [&>button]:ring-offset-transparent [&>button]:focus:ring-white/40 [&>button]:data-[state=open]:bg-white/10"
             >
-              <History size={20} />
-            </button>
-          </SheetTrigger>
-          <SheetContent
-            side="bottom"
-            className="rounded-t-sheet border-t border-white/[0.14] bg-[rgba(10,15,25,0.92)] backdrop-blur-[20px] backdrop-saturate-[1.8] px-6 pb-8 pt-3 [&>button]:right-2 [&>button]:top-2 [&>button]:flex [&>button]:h-11 [&>button]:w-11 [&>button]:items-center [&>button]:justify-center [&>button]:text-white/60 [&>button]:hover:text-white [&>button]:ring-offset-transparent [&>button]:focus:ring-white/40 [&>button]:data-[state=open]:bg-white/10"
-          >
-            <ReadingHistorySheet flatId={flatId} />
-          </SheetContent>
-        </Sheet>
+              <ReadingHistorySheet flatId={flatId} />
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
       {dashboard === undefined ? (
         <div className="flex h-[90px] items-end gap-1.5">
-          {Array.from({ length: 7 }).map((_, i) => (
+          {Array.from({ length: days }).map((_, i) => (
             <div key={i} className="h-1/2 flex-1 animate-pulse rounded-t bg-white/10" />
           ))}
         </div>
@@ -91,7 +103,7 @@ export function TrendChart({ dashboard, flatId }: Props) {
               dataKey="label"
               axisLine={false}
               tickLine={false}
-              interval={0}
+              interval={tickInterval}
               tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }}
             />
             <Bar dataKey="kwh" radius={[4, 4, 2, 2]} isAnimationActive={false} minPointSize={3}>

@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of story-10.4 (2026-07-26)
+
+- `TrendChart`'s date-label formatter doesn't react to i18n language changes — `labelFormatter`/`chartData` memoize on `[days]`/`[dashboard?.dailyConsumption, labelFormatter]`, never on `i18n.language`, so switching locale at runtime leaves stale-locale labels until `days` changes. Pre-existing before this diff (the original inline formatter had the same missing dependency); this diff only relocated it into its own memo. `client/src/features/dashboard/components/TrendChart.tsx:16-21`
+
 ## Deferred from: code review of story-10.3 (2026-07-26)
 
 - `ResolveTariff` (and its already-known arbitrary equal-`ContractStartDate` tie-break, previously deferred in Story 10.2's review) is now duplicated verbatim into two more files, bringing the total to six independent copies of the same faulty tie-break logic. `api/Features/Insights/BudgetAlertDetector.cs:97`, `api/Features/Insights/InvoiceDeviationDetector.cs:109`

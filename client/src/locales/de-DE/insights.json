@@ -1,1 +1,40 @@
-{}
+{
+  "refreshButton": "Erkenntnisse aktualisieren",
+  "loadError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+  "retry": "Erneut versuchen",
+  "progress": {
+    "label": "Erkenntnisse werden ermittelt…"
+  },
+  "period": {
+    "sevenDays": "7 Tage",
+    "thirtyDays": "30 Tage",
+    "ninetyDays": "90 Tage"
+  },
+  "card": {
+    "standby": {
+      "watts": "Verbraucht {{watts}} W außerhalb der Nutzungszeiten",
+      "cost": "Geschätzte monatliche Kosten: {{cost}}"
+    },
+    "replacement": {
+      "annualCost": "Aktuelle Jahreskosten: {{cost}}",
+      "savings": "Mögliche Ersparnis: {{savings}}/Jahr"
+    },
+    "budget": {
+      "projected": "Hochgerechnete Jahreskosten: {{cost}}",
+      "planned": "Geplante Jahresausgaben: {{cost}}",
+      "overspend": "Überschreitung um: {{cost}}"
+    },
+    "invoiceDeviation": {
+      "projected": "Hochgerechneter Jahresverbrauch: {{kwh}} kWh",
+      "baseline": "Dein Basiswert: {{kwh}} kWh",
+      "delta": "Errechnete Differenz: {{delta}}",
+      "above": "über dem Basiswert",
+      "below": "unter dem Basiswert"
+    }
+  },
+  "emptyState": {
+    "noFindings": "Keine Auffälligkeiten in diesem Durchlauf. Alles im normalen Bereich.",
+    "insufficientData": "Nicht genug Daten für Erkenntnisse. Füge Ablesungen hinzu und importiere Smart-Plug-Daten, um Erkenntniskarten zu erzeugen.",
+    "runFailed": "Ermittlung der Erkenntnisse fehlgeschlagen. Bitte aktualisieren."
+  }
+}

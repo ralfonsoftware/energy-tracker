@@ -493,4 +493,133 @@ public class KpiCalculatorTests
 
         result.DailyConsumption.ShouldAllBe(d => d.WasMeterReset == false);
     }
+
+    [Fact]
+    public void Compute_DefaultDays_ReturnsSevenDayWindow()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(10);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 150m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.DailyConsumption.Length.ShouldBe(7);
+    }
+
+    [Fact]
+    public void Compute_Days30_Returns30DayWindowEndingAtNowDate()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 5, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(40);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 150m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now, days: 30);
+
+        result.DailyConsumption.Length.ShouldBe(30);
+        result.DailyConsumption[0].Date.ShouldBe("2026-06-01");
+        result.DailyConsumption[^1].Date.ShouldBe("2026-06-30");
+    }
+
+    [Fact]
+    public void Compute_Days90_Returns90DayWindow()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(100);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 150m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now, days: 90);
+
+        result.DailyConsumption.Length.ShouldBe(90);
+        result.DailyConsumption[^1].Date.ShouldBe("2026-06-30");
+    }
+
+    [Fact]
+    public void Compute_Days30_SpikeDetectionScansTheWiderWindow()
+    {
+        var flat = MakeFlat();
+        var readings = new List<MeterReading>();
+        var start = new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
+        decimal cumulative = 0m;
+        for (var i = 0; i <= 29; i++)
+        {
+            // Spike lands on 2026-06-16 (assigned to the pair-15 end date), well outside the
+            // default 7-day window (2026-06-24..2026-06-30) but inside the 30-day window.
+            cumulative += i == 15 ? 20m : 1m;
+            readings.Add(MakeReading(start.AddDays(i), cumulative));
+        }
+
+        var result = _calculator.Compute(flat, readings, [], Now, days: 30);
+
+        result.SpikeDays.ShouldContain("2026-06-16");
+    }
+
+    [Fact]
+    public void Compute_NoReadings_ReadingHistoryDaysIsZero()
+    {
+        var flat = MakeFlat();
+
+        var result = _calculator.Compute(flat, [], [], Now);
+
+        result.ReadingHistoryDays.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Compute_OneReading_ReadingHistoryDaysIsZero()
+    {
+        var flat = MakeFlat();
+        var readings = new List<MeterReading> { MakeReading(new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero), 100m) };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.ReadingHistoryDays.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Compute_SubDaySpan_ReadingHistoryDaysIsZero()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 6, 30, 8, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddHours(2);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 101m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.ReadingHistoryDays.ShouldBe(0);
+    }
+
+    [Fact]
+    public void Compute_LongHistory_ReadingHistoryDaysIsFlooredSpanBetweenFirstAndLastReading()
+    {
+        var flat = MakeFlat();
+        var date1 = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var date2 = date1.AddDays(45).AddHours(6);
+        var readings = new List<MeterReading>
+        {
+            MakeReading(date1, 100m),
+            MakeReading(date2, 150m)
+        };
+
+        var result = _calculator.Compute(flat, readings, [], Now);
+
+        result.ReadingHistoryDays.ShouldBe(45);
+    }
 }

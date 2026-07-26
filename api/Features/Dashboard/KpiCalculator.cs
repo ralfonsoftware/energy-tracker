@@ -30,7 +30,8 @@ public class KpiCalculator
         Flat flat,
         IReadOnlyList<MeterReading> readings,
         IReadOnlyList<Tariff> tariffs,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        int days = 7)
     {
         var dailyBudgetKwh = flat.AnnualKwhBaseline / 365m;
 
@@ -39,14 +40,14 @@ public class KpiCalculator
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
                 LastReadingDate: null, SpikeDays: [], Cost: null, LastKwhValue: null,
-                DailyConsumption: []);
+                DailyConsumption: [], ReadingHistoryDays: 0);
 
         if (readings.Count == 1)
             return new DashboardSummary(
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
                 LastReadingDate: readings[0].ReadingDate, SpikeDays: [], Cost: null,
-                LastKwhValue: readings[0].KwhValue, DailyConsumption: []);
+                LastKwhValue: readings[0].KwhValue, DailyConsumption: [], ReadingHistoryDays: 0);
 
         // readings is pre-sorted ascending by ReadingDate
         var totalDays = (readings[^1].ReadingDate - readings[0].ReadingDate).TotalDays;
@@ -57,7 +58,7 @@ public class KpiCalculator
                 DailyAvgKwh: 0m, WeeklyAvgKwh: 0m,
                 TodayKwh: 0m, DailyBudgetKwh: dailyBudgetKwh,
                 LastReadingDate: readings[^1].ReadingDate, SpikeDays: [], Cost: null,
-                LastKwhValue: readings[^1].KwhValue, DailyConsumption: []);
+                LastKwhValue: readings[^1].KwhValue, DailyConsumption: [], ReadingHistoryDays: 0);
 
         // Single pass computes both total consumption and (when tariffed) total cost from the
         // same per-interval clamped deltas, so DailyAvgKwh and cost figures never diverge.
@@ -133,7 +134,7 @@ public class KpiCalculator
 
         var dailySeries = BuildDailySeries(readings);
         var windowEnd = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, AppTimeZone).Date);
-        var windowStart = windowEnd.AddDays(-6);
+        var windowStart = windowEnd.AddDays(-(days - 1));
         var dailyConsumption = new List<DailyConsumptionPoint>();
         for (var date = windowStart; date <= windowEnd; date = date.AddDays(1))
         {
@@ -151,7 +152,8 @@ public class KpiCalculator
             SpikeDays: spikeDays,
             Cost: cost,
             LastKwhValue: readings[^1].KwhValue,
-            DailyConsumption: dailyConsumption.ToArray()
+            DailyConsumption: dailyConsumption.ToArray(),
+            ReadingHistoryDays: (int)Math.Floor(totalDays)
         );
     }
 

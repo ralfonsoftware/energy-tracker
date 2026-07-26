@@ -19,7 +19,8 @@ public record DashboardSummary(
     string[] SpikeDays,
     CostSummary? Cost,
     decimal? LastKwhValue,
-    DailyConsumptionPoint[] DailyConsumption
+    DailyConsumptionPoint[] DailyConsumption,
+    int ReadingHistoryDays
 );
 
 public record DailyConsumptionPoint(string Date, decimal KwhValue, bool WasMeterReset);

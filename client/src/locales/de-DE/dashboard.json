@@ -20,7 +20,7 @@
     "never": "noch nie"
   },
   "trend": {
-    "cardTitle": "Letzte 7 Tage",
+    "cardTitle": "Letzte {{days}} Tage",
     "historyIconLabel": "Ablesehistorie anzeigen",
     "meterResetSummary": "Zählerwechsel erkannt am: {{dates}}. Verbrauch für diese Tage als 0 angezeigt."
   }

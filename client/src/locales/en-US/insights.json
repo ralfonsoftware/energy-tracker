@@ -1,1 +1,40 @@
-{}
+{
+  "refreshButton": "Refresh insights",
+  "loadError": "Something went wrong. Please try again.",
+  "retry": "Retry",
+  "progress": {
+    "label": "Discovering insights…"
+  },
+  "period": {
+    "sevenDays": "7 days",
+    "thirtyDays": "30 days",
+    "ninetyDays": "90 days"
+  },
+  "card": {
+    "standby": {
+      "watts": "Drawing {{watts}} W outside usage hours",
+      "cost": "Estimated monthly cost: {{cost}}"
+    },
+    "replacement": {
+      "annualCost": "Current annual cost: {{cost}}",
+      "savings": "Potential savings: {{savings}}/year"
+    },
+    "budget": {
+      "projected": "Projected annual cost: {{cost}}",
+      "planned": "Planned annual spend: {{cost}}",
+      "overspend": "Over by: {{cost}}"
+    },
+    "invoiceDeviation": {
+      "projected": "Projected annual usage: {{kwh}} kWh",
+      "baseline": "Your baseline: {{kwh}} kWh",
+      "delta": "Implied difference: {{delta}}",
+      "above": "above baseline",
+      "below": "below baseline"
+    }
+  },
+  "emptyState": {
+    "noFindings": "No findings this run. Everything looks within normal range.",
+    "insufficientData": "Not enough data for insights. Add readings and import smart plug data to generate insight cards.",
+    "runFailed": "Insight discovery failed. Try refreshing."
+  }
+}

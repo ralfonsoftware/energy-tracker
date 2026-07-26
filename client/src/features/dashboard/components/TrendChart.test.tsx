@@ -40,8 +40,18 @@ function makeDashboard(overrides: Partial<DashboardSummary> = {}): DashboardSumm
     cost: null,
     lastKwhValue: 100,
     dailyConsumption: sevenDays,
+    readingHistoryDays: 30,
     ...overrides,
   }
+}
+
+function makeDailyConsumption(days: number): DashboardSummary['dailyConsumption'] {
+  const end = new Date('2026-06-30T00:00:00Z')
+  return Array.from({ length: days }, (_, i) => {
+    const date = new Date(end)
+    date.setUTCDate(end.getUTCDate() - (days - 1 - i))
+    return { date: date.toISOString().slice(0, 10), kwhValue: 5, wasMeterReset: false }
+  })
 }
 
 describe('TrendChart', () => {
@@ -138,5 +148,51 @@ describe('TrendChart', () => {
       timeZone: 'UTC',
     }).format(new Date('2026-06-28'))
     expect(screen.getByText(`trend.meterResetSummary|${JSON.stringify({ dates: expectedDate })}`)).toBeInTheDocument()
+  })
+
+  it('TrendChart_DefaultDays_CardTitleShowsSeven', () => {
+    render(<TrendChart dashboard={makeDashboard()} flatId="flat-1" />)
+
+    expect(screen.getByText(`trend.cardTitle|${JSON.stringify({ days: 7 })}`)).toBeInTheDocument()
+  })
+
+  it('TrendChart_Days30_CardTitleShowsThirty', () => {
+    render(<TrendChart dashboard={makeDashboard()} flatId="flat-1" days={30} />)
+
+    expect(screen.getByText(`trend.cardTitle|${JSON.stringify({ days: 30 })}`)).toBeInTheDocument()
+  })
+
+  it('TrendChart_Days30_XAxisUsesDayMonthLabelsNotNarrowWeekday', () => {
+    const thirtyDays = makeDailyConsumption(30)
+    const { container } = render(
+      <TrendChart dashboard={makeDashboard({ dailyConsumption: thirtyDays })} flatId="flat-1" days={30} />
+    )
+
+    const expectedLabel = new Intl.DateTimeFormat(i18n.language, {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(new Date(thirtyDays[0].date))
+    expect(container.querySelectorAll('.recharts-bar-rectangle path')).toHaveLength(30)
+    expect(screen.getByText(expectedLabel)).toBeInTheDocument()
+  })
+
+  it('TrendChart_Days90_XAxisShowsAroundSixSparseTickLabels', () => {
+    const ninetyDays = makeDailyConsumption(90)
+    const { container } = render(
+      <TrendChart dashboard={makeDashboard({ dailyConsumption: ninetyDays })} flatId="flat-1" days={90} />
+    )
+
+    expect(container.querySelectorAll('.recharts-bar-rectangle path')).toHaveLength(90)
+    const tickLabels = container.querySelectorAll('.recharts-cartesian-axis-tick-value')
+    expect(tickLabels.length).toBeGreaterThanOrEqual(5)
+    expect(tickLabels.length).toBeLessThanOrEqual(7)
+  })
+
+  it('TrendChart_Days7_XAxisShowsAllSevenLabels', () => {
+    const { container } = render(<TrendChart dashboard={makeDashboard()} flatId="flat-1" days={7} />)
+
+    const tickLabels = container.querySelectorAll('.recharts-cartesian-axis-tick-value')
+    expect(tickLabels).toHaveLength(7)
   })
 })

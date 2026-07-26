@@ -28,6 +28,7 @@ const baseDashboard: DashboardSummary = {
   cost: baseCost,
   lastKwhValue: 1234.5,
   dailyConsumption: [],
+  readingHistoryDays: 30,
 }
 
 function renderGrid(dashboard: DashboardSummary | undefined, annualKwhBaseline: number | undefined = 2500) {
@@ -55,6 +56,7 @@ describe('DashboardGrid', () => {
       cost: null,
       lastKwhValue: null,
       dailyConsumption: [],
+      readingHistoryDays: 0,
     }
     renderGrid(coldOpen)
     expect(screen.getAllByText('—')).toHaveLength(4)

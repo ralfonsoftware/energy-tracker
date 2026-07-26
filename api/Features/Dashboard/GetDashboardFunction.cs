@@ -45,7 +45,11 @@ public class GetDashboardFunction(AppDbContext db, KpiCalculator calculator)
             .OrderBy(t => t.ContractStartDate)
             .ToListAsync(ct);
 
-        var summary = calculator.Compute(flat, readings, tariffs, DateTimeOffset.UtcNow);
+        var days = int.TryParse(req.Query["days"], out var parsedDays) && parsedDays > 0
+            ? Math.Min(parsedDays, 365)
+            : 7;
+
+        var summary = calculator.Compute(flat, readings, tariffs, DateTimeOffset.UtcNow, days);
         return new OkObjectResult(summary);
     }
 }

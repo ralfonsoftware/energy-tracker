@@ -25,6 +25,7 @@ const sampleDashboard: DashboardSummary = {
   cost: null,
   lastKwhValue: 100,
   dailyConsumption: [],
+  readingHistoryDays: 10,
 }
 
 describe('useDashboard', () => {
@@ -34,11 +35,36 @@ describe('useDashboard', () => {
     expect(mockGetDashboard).not.toHaveBeenCalled()
   })
 
-  it('useDashboard_WhenFlatIdDefined_QueryFetchesDashboard', async () => {
+  it('useDashboard_WhenFlatIdDefined_QueryFetchesDashboardWithDefaultSevenDays', async () => {
     mockGetDashboard.mockResolvedValue(sampleDashboard)
     const { result } = renderHook(() => useDashboard('flat-1'), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual(sampleDashboard)
-    expect(mockGetDashboard).toHaveBeenCalledWith('flat-1')
+    expect(mockGetDashboard).toHaveBeenCalledWith('flat-1', 7)
+  })
+
+  it('useDashboard_DaysArgProvided_QueryFetchesDashboardWithThatWindow', async () => {
+    mockGetDashboard.mockResolvedValue(sampleDashboard)
+    const { result } = renderHook(() => useDashboard('flat-1', 30), { wrapper: createWrapper() })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(mockGetDashboard).toHaveBeenCalledWith('flat-1', 30)
+  })
+
+  it('useDashboard_DifferentDaysArgsSharingAQueryClient_UseDistinctCacheEntries', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = ({ children }: { children: React.ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children)
+    mockGetDashboard.mockImplementation((_flatId, days = 7) =>
+      Promise.resolve({ ...sampleDashboard, readingHistoryDays: days })
+    )
+
+    const { result: sevenDayResult } = renderHook(() => useDashboard('flat-1', 7), { wrapper })
+    const { result: thirtyDayResult } = renderHook(() => useDashboard('flat-1', 30), { wrapper })
+    await waitFor(() => expect(sevenDayResult.current.isSuccess).toBe(true))
+    await waitFor(() => expect(thirtyDayResult.current.isSuccess).toBe(true))
+
+    expect(sevenDayResult.current.data?.readingHistoryDays).toBe(7)
+    expect(thirtyDayResult.current.data?.readingHistoryDays).toBe(30)
+    expect(queryClient.getQueryCache().findAll({ queryKey: ['dashboard', 'flat-1'] })).toHaveLength(2)
   })
 })

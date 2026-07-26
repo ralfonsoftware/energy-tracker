@@ -22,7 +22,8 @@ export type DashboardSummary = {
   cost: CostSummary | null
   lastKwhValue: number | null
   dailyConsumption: DailyConsumptionPoint[]
+  readingHistoryDays: number
 }
 
-export const getDashboard = (flatId: string) =>
-  apiClient.get<DashboardSummary>(`/flats/${flatId}/dashboard`)
+export const getDashboard = (flatId: string, days = 7) =>
+  apiClient.get<DashboardSummary>(`/flats/${flatId}/dashboard?days=${days}`)
