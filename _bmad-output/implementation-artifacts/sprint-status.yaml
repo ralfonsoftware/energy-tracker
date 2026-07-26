@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-26 (Story 10.4 code review complete, moved to done)
+# last_updated: 2026-07-26 (Epic 10 retrospective complete)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-26 (Story 10.4 code review complete, moved to done)
+last_updated: 2026-07-26 (Epic 10 retrospective complete)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -131,9 +131,9 @@ development_status:
   epic-9-retrospective: done
 
   # Epic 10: Actionable Insights
-  epic-10: in-progress
+  epic-10: done
   10-1-insights-infrastructure-data-model-run-tracking-schedule-and-api: done
   10-2-standby-offender-and-replacement-candidate-detectors: done
   10-3-budget-pressure-and-invoice-deviation-detectors: done
   10-4-insights-tab-trend-chart-insight-cards-and-discovery-progress: done
-  epic-10-retrospective: optional
+  epic-10-retrospective: done
