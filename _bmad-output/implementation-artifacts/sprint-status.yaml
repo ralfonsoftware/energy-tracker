@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-27 (Story 11.13 code review complete — marked done)
+last_updated: 2026-07-27 (Story 11.14 code review complete — done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -154,4 +154,6 @@ development_status:
   11-12-sqlite-integration-test-tier-for-schema-constraint-scenarios: backlog
   # 11.13 is a live production bug (duplicate Insight cards) — recommend picking up before 11.3-11.12
   11-13-insight-deduplication-skip-writing-near-identical-findings: done
+  # 11.14 amends FR-51 (same-day follow-up to 11.13) — scopes GetInsightsFunction's default read
+  11-14-scope-default-insights-read-to-most-recent-per-identity: done
   epic-11-retrospective: optional

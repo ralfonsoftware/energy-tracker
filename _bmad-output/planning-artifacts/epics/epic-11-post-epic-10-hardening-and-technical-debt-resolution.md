@@ -6,6 +6,8 @@ Ralf selected all four categories surfaced during scoping: correctness/data-inte
 
 **Story 11.13 was added 2026-07-27** via `bmad-correct-course`, sourced from a production investigation (`insights-duplicated-across-runs-investigation.md`) rather than the original Epic 10 retro batch — a user reported every Insight card doubled the day after a manual trigger. Root cause: the nightly `ScheduledInsightsFunction` run and any manual trigger both write fresh `Insight` rows with no cross-run de-duplication, and nothing ever deletes a prior run's rows (a deliberate retention choice, not an oversight — see FR-51). Recommended to be picked up before Stories 11.3–11.12 given it is a live, user-visible correctness bug rather than a latent gap.
 
+**Story 11.14 was added 2026-07-27**, same day as 11.13, via a second `bmad-correct-course` pass once the retention tradeoff FR-51 made became concrete: unlimited historical retention means the Insights tab accumulates every legitimately-distinct finding forever with no dismiss feature yet to manage the list. FR-51 was amended (not replaced) to keep full retention in the data store while scoping the *default read* to one row per `(Type, DeviceId)` identity.
+
 **FRs covered:** FR-51 (Story 11.13, added 2026-07-27 following production investigation `insights-duplicated-across-runs-investigation.md`) — otherwise this epic is entirely engineering-hardening/bugfix work, consistent with the precedent set by Story 6.0 and Epic 9 Part 2.
 **UX items:** A new UX-DR may be assigned during Story 11.9's design gate, same pattern as Stories 9.1/9.6.
 
@@ -270,3 +272,27 @@ So that the tab stays trustworthy and a future ability to dismiss a specific fin
 **Given** this changes real write behavior across all four detectors,
 **When** implemented,
 **Then** no `Insight` row is ever deleted or modified by this change — only whether a *new* row gets written; `GetInsightsFunction.cs` and its existing tests require no changes, since the read path was already correct for whatever rows exist.
+
+**Amendment (2026-07-27, FR-51 amended, see Story 11.14):** the last AC above ("`GetInsightsFunction.cs` ... requires no changes") reflected FR-51's original wording and no longer holds — FR-51 was amended the same day once the unlimited-retention tradeoff's practical consequence (an ever-growing default view) became concrete without a dismiss feature to manage it. `GetInsightsFunction.cs` is now scoped by Story 11.14. This AC is retained here for historical accuracy of what 11.13 itself implemented; it does not describe current expected behavior.
+
+## Story 11.14: Scope Default Insights Read to Most-Recent-Per-Identity
+
+As a user,
+I want the Insights tab to show only the current, most relevant finding per device/type,
+So that the tab doesn't accumulate an ever-growing list of stale historical findings while no dismiss/history feature exists yet to manage them.
+
+**Note (2026-07-27, FR-51 amended via `bmad-correct-course` following today's production cleanup):** Story 11.13 added a write-time dedup guard (`InsightDeduplication.IsNearDuplicateOfMostRecentAsync`) but deliberately left `GetInsightsFunction.cs:49-53` unchanged, per FR-51's original wording ("both remain visible"). Amended FR-51 now requires the default read to show only the most-recently-stored `Insight` row per `(Type, DeviceId)` identity — matching the same identity definition the write-time guard already uses — while still never deleting any row.
+
+**Acceptance Criteria:**
+
+**Given** `GetInsightsFunction.cs:49-53` currently returns `db.Insights.Where(i => i.FlatId == flatGuid)` unfiltered — every row ever written for the flat,
+**When** implemented,
+**Then** the query is changed to return only the single most-recently-stored row (by `CreatedAt`, tie-broken by `InsightId` descending) per distinct `(Type, DeviceId)` identity for the flat — no `RunId` filtering (a `RunId` filter would incorrectly hide a type that didn't fire in the latest run but is still current) — with no schema change and no `Insight` row ever deleted or modified by this read.
+
+**Given** `GetInsightsFunctionTests.cs:75-91` (`RunAsync_MultipleInsights_ReturnsSortedByCreatedAtDescending`) currently seeds three `Insight` rows for a flat and asserts all three are returned, locking in the old all-time-unscoped contract,
+**When** implemented,
+**Then** this test is updated to reflect the new contract: seeding rows across distinct identities continues to return one row per identity, while seeding two rows for the *same* identity at different `CreatedAt` values asserts only the most recent is returned.
+
+**Given** the new scoping,
+**When** tested,
+**Then** new test cases cover: a flat with 3 distinct `(Type, DeviceId)` identities each with 1 row (all 3 returned), a flat with 1 identity having 2 historical rows (only the newer returned), and the `CreatedAt` tie-break case (two rows with identical `CreatedAt`, higher `InsightId` wins) — matching the tie-break already established in `InsightDeduplication.cs:31` for consistency.

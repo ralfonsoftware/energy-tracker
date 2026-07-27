@@ -469,12 +469,12 @@ The app computes a rolling annual kWh figure for the active Flat and generates a
 - Updating the Annual kWh Baseline in Settings takes effect immediately on future insight evaluations.
 
 #### FR-51: Insight de-duplication and historical retention
-When a discovery run's detector produces a finding whose primary quantified figure (the Insight's main €/kWh figure) is within 5% of the same finding identity's (`Type`, and `Device` where applicable — Standby/Replacement are per-device, Budget/InvoiceDeviation are per-flat) most recently stored value, the new finding is not persisted; the existing, older `Insight` row remains the current representative for that finding. A finding whose primary figure differs by more than 5% from the most recent stored value for that identity is persisted as a new, distinct `Insight` row — both the superseded and the new row remain in the data store and both remain visible, supporting future historical review (e.g. a future ability to dismiss a specific finding). No `Insight` row is ever deleted by this behavior.
+When a discovery run's detector produces a finding whose primary quantified figure (the Insight's main €/kWh figure) is within 5% of the same finding identity's (`Type`, and `Device` where applicable — Standby/Replacement are per-device, Budget/InvoiceDeviation are per-flat) most recently stored value, the new finding is not persisted; the existing, older `Insight` row remains the current representative for that finding. A finding whose primary figure differs by more than 5% from the most recent stored value for that identity is persisted as a new, distinct `Insight` row. The superseded row is never deleted, but the Insights tab's default view shows only the single most-recently-stored `Insight` row per `(Type, Device)` identity — older superseded rows remain queryable in the data store for a future historical/dismiss view, but are excluded from the default response. No `Insight` row is ever deleted by this behavior.
 
 **Consequences (testable):**
 - A detector finding matching the most recently stored Insight of the same Type/Device within 5% does not create a new `Insight` row.
-- A detector finding differing from the most recently stored Insight of the same Type/Device by more than 5% creates a new `Insight` row; the prior row is not deleted or modified.
-- The Insights page never shows two cards for the same Type/Device whose values are within 5% of each other, because only one such row ever exists in the data store at a time.
+- A detector finding differing from the most recently stored Insight of the same Type/Device by more than 5% creates a new `Insight` row; the prior row is not deleted or modified, but is no longer returned by the default Insights read.
+- The Insights page never shows more than one card per `(Type, Device)` identity at a time, regardless of how many historical `Insight` rows exist for it in the data store.
 
 ---
 

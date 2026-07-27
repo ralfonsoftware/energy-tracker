@@ -48,11 +48,12 @@ public class GetInsightsFunctionTests
         return (flat, db);
     }
 
-    private static Insight MakeInsight(Guid flatId, DateTimeOffset createdAt) => new()
+    private static Insight MakeInsight(Guid flatId, DateTimeOffset createdAt, InsightType type = InsightType.Standby, Guid? deviceId = null) => new()
     {
         InsightId = Guid.NewGuid(),
         FlatId = flatId,
-        Type = InsightType.Standby,
+        Type = type,
+        DeviceId = deviceId,
         Data = """{"deviceName":"Fridge","standbyWatts":12.5}""",
         CreatedAt = createdAt
     };
@@ -72,7 +73,28 @@ public class GetInsightsFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_MultipleInsights_ReturnsSortedByCreatedAtDescending()
+    public async Task RunAsync_DistinctIdentities_ReturnsAllSortedByCreatedAtDescending()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var deviceA = Guid.NewGuid();
+        var deviceB = Guid.NewGuid();
+        var oldest = MakeInsight(flat.FlatId, DateTimeOffset.UtcNow.AddDays(-2), InsightType.Standby, deviceA);
+        var middle = MakeInsight(flat.FlatId, DateTimeOffset.UtcNow.AddDays(-1), InsightType.Standby, deviceB);
+        var newest = MakeInsight(flat.FlatId, DateTimeOffset.UtcNow, InsightType.Budget);
+        db.Insights.AddRange(oldest, middle, newest);
+        await db.SaveChangesAsync();
+
+        var fn = new GetInsightsFunction(db, Mock.Of<ILogger<GetInsightsFunction>>());
+        var result = await fn.RunAsync(MakeRequest(), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<InsightsResponse>();
+        response.Insights.Select(i => i.InsightId).ShouldBe([newest.InsightId, middle.InsightId, oldest.InsightId]);
+        response.Insights[0].Data.GetProperty("deviceName").GetString().ShouldBe("Fridge");
+    }
+
+    [Fact]
+    public async Task RunAsync_SameIdentityMultipleRows_ReturnsOnlyNewest()
     {
         var (flat, db) = await SeedFlatAsync();
         var oldest = MakeInsight(flat.FlatId, DateTimeOffset.UtcNow.AddDays(-2));
@@ -86,8 +108,27 @@ public class GetInsightsFunctionTests
 
         var ok = result.ShouldBeOfType<OkObjectResult>();
         var response = ok.Value.ShouldBeOfType<InsightsResponse>();
-        response.Insights.Select(i => i.InsightId).ShouldBe([newest.InsightId, middle.InsightId, oldest.InsightId]);
-        response.Insights[0].Data.GetProperty("deviceName").GetString().ShouldBe("Fridge");
+        response.Insights.Select(i => i.InsightId).ShouldBe([newest.InsightId]);
+    }
+
+    [Fact]
+    public async Task RunAsync_SameIdentitySameCreatedAt_TieBreaksOnInsightIdDescending()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var createdAt = DateTimeOffset.UtcNow;
+        var insightWithLowerId = MakeInsight(flat.FlatId, createdAt);
+        var insightWithHigherId = MakeInsight(flat.FlatId, createdAt);
+        if (insightWithLowerId.InsightId.CompareTo(insightWithHigherId.InsightId) > 0)
+            (insightWithLowerId, insightWithHigherId) = (insightWithHigherId, insightWithLowerId);
+        db.Insights.AddRange(insightWithLowerId, insightWithHigherId);
+        await db.SaveChangesAsync();
+
+        var fn = new GetInsightsFunction(db, Mock.Of<ILogger<GetInsightsFunction>>());
+        var result = await fn.RunAsync(MakeRequest(), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<InsightsResponse>();
+        response.Insights.Select(i => i.InsightId).ShouldBe([insightWithHigherId.InsightId]);
     }
 
     [Fact]

@@ -196,3 +196,47 @@ This is directly portable into a new xUnit test in `api.Tests/Features/Insights/
 - `api.Tests/Features/Insights/GetInsightsFunctionTests.cs:75-91` (`RunAsync_MultipleInsights_ReturnsSortedByCreatedAtDescending`) already exists and explicitly seeds three `Insight` rows for a flat and asserts **all three** are returned, sorted by `CreatedAt` — i.e. the current all-time, unscoped-by-run behavior is locked in as the *intended* contract by an existing passing test, not an accidental gap. Any read-side fix (Recommended Next Steps, mechanism 1) must update or replace this test, since "return everything for the flat" and "return only the latest run's rows" are mutually exclusive contracts.
 
 ## Follow-up: 2026-07-27
+
+**Trigger:** User deployed Story 11.13 (`InsightDeduplication.IsNearDuplicateOfMostRecentAsync`, commit `336495d`) and asked whether remaining visible duplication is just pre-existing data needing a one-time cleanup, or the guard not working.
+
+**Evidence added:** Direct production query (Azure SQL, AD auth via `az`/`sqlcmd`, read-only) against `Insights`/`InsightRuns` for all flats.
+
+### Finding 5: Story 11.13's guard does not touch `GetInsightsFunction.cs` or delete any existing rows — confirmed via diff
+
+**Evidence:** `git show 336495d --stat` — touched files: `BudgetAlertDetector.cs`, `InvoiceDeviationDetector.cs`, `ReplacementDetector.cs`, `StandbyDetector.cs`, `api/Shared/InsightDeduplication.cs`, plus tests/docs. `GetInsightsFunction.cs` (Finding 1's root cause location) is absent from the diff. The new `InsightDeduplication.IsNearDuplicateOfMostRecentAsync` (`api/Shared/InsightDeduplication.cs:23-40`) only gates detector *writes* — it queries the most recent `Insight` for the `(FlatId, Type, DeviceId)` identity and skips the new write if within 5% relative tolerance. It contains no `DELETE`/`RemoveRange` and is never called from any read path.
+
+**Conclusion:** Story 11.13 is a write-side forward guard only. It cannot and was never intended to retroactively remove rows written before it was deployed. This is orthogonal to, not a replacement for, the read-side/cleanup fix this case file already recommended (Recommended Next Steps, mechanisms 1 & 2) — that fix remains un-implemented.
+
+### Finding 6: Production data confirms the guard is working correctly post-deploy, and duplication is isolated to one flat, one pre-deploy pair
+
+**Evidence:** Query against `InsightRuns`/`Insights` (production, `energytracker-db`), 2026-07-27:
+
+| FlatId | RunId | StartedAt (UTC) | Insights written this run |
+|---|---|---|---|
+| `d3155f5b…` | `71520570…` | 2026-07-27 06:10:55 (first run **after** 11.13 deploy, commit authored 06:02:18 UTC) | **0** |
+| `d3155f5b…` | `7e909f77…` | 2026-07-27 02:00:01 (scheduled, **pre-deploy**) | 2 |
+| `d3155f5b…` | `ee5d247b…` | 2026-07-26 13:07:22 (manual, pre-deploy) | 2 |
+| `d3155f5b…` | `76f8f568…` | 2026-07-26 02:00:01 (scheduled, pre-deploy) | 0 |
+| 3 other flats, all runs | — | 2026-07-26/27 | 0 (no detector conditions triggered for these flats at all — unrelated to dedup) |
+
+For flat `d3155f5b…`, all 4 `Insight` rows in the table are two near-identical pairs:
+- Type `Standby` (`Geschirrspüler`, `estimatedAnnualKwh: 97.0`) — `InsightId 1adcdf42…` (RunId `ee5d247b`, 2026-07-26 13:07:31) and `InsightId 30f67928…` (RunId `7e909f77`, 2026-07-27 02:00:06) — identical `Data` payload.
+- Type `InvoiceDeviation` (`impliedDeltaEur: 51.76`) — `InsightId a0db8ede…` (RunId `ee5d247b`) and `InsightId b435c589…` (RunId `7e909f77`) — identical `Data` payload.
+
+Both pairs were written by the two runs that **preceded** the 11.13 deploy. The 06:10:55 run — the first run for this flat after deploy, with the same underlying conditions still present — wrote 0 rows, i.e. `IsNearDuplicateOfMostRecentAsync` correctly matched the 02:00 row and skipped the write. No flat/run since deploy has produced a new near-duplicate row.
+
+**Would refute:** A post-deploy run writing a new row within 5% of an existing row for the same `(FlatId, Type, DeviceId)`. Not observed in any of the 4 flats' post-deploy runs.
+
+### Deduction 3: The two competing hypotheses (a: stale pre-existing data vs. b: guard not working) are resolved — it is (a), definitively, not (b)
+
+**Based on:** Findings 5, 6.
+
+**Reasoning:** Finding 6 is a direct, Confirmed (not Deduced) observation of the guard behaving correctly on real production data immediately after deploy. Finding 5 explains *why* old rows remain: the guard is write-side-only and never ran retroactively. There is no evidence anywhere of the guard failing to catch a near-duplicate since deploy.
+
+**Conclusion:** What Ralf is currently seeing is exactly and only the 2 duplicate pairs (4 rows) written before the 11.13 deploy for flat `d3155f5b…`. No other flat is affected. A one-time delete of the 2 older rows (RunId `ee5d247b…`: `InsightId 1adcdf42-48c6-4ca5-8d5f-51f654335769` and `a0db8ede-76ad-445e-8ab7-c8d54644bd71`) resolves the currently visible symptom. This does **not** fix the underlying architectural gap (Findings 1-3: `GetInsightsFunction` still unscoped by run, still accumulates every non-near-duplicate insight forever) — that remains open and unimplemented; it only explains why a manual cleanup is sufficient to clear *today's* visible duplication.
+
+**Status:** Confirmed.
+
+**Action taken (2026-07-27, with explicit user confirmation):** Deleted the 2 pre-deploy duplicate rows via production SQL (`DELETE FROM Insights WHERE InsightId IN ('1adcdf42-48c6-4ca5-8d5f-51f654335769', 'a0db8ede-76ad-445e-8ab7-c8d54644bd71')`), `@@ROWCOUNT = 2`. Verified: flat `d3155f5b…` now has exactly 1 row per `(Type, DeviceId)` — `30f67928…` (Standby) and `b435c589…` (InvoiceDeviation), both from RunId `7e909f77` (2026-07-27 02:00, the last pre-deploy run). Symptom cleared. Root architectural gap (Findings 1-3, `GetInsightsFunction` unscoped-by-run + unbounded row accumulation) remains open and unimplemented — see Recommended Next Steps.
+
+**Status:** Concluded (this follow-up). Case remains open for the underlying architectural fix.

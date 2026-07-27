@@ -49,28 +49,46 @@ public class GetInsightsFunction(AppDbContext db, ILogger<GetInsightsFunction> l
         var insights = await db.Insights.AsNoTracking()
             .Where(i => i.FlatId == flatGuid)
             .OrderByDescending(i => i.CreatedAt)
+            .ThenByDescending(i => i.InsightId)
             .Select(i => new { i.InsightId, i.Type, i.DeviceId, i.Data, i.CreatedAt })
             .ToListAsync(ct);
 
-        var insightDtos = new List<InsightDto>(insights.Count);
-        foreach (var i in insights)
+        var insightsByIdentity = insights.GroupBy(i => (i.Type, i.DeviceId)).ToList();
+
+        var insightDtos = new List<InsightDto>(insightsByIdentity.Count);
+        foreach (var group in insightsByIdentity)
         {
-            JsonElement data;
-            try
+            var candidates = group.ToList();
+            InsightDto? selected = null;
+
+            foreach (var i in candidates)
             {
-                // .Clone() detaches the element from the JsonDocument so it remains valid
-                // after the document is disposed — the response is serialized later in the
-                // pipeline, after this method has already returned.
-                using var doc = JsonDocument.Parse(i.Data);
-                data = doc.RootElement.Clone();
-            }
-            catch (JsonException ex)
-            {
-                logger.LogError(ex, "Insight {InsightId} has malformed Data JSON; skipping it in the response.", i.InsightId);
-                continue;
+                JsonElement data;
+                try
+                {
+                    // .Clone() detaches the element from the JsonDocument so it remains valid
+                    // after the document is disposed — the response is serialized later in the
+                    // pipeline, after this method has already returned.
+                    using var doc = JsonDocument.Parse(i.Data);
+                    data = doc.RootElement.Clone();
+                }
+                catch (JsonException ex)
+                {
+                    logger.LogError(ex, "Insight {InsightId} has malformed Data JSON; falling back to the next-newest row for this identity, if any.", i.InsightId);
+                    continue;
+                }
+
+                selected = new InsightDto(i.InsightId, i.Type, i.DeviceId, data, i.CreatedAt);
+                break;
             }
 
-            insightDtos.Add(new InsightDto(i.InsightId, i.Type, i.DeviceId, data, i.CreatedAt));
+            if (selected is null)
+                continue;
+
+            insightDtos.Add(selected);
+
+            if (candidates.Count > 1)
+                logger.LogDebug("Identity ({Type}, device {DeviceId}) has {Count} historical rows; {InsightId} selected as most recent.", selected.Type, selected.DeviceId, candidates.Count, selected.InsightId);
         }
 
         return new OkObjectResult(new InsightsResponse(runStatus, insightDtos));
