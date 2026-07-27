@@ -74,8 +74,16 @@ public class InvoiceDeviationDetector(AppDbContext db)
         }
 
         var direction = projectedAnnualKwh > baselineKwh ? "above" : "below";
+        var impliedDeltaEur = (projectedAnnualKwh - baselineKwh) * tariff.PricePerKwh;
+
+        if (await InsightDeduplication.IsNearDuplicateOfMostRecentAsync(db, flatId, InsightType.InvoiceDeviation, null, impliedDeltaEur, ct))
+        {
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
         var data = new InvoiceDeviationInsightData(
-            projectedAnnualKwh, baselineKwh, deviation * 100m, (projectedAnnualKwh - baselineKwh) * tariff.PricePerKwh, direction);
+            projectedAnnualKwh, baselineKwh, deviation * 100m, impliedDeltaEur, direction);
 
         db.Insights.Add(new Insight
         {

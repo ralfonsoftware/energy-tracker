@@ -78,6 +78,9 @@ public class StandbyDetector(AppDbContext db)
             var estimatedMonthlyKwh = (meanWatts / 1000m) * OutOfUseHoursPerDay * 30m;
             var estimatedMonthlyCost = estimatedMonthlyKwh * tariff.PricePerKwh;
 
+            if (await InsightDeduplication.IsNearDuplicateOfMostRecentAsync(db, flatId, InsightType.Standby, device.DeviceId, estimatedMonthlyCost, ct))
+                continue;
+
             var data = new StandbyInsightData(device.Name, meanWatts, estimatedMonthlyKwh, estimatedMonthlyCost);
             db.Insights.Add(new Insight
             {

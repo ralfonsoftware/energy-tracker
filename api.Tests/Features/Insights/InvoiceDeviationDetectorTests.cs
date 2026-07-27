@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
@@ -94,6 +95,83 @@ public class InvoiceDeviationDetectorTests
         using var json = JsonDocument.Parse(insight.Data);
         json.RootElement.GetProperty("projectedAnnualKwh").GetDecimal().ShouldBe(3212m);
         json.RootElement.GetProperty("deviationPct").GetDecimal().ShouldBe(12.0m);
+        json.RootElement.GetProperty("impliedDeltaEur").GetDecimal().ShouldBe(-131.4m);
+        json.RootElement.GetProperty("direction").GetString().ShouldBe("below");
+    }
+
+    private static async Task SeedExistingInsightAsync(AppDbContext db, Guid flatId, decimal impliedDeltaEur, DateTimeOffset? createdAt = null)
+    {
+        db.Insights.Add(new Insight
+        {
+            InsightId = Guid.NewGuid(),
+            FlatId = flatId,
+            Type = InsightType.InvoiceDeviation,
+            DeviceId = null,
+            Data = $$"""{"impliedDeltaEur":{{impliedDeltaEur.ToString(CultureInfo.InvariantCulture)}}}""",
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task DetectAsync_WithinFivePercentOfMostRecentStoredInsight_WritesNoNewInsight()
+    {
+        var db = MakeDb();
+        var now = DateTimeOffset.UtcNow;
+        // Same as the first test in this file: impliedDeltaEur = 164.25.
+        var flat = await SeedFlatAsync(db, annualKwhBaseline: 3650m);
+        await SeedReadingAsync(db, flat.FlatId, now.AddDays(-60), 1000m);
+        await SeedReadingAsync(db, flat.FlatId, now, 1690m);
+        await SeedTariffAsync(db, flat.FlatId, pricePerKwh: 0.30m, contractStartDate: now.AddYears(-1));
+        // 165 is within 5% of 164.25.
+        await SeedExistingInsightAsync(db, flat.FlatId, impliedDeltaEur: 165m);
+
+        await new InvoiceDeviationDetector(db).DetectAsync(flat.FlatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task DetectAsync_BeyondFivePercentOfMostRecentStoredInsight_WritesNewInsightAlongsideUntouchedPrior()
+    {
+        var db = MakeDb();
+        var now = DateTimeOffset.UtcNow;
+        // Same as the first test in this file: impliedDeltaEur = 164.25.
+        var flat = await SeedFlatAsync(db, annualKwhBaseline: 3650m);
+        await SeedReadingAsync(db, flat.FlatId, now.AddDays(-60), 1000m);
+        await SeedReadingAsync(db, flat.FlatId, now, 1690m);
+        await SeedTariffAsync(db, flat.FlatId, pricePerKwh: 0.30m, contractStartDate: now.AddYears(-1));
+        // 50 is well beyond 5% of 164.25.
+        await SeedExistingInsightAsync(db, flat.FlatId, impliedDeltaEur: 50m);
+        var priorInsightId = (await db.Insights.SingleAsync()).InsightId;
+
+        await new InvoiceDeviationDetector(db).DetectAsync(flat.FlatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(2);
+        var prior = await db.Insights.SingleAsync(i => i.InsightId == priorInsightId);
+        using var priorJson = JsonDocument.Parse(prior.Data);
+        priorJson.RootElement.GetProperty("impliedDeltaEur").GetDecimal().ShouldBe(50m);
+    }
+
+    [Fact]
+    public async Task DetectAsync_DeviationDirectionFlipsSign_TreatedAsDistinctFindingNotNearDuplicate()
+    {
+        var db = MakeDb();
+        var now = DateTimeOffset.UtcNow;
+        // Same as DetectAsync_ConsumptionTwelvePercentBelowBaseline test: impliedDeltaEur = -131.4 (below).
+        var flat = await SeedFlatAsync(db, annualKwhBaseline: 3650m);
+        await SeedReadingAsync(db, flat.FlatId, now.AddDays(-60), 1000m);
+        await SeedReadingAsync(db, flat.FlatId, now, 1528m);
+        await SeedTariffAsync(db, flat.FlatId, pricePerKwh: 0.30m, contractStartDate: now.AddYears(-1));
+        // Prior finding was +131.4 (above baseline) - same magnitude, opposite sign/direction.
+        await SeedExistingInsightAsync(db, flat.FlatId, impliedDeltaEur: 131.4m);
+        var priorInsightId = (await db.Insights.SingleAsync()).InsightId;
+
+        await new InvoiceDeviationDetector(db).DetectAsync(flat.FlatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(2);
+        var newInsight = await db.Insights.SingleAsync(i => i.InsightId != priorInsightId);
+        using var json = JsonDocument.Parse(newInsight.Data);
         json.RootElement.GetProperty("impliedDeltaEur").GetDecimal().ShouldBe(-131.4m);
         json.RootElement.GetProperty("direction").GetString().ShouldBe("below");
     }

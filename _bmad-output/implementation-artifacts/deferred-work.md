@@ -1,5 +1,9 @@
 # Deferred Work
 
+## Deferred from: code review of story-11.13 (2026-07-27)
+
+- Read-then-write dedup check (`InsightDeduplication.IsNearDuplicateOfMostRecentAsync`) has a TOCTOU race: two concurrent detector runs for the same flat/type/device identity can both read "no near-duplicate exists" before either commits its insert, both writing near-identical rows — the exact symptom this story fixes, just under concurrency instead of same-day reruns. Closing it would need a DB-level uniqueness constraint or transaction, which this story's AC #4 explicitly rules out (no schema change, no migration). Low real-world likelihood given this app's single-user, cron-triggered usage pattern (the root-cause investigation describes overlapping runs a day apart, not concurrently). `api/Shared/InsightDeduplication.cs`, `api/Features/Insights/BudgetAlertDetector.cs`, `InvoiceDeviationDetector.cs`, `ReplacementDetector.cs`, `StandbyDetector.cs`
+
 ## Deferred from: code review of story-11.1 (2026-07-26)
 
 - Six call sites pass semantically different "date" values into the same shared `TariffResolution.Resolve` function (`DecompositionEngine`'s timezone-adjusted local midnight vs. `KpiCalculator`'s raw `ReadingDate`/`now` vs. the other four's `DateTimeOffset.UtcNow`) — centralizing the comparison algorithm didn't unify what each caller considers "the date." Pre-existing across all six original duplicated methods, not introduced by this diff. `api/Features/Dashboard/KpiCalculator.cs`, `api/Features/Decomposition/DecompositionEngine.cs`, `api/Features/Insights/BudgetAlertDetector.cs`, `InvoiceDeviationDetector.cs`, `ReplacementDetector.cs`, `StandbyDetector.cs`

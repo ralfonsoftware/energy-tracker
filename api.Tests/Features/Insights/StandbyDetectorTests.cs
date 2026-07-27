@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
@@ -174,6 +175,62 @@ public class StandbyDetectorTests
         await new StandbyDetector(db).DetectAsync(flatId, Guid.NewGuid(), CancellationToken.None);
 
         (await db.Insights.CountAsync()).ShouldBe(0);
+    }
+
+    private static async Task SeedExistingInsightAsync(AppDbContext db, Guid flatId, Guid deviceId, decimal estimatedMonthlyCost, DateTimeOffset? createdAt = null)
+    {
+        db.Insights.Add(new Insight
+        {
+            InsightId = Guid.NewGuid(),
+            FlatId = flatId,
+            Type = InsightType.Standby,
+            DeviceId = deviceId,
+            Data = $$"""{"estimatedMonthlyCost":{{estimatedMonthlyCost.ToString(CultureInfo.InvariantCulture)}}}""",
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task DetectAsync_WithinFivePercentOfMostRecentStoredInsight_WritesNoNewInsight()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Socket", plugId: "plug-1");
+        var device = await SeedDeviceAsync(db, pp.PowerPointId, "Games Console");
+        // 1 Wh per 10-min interval => 6 W => estimatedMonthlyCost = 0.54 (see first test in this file).
+        await Seed7NightRowsAsync(db, flatId, "plug-1", whValuePerRow: 1m);
+        await SeedTariffAsync(db, flatId, pricePerKwh: 0.30m);
+        // 0.55 is within 5% of 0.54.
+        await SeedExistingInsightAsync(db, flatId, device.DeviceId, estimatedMonthlyCost: 0.55m);
+
+        await new StandbyDetector(db).DetectAsync(flatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task DetectAsync_BeyondFivePercentOfMostRecentStoredInsight_WritesNewInsightAlongsideUntouchedPrior()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Socket", plugId: "plug-1");
+        var device = await SeedDeviceAsync(db, pp.PowerPointId, "Games Console");
+        // 1 Wh per 10-min interval => 6 W => estimatedMonthlyCost = 0.54 (see first test in this file).
+        await Seed7NightRowsAsync(db, flatId, "plug-1", whValuePerRow: 1m);
+        await SeedTariffAsync(db, flatId, pricePerKwh: 0.30m);
+        // 1.00 is well beyond 5% of 0.54.
+        await SeedExistingInsightAsync(db, flatId, device.DeviceId, estimatedMonthlyCost: 1.00m);
+        var priorInsightId = (await db.Insights.SingleAsync()).InsightId;
+
+        await new StandbyDetector(db).DetectAsync(flatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(2);
+        var prior = await db.Insights.SingleAsync(i => i.InsightId == priorInsightId);
+        using var priorJson = JsonDocument.Parse(prior.Data);
+        priorJson.RootElement.GetProperty("estimatedMonthlyCost").GetDecimal().ShouldBe(1.00m);
     }
 
     [Fact]

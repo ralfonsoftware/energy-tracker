@@ -92,6 +92,9 @@ public class ReplacementDetector(AppDbContext db)
             var suggestedClass = EuLabelScale[rank.Value - 1];
             var estimatedSavingsEur = candidate.AnnualCost * SavingsPerClassStepPercent;
 
+            if (await InsightDeduplication.IsNearDuplicateOfMostRecentAsync(db, flatId, InsightType.Replacement, candidate.Device.DeviceId, estimatedSavingsEur, ct))
+                continue;
+
             var data = new ReplacementInsightData(
                 candidate.Device.Name, candidate.AnnualKwh, candidate.AnnualCost, suggestedClass, estimatedSavingsEur);
 

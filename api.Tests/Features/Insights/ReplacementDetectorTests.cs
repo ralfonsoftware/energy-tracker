@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
@@ -104,6 +105,62 @@ public class ReplacementDetectorTests
         json.RootElement.GetProperty("estimatedAnnualCost").GetDecimal().ShouldBe(300m);
         json.RootElement.GetProperty("suggestedClass").GetString().ShouldBe("B");
         json.RootElement.GetProperty("estimatedSavingsEur").GetDecimal().ShouldBe(45m);
+    }
+
+    private static async Task SeedExistingInsightAsync(AppDbContext db, Guid flatId, Guid deviceId, decimal estimatedSavingsEur, DateTimeOffset? createdAt = null)
+    {
+        db.Insights.Add(new Insight
+        {
+            InsightId = Guid.NewGuid(),
+            FlatId = flatId,
+            Type = InsightType.Replacement,
+            DeviceId = deviceId,
+            Data = $$"""{"estimatedSavingsEur":{{estimatedSavingsEur.ToString(CultureInfo.InvariantCulture)}}}""",
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task DetectAsync_WithinFivePercentOfMostRecentStoredInsight_WritesNoNewInsight()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var highPp = await SeedPowerPointAsync(db, room.RoomId, "High");
+        // Same as DetectAsync_HighConsumptionDeviceClassC test: estimatedSavingsEur = 45.
+        var highDevice = await SeedDeviceAsync(db, highPp.PowerPointId, "Old Fridge",
+            approach: ConsumptionApproach.EuLabel, euLabelClass: "C", euAnnualKwh: 1000m);
+        await SeedTariffAsync(db, flatId, pricePerKwh: 0.30m);
+        // 46 is within 5% of 45.
+        await SeedExistingInsightAsync(db, flatId, highDevice.DeviceId, estimatedSavingsEur: 46m);
+
+        await new ReplacementDetector(db).DetectAsync(flatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task DetectAsync_BeyondFivePercentOfMostRecentStoredInsight_WritesNewInsightAlongsideUntouchedPrior()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var highPp = await SeedPowerPointAsync(db, room.RoomId, "High");
+        // Same as DetectAsync_HighConsumptionDeviceClassC test: estimatedSavingsEur = 45.
+        var highDevice = await SeedDeviceAsync(db, highPp.PowerPointId, "Old Fridge",
+            approach: ConsumptionApproach.EuLabel, euLabelClass: "C", euAnnualKwh: 1000m);
+        await SeedTariffAsync(db, flatId, pricePerKwh: 0.30m);
+        // 90 is well beyond 5% of 45.
+        await SeedExistingInsightAsync(db, flatId, highDevice.DeviceId, estimatedSavingsEur: 90m);
+        var priorInsightId = (await db.Insights.SingleAsync()).InsightId;
+
+        await new ReplacementDetector(db).DetectAsync(flatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(2);
+        var prior = await db.Insights.SingleAsync(i => i.InsightId == priorInsightId);
+        using var priorJson = JsonDocument.Parse(prior.Data);
+        priorJson.RootElement.GetProperty("estimatedSavingsEur").GetDecimal().ShouldBe(90m);
     }
 
     [Fact]

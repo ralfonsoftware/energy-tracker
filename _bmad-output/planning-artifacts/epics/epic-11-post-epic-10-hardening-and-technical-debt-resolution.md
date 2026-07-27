@@ -4,7 +4,9 @@ A prioritized batch of deferred technical-debt, correctness, and consistency ite
 
 Ralf selected all four categories surfaced during scoping: correctness/data-integrity fixes, API consistency, accessibility/UX consistency, and test coverage/engineering hygiene. One story (11.9) is decision-gated — it requires a Ralf/Sally design decision as its first AC before implementation proceeds, matching this project's established design-gate pattern (Stories 8.4, 9.1, 9.6).
 
-**FRs covered:** None — this epic is entirely engineering-hardening/bugfix work, consistent with the precedent set by Story 6.0 and Epic 9 Part 2.
+**Story 11.13 was added 2026-07-27** via `bmad-correct-course`, sourced from a production investigation (`insights-duplicated-across-runs-investigation.md`) rather than the original Epic 10 retro batch — a user reported every Insight card doubled the day after a manual trigger. Root cause: the nightly `ScheduledInsightsFunction` run and any manual trigger both write fresh `Insight` rows with no cross-run de-duplication, and nothing ever deletes a prior run's rows (a deliberate retention choice, not an oversight — see FR-51). Recommended to be picked up before Stories 11.3–11.12 given it is a live, user-visible correctness bug rather than a latent gap.
+
+**FRs covered:** FR-51 (Story 11.13, added 2026-07-27 following production investigation `insights-duplicated-across-runs-investigation.md`) — otherwise this epic is entirely engineering-hardening/bugfix work, consistent with the precedent set by Story 6.0 and Epic 9 Part 2.
 **UX items:** A new UX-DR may be assigned during Story 11.9's design gate, same pattern as Stories 9.1/9.6.
 
 ## Story 11.1: Centralize `ResolveTariff` Into a Shared Utility
@@ -242,3 +244,29 @@ So that cascade-delete paths, unique indexes, and decimal-precision truncation c
 **Given** SQLite's known type-affinity differences from SQL Server (e.g. it does not enforce `decimal` precision/scale the same way natively),
 **When** a test relies on decimal truncation behavior,
 **Then** the test documents and works around this known SQLite-vs-SQL-Server gap explicitly (e.g. via an EF Core value converter matching production's precision/scale) rather than silently asserting something SQLite wouldn't actually reject.
+
+## Story 11.13: Insight De-duplication — Skip Writing Near-Identical Findings
+
+As a user,
+I want the Insights tab to show one card per distinct finding instead of near-identical repeats from every discovery run,
+So that the tab stays trustworthy and a future ability to dismiss a specific finding has a stable, non-noisy set of rows to act on.
+
+**Note (2026-07-27, flagged by production investigation `insights-duplicated-across-runs-investigation.md`):** `ScheduledInsightsFunction` creates a new `InsightRun` for every flat every night unconditionally (FR-38), and `ProcessInsightsFunction`'s stale-cleanup only removes `Insight` rows sharing the *same* `RunId` as the current invocation (Story 10.2/11.2's redelivery guard) — never a different, earlier completed run's rows. Since the four detectors (`StandbyDetector.cs:82`, `ReplacementDetector.cs:98`, `BudgetAlertDetector.cs:66`, `InvoiceDeviationDetector.cs:80`) each unconditionally `db.Insights.Add(...)` whenever their own threshold condition is met, two runs a day apart produce two near-identical `Insight` rows for the same finding (confirmed in production: a user saw every card doubled the day after a manual trigger, caused by the next night's scheduled run). This story adds FR-51's write-time de-duplication guard.
+
+**Acceptance Criteria:**
+
+**Given** a new shared utility `api/Shared/InsightDeduplication.cs` does not yet exist,
+**When** implemented,
+**Then** it exposes a static method (e.g. `IsNearDuplicateOfMostRecentAsync(AppDbContext db, Guid flatId, InsightType type, Guid? deviceId, decimal newPrimaryValue, CancellationToken ct)`) that queries `db.Insights.Where(i => i.FlatId == flatId && i.Type == type && i.DeviceId == deviceId).OrderByDescending(i => i.CreatedAt).FirstOrDefaultAsync(ct)`, extracts that row's primary quantified figure from its `Data` JSON via `JsonDocument.Parse` (property name keyed by `Type`: `estimatedMonthlyCost` for Standby, `estimatedSavingsEur` for Replacement, `overspendEur` for Budget, `impliedDeltaEur` for InvoiceDeviation), and returns `true` when `Math.Abs(newValue - existingValue) <= 0.05m * Math.Max(Math.Abs(newValue), Math.Abs(existingValue))` (both zero counts as a match); returns `false` when no prior row exists for that identity.
+
+**Given** the four detectors' unconditional `db.Insights.Add(...)` calls (`StandbyDetector.cs:82`, `ReplacementDetector.cs:98`, `BudgetAlertDetector.cs:66`, `InvoiceDeviationDetector.cs:80`),
+**When** implemented,
+**Then** each call site first awaits `InsightDeduplication.IsNearDuplicateOfMostRecentAsync(...)` with its own computed primary value (`estimatedMonthlyCost`, `estimatedSavingsEur`, the `projectedAnnualCost - PlannedAnnualSpend` overspend amount, `impliedDeltaEur` respectively) and skips the `Add` (continues the loop for Standby/Replacement; skips the `if` block for Budget/InvoiceDeviation) when it returns `true` — no other behavior in these detectors changes.
+
+**Given** the fix,
+**When** tested,
+**Then** each of the four detectors' existing test files gains a case asserting: a finding within 5% of the most recently stored Insight for the same Type/Device does not create a new row, and a finding beyond 5% does create a new row alongside the untouched prior one; a new `InsightDeduplicationTests.cs` in `api.Tests/Shared/` covers the utility directly: no prior row (not a duplicate), within tolerance, beyond tolerance, and the zero/zero edge case; all existing detector tests continue to pass unmodified.
+
+**Given** this changes real write behavior across all four detectors,
+**When** implemented,
+**Then** no `Insight` row is ever deleted or modified by this change — only whether a *new* row gets written; `GetInsightsFunction.cs` and its existing tests require no changes, since the read path was already correct for whatever rows exist.

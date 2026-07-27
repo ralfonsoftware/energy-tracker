@@ -60,19 +60,23 @@ public class BudgetAlertDetector(AppDbContext db)
 
         if (projectedAnnualCost > flat.PlannedAnnualSpend.Value)
         {
-            var data = new BudgetInsightData(
-                projectedAnnualCost, flat.PlannedAnnualSpend.Value, projectedAnnualCost - flat.PlannedAnnualSpend.Value);
+            var overspendEur = projectedAnnualCost - flat.PlannedAnnualSpend.Value;
 
-            db.Insights.Add(new Insight
+            if (!await InsightDeduplication.IsNearDuplicateOfMostRecentAsync(db, flatId, InsightType.Budget, null, overspendEur, ct))
             {
-                InsightId = Guid.NewGuid(),
-                FlatId = flatId,
-                RunId = runId,
-                Type = InsightType.Budget,
-                DeviceId = null,
-                Data = JsonSerializer.Serialize(data, InsightsConstants.MessageJsonOptions),
-                CreatedAt = DateTimeOffset.UtcNow
-            });
+                var data = new BudgetInsightData(projectedAnnualCost, flat.PlannedAnnualSpend.Value, overspendEur);
+
+                db.Insights.Add(new Insight
+                {
+                    InsightId = Guid.NewGuid(),
+                    FlatId = flatId,
+                    RunId = runId,
+                    Type = InsightType.Budget,
+                    DeviceId = null,
+                    Data = JsonSerializer.Serialize(data, InsightsConstants.MessageJsonOptions),
+                    CreatedAt = DateTimeOffset.UtcNow
+                });
+            }
         }
 
         await db.SaveChangesAsync(ct);

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using EnergyTracker.Api.Data;
 using EnergyTracker.Api.Data.Entities;
@@ -72,6 +73,60 @@ public class BudgetAlertDetectorTests
         json.RootElement.GetProperty("projectedAnnualCost").GetDecimal().ShouldBe(1095m);
         json.RootElement.GetProperty("plannedAnnualSpend").GetDecimal().ShouldBe(800m);
         json.RootElement.GetProperty("overspendEur").GetDecimal().ShouldBe(295m);
+    }
+
+    private static async Task SeedExistingInsightAsync(AppDbContext db, Guid flatId, decimal overspendEur, DateTimeOffset? createdAt = null)
+    {
+        db.Insights.Add(new Insight
+        {
+            InsightId = Guid.NewGuid(),
+            FlatId = flatId,
+            Type = InsightType.Budget,
+            DeviceId = null,
+            Data = $$"""{"overspendEur":{{overspendEur.ToString(CultureInfo.InvariantCulture)}}}""",
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task DetectAsync_WithinFivePercentOfMostRecentStoredInsight_WritesNoNewInsight()
+    {
+        var db = MakeDb();
+        var now = DateTimeOffset.UtcNow;
+        // Same as the first test in this file: overspendEur = 295.
+        var flat = await SeedFlatAsync(db, plannedAnnualSpend: 800m);
+        await SeedReadingAsync(db, flat.FlatId, now.AddDays(-40), 1000m);
+        await SeedReadingAsync(db, flat.FlatId, now, 1400m);
+        await SeedTariffAsync(db, flat.FlatId, pricePerKwh: 0.30m, contractStartDate: now.AddYears(-1));
+        // 300 is within 5% of 295.
+        await SeedExistingInsightAsync(db, flat.FlatId, overspendEur: 300m);
+
+        await new BudgetAlertDetector(db).DetectAsync(flat.FlatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task DetectAsync_BeyondFivePercentOfMostRecentStoredInsight_WritesNewInsightAlongsideUntouchedPrior()
+    {
+        var db = MakeDb();
+        var now = DateTimeOffset.UtcNow;
+        // Same as the first test in this file: overspendEur = 295.
+        var flat = await SeedFlatAsync(db, plannedAnnualSpend: 800m);
+        await SeedReadingAsync(db, flat.FlatId, now.AddDays(-40), 1000m);
+        await SeedReadingAsync(db, flat.FlatId, now, 1400m);
+        await SeedTariffAsync(db, flat.FlatId, pricePerKwh: 0.30m, contractStartDate: now.AddYears(-1));
+        // 600 is well beyond 5% of 295.
+        await SeedExistingInsightAsync(db, flat.FlatId, overspendEur: 600m);
+        var priorInsightId = (await db.Insights.SingleAsync()).InsightId;
+
+        await new BudgetAlertDetector(db).DetectAsync(flat.FlatId, Guid.NewGuid(), CancellationToken.None);
+
+        (await db.Insights.CountAsync()).ShouldBe(2);
+        var prior = await db.Insights.SingleAsync(i => i.InsightId == priorInsightId);
+        using var priorJson = JsonDocument.Parse(prior.Data);
+        priorJson.RootElement.GetProperty("overspendEur").GetDecimal().ShouldBe(600m);
     }
 
     [Fact]
