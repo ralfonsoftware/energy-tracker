@@ -429,3 +429,8 @@
 ## Deferred from: code review of ci-bump-actions-node24 (2026-07-29)
 
 - `actions/checkout`, `actions/setup-node`, `actions/setup-dotnet` remain pinned to floating major-version tags (`@v7`/`@v6`) rather than a commit SHA — unchanged from the prior `@v4` pinning strategy, so not a new risk from this change, but a pre-existing supply-chain hardening gap (a tag can be moved to point at a new commit upstream without the pin changing). `.github/workflows/azure-static-web-apps.yml`, `.github/workflows/deploy-infrastructure.yml`
+
+## Deferred from: code review of story 11.4 (2026-07-29)
+
+- Only one non-string shape (`number`) is exercised for the `name` type-mismatch guard; boolean/array/object values are untested — matches this file's existing convention of testing one mismatch shape per field guard (same as `annualKwhBaseline`'s test), not introduced as a new gap by this diff. `api.Tests/Features/Flats/PatchFlatFunctionTests.cs:289`
+- Validation-order interaction between the `rowVersion` guard and the new `name` guard is untested — which 400 wins when both are invalid is unlocked by any test. Pre-existing ordering (rowVersion checked before name is read), unchanged by this diff. `api/Features/Flats/PatchFlatFunction.cs:56-62`

@@ -55,8 +55,14 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
             return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "rowVersion is required." });
 
+        string? name = null;
+        if (obj["name"] is JsonValue nameVal && nameVal.TryGetValue<string>(out var n))
+            name = n;
+        else if (obj.ContainsKey("name") && obj["name"] is not null)
+            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "name must be a string." });
+
         var request = new PatchFlatRequest(
-            Name: obj["name"]?.GetValue<string>(),
+            Name: name,
             AnnualKwhBaseline: kwhBaseline,
             PlannedAnnualSpendProvided: obj.ContainsKey("plannedAnnualSpend"),
             PlannedAnnualSpend: plannedSpend,

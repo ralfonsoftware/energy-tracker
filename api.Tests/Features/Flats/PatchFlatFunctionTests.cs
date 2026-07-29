@@ -287,6 +287,24 @@ public class PatchFlatFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_NameNotAString_Returns400BadRequest()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new PatchFlatFunction(db, new PatchFlatValidator());
+        var req = MakeRequest($$"""{"name":123,"rowVersion":"{{TestRowVersionBase64}}"}""");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var detail = (string)badRequest.Value!.GetType().GetProperty("detail")!.GetValue(badRequest.Value)!;
+        detail.ShouldBe("name must be a string.");
+        var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
+        persisted.Name.ShouldBe("Original Name");
+    }
+
+    [Fact]
     public async Task RunAsync_EmptyNamePatch_Returns400ValidationErrorAndPersistsNothing()
     {
         var (flat, db) = await SeedFlatAsync();
