@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-26 (Story 11.2 created — ready-for-dev)
+# last_updated: 2026-07-27 (Story 11.3 created — ready-for-dev)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-27 (Story 11.14 code review complete — done)
+last_updated: 2026-07-29 (Story 11.3 code review complete — done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -142,7 +142,7 @@ development_status:
   epic-11: in-progress
   11-1-centralize-resolvetariff-into-a-shared-utility: done
   11-2-insights-discovery-redelivery-db-level-idempotency-guard: done
-  11-3-enforce-unique-plugid-across-power-points: backlog
+  11-3-enforce-unique-plugid-across-power-points: done
   11-4-patchflatfunction-malformed-name-field-returns-400-not-500: backlog
   11-5-rfc-9457-type-field-consistency-sweep: backlog
   11-6-frontend-network-error-reshaping-in-apiclient: backlog

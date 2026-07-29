@@ -12,6 +12,7 @@ public class PowerPointConfiguration : IEntityTypeConfiguration<PowerPoint>
         builder.HasKey(pp => pp.PowerPointId);
         builder.Property(pp => pp.PowerPointId).ValueGeneratedOnAdd();
         builder.Property(pp => pp.RoomId).IsRequired();
+        builder.Property(pp => pp.FlatId).IsRequired();
         builder.Property(pp => pp.Name).HasMaxLength(200).IsRequired();
         builder.Property(pp => pp.PlugId).HasMaxLength(200).IsRequired(false);
         builder.Property(pp => pp.RowVersion).IsRowVersion();
@@ -19,5 +20,9 @@ public class PowerPointConfiguration : IEntityTypeConfiguration<PowerPoint>
             .WithMany(room => room.PowerPoints)
             .HasForeignKey(pp => pp.RoomId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.HasIndex(pp => new { pp.FlatId, pp.PlugId })
+            .IsUnique()
+            .HasDatabaseName("IX_PowerPoints_FlatId_PlugId_NotNull")
+            .HasFilter("[PlugId] IS NOT NULL");
     }
 }

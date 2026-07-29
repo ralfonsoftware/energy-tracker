@@ -36,6 +36,19 @@ public class UpdateFlatStructureFunctionTests
         }
     }
 
+    private sealed class UniqueConstraintConflictDbContext(DbContextOptions<AppDbContext> options) : AppDbContext(options)
+    {
+        private int _saveCount;
+
+        public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            _saveCount++;
+            if (_saveCount == 1)
+                throw new DbUpdateException("Simulated unique-constraint conflict.");
+            return base.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private static FunctionContext MakeFunctionContext(string userId = "user-test-123")
     {
         var mock = new Mock<FunctionContext>();
@@ -777,5 +790,67 @@ public class UpdateFlatStructureFunctionTests
         conflict.StatusCode.ShouldBe(409);
         using var verifyCtx = new AppDbContext(dbOptions);
         (await verifyCtx.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_DuplicatePlugIdAcrossDifferentSavedPowerPoints_Returns409ConflictAndPersistsNothing()
+    {
+        var flat = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-test-123",
+            Name = "Test Flat",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m,
+            RowVersion = TestRowVersion
+        };
+        var dbOptions = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        using (var seedCtx = new AppDbContext(dbOptions))
+        {
+            seedCtx.Users.Add(new User { UserId = "user-test-123" });
+            seedCtx.Flats.Add(flat);
+            await seedCtx.SaveChangesAsync();
+        }
+
+        var db = new UniqueConstraintConflictDbContext(dbOptions);
+        var fn = MakeFunction(db);
+        var req = MakeRequest(ValidPayload);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var conflict = result.ShouldBeOfType<ConflictObjectResult>();
+        conflict.StatusCode.ShouldBe(409);
+        var value = conflict.Value.ShouldNotBeNull();
+        value.GetType().GetProperty("detail")!.GetValue(value)
+            .ShouldBe("This Smart Plug is already assigned to another Power Point in this flat.");
+        using var verifyCtx = new AppDbContext(dbOptions);
+        (await verifyCtx.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(0);
+        (await verifyCtx.PowerPoints.CountAsync()).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_TwoPowerPointsWithNullPlugId_SucceedsWithoutConflict()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        const string payload = """
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            { "name": "Socket 1", "plugId": null, "devices": [] },
+                            { "name": "Socket 2", "plugId": null, "devices": [] }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        (await db.PowerPoints.CountAsync(pp => pp.PlugId == null)).ShouldBe(2);
     }
 }

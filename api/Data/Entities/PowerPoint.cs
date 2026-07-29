@@ -4,6 +4,7 @@ public class PowerPoint
 {
     public Guid PowerPointId { get; set; }
     public Guid RoomId { get; set; }
+    public Guid FlatId { get; set; }
     public required string Name { get; set; }
     public string? PlugId { get; set; }
     public byte[] RowVersion { get; set; } = [];

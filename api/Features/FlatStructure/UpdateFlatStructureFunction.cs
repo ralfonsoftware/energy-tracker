@@ -99,6 +99,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
             SortOrder = r.SortOrder,
             PowerPoints = r.PowerPoints.Select(pp => new PowerPoint
             {
+                FlatId = flatGuid,
                 Name = pp.Name.Trim(),
                 PlugId = pp.PlugId,
                 Devices = pp.Devices.Select(d => new Device
@@ -133,6 +134,14 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                 title = "Conflict", status = 409,
                 detail = "This record was modified by another request. Reload and try again."
             }) { StatusCode = 409 };
+        }
+        catch (DbUpdateException)
+        {
+            return new ConflictObjectResult(new
+            {
+                title = "Conflict", status = 409,
+                detail = "This Smart Plug is already assigned to another Power Point in this flat."
+            });
         }
 
         var response = new FlatStructureResponse(
