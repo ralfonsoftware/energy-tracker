@@ -425,3 +425,7 @@
 - `PlugId = pp.PlugId` is persisted without trimming, unlike the sibling `Name = pp.Name.Trim()`, so whitespace-padded PlugIds bypass the new uniqueness guarantee — pre-existing line, untouched by this diff. `api/Features/FlatStructure/UpdateFlatStructureFunction.cs:104`
 - Migration's SQL backfill (`UPDATE ... FROM PowerPoints pp INNER JOIN Rooms r`) runs as one unbatched statement with no chunking — not a realistic concern at this project's current scale, but worth revisiting if `PowerPoints` ever grows large. `api/Data/Migrations/20260727074108_AddFlatIdAndUniqueIndexToPowerPoints.cs:16-20`
 - The new filtered unique index's case-sensitivity/collation behavior for `PlugId` comparisons is untested and undocumented — inherits SQL Server's existing default collation already relied on elsewhere for `PlugId` (`SmartPlugIntervalData`/`SmartPlugDailyData`), not a new risk introduced by this diff. `api/Data/Configurations/PowerPointConfiguration.cs:22-25`
+
+## Deferred from: code review of ci-bump-actions-node24 (2026-07-29)
+
+- `actions/checkout`, `actions/setup-node`, `actions/setup-dotnet` remain pinned to floating major-version tags (`@v7`/`@v6`) rather than a commit SHA — unchanged from the prior `@v4` pinning strategy, so not a new risk from this change, but a pre-existing supply-chain hardening gap (a tag can be moved to point at a new commit upstream without the pin changing). `.github/workflows/azure-static-web-apps.yml`, `.github/workflows/deploy-infrastructure.yml`
