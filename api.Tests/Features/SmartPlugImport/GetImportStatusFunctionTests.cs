@@ -127,6 +127,8 @@ public class GetImportStatusFunctionTests
 
         var result = await fn.RunAsync(MakeRequest(), "not-a-guid", Guid.NewGuid().ToString(), ctx, CancellationToken.None);
 
-        result.ShouldBeOfType<BadRequestObjectResult>();
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var type = (string)badRequest.Value!.GetType().GetProperty("type")!.GetValue(badRequest.Value)!;
+        type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.1");
     }
 }

@@ -64,7 +64,9 @@ public class GetDecompositionFunctionTests
 
         var result = await fn.RunAsync(MakeGetRequest("2026-01-01", "2026-01-05"), "not-a-guid", ctx, CancellationToken.None);
 
-        result.ShouldBeOfType<BadRequestObjectResult>();
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var type = (string)badRequest.Value!.GetType().GetProperty("type")!.GetValue(badRequest.Value)!;
+        type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.1");
     }
 
     [Fact]

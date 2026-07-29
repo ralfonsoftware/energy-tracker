@@ -176,6 +176,8 @@ public class GetTariffsFunctionTests
 
         var result = await fn.RunAsync(req, "not-a-guid", ctx, CancellationToken.None);
 
-        result.ShouldBeOfType<BadRequestObjectResult>();
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        var type = (string)badRequest.Value!.GetType().GetProperty("type")!.GetValue(badRequest.Value)!;
+        type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.1");
     }
 }

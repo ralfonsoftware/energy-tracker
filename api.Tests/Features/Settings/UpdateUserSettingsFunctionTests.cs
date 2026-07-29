@@ -189,6 +189,8 @@ public class UpdateUserSettingsFunctionTests
 
         var objectResult = result.ShouldBeOfType<ObjectResult>();
         objectResult.StatusCode.ShouldBe(403);
+        var type = (string)objectResult.Value!.GetType().GetProperty("type")!.GetValue(objectResult.Value)!;
+        type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.3");
 
         var persisted = await db.Users.SingleAsync(u => u.UserId == "user-intruder");
         persisted.ActiveFlatId.ShouldBeNull();

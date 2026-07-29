@@ -22,6 +22,7 @@ public class DeleteFlatFunction(AppDbContext db)
         if (!Guid.TryParse(flatId, out var flatGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId format."
             });
@@ -30,6 +31,7 @@ public class DeleteFlatFunction(AppDbContext db)
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -42,6 +44,7 @@ public class DeleteFlatFunction(AppDbContext db)
         if (node is not JsonObject obj)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Request body must be a JSON object."
             });
@@ -50,6 +53,7 @@ public class DeleteFlatFunction(AppDbContext db)
         if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "rowVersion is required."
             });
@@ -67,6 +71,7 @@ public class DeleteFlatFunction(AppDbContext db)
         {
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
                 detail = "This record was modified by another request. Reload and try again."
             }) { StatusCode = 409 };

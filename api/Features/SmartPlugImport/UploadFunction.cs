@@ -27,6 +27,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         if (!Guid.TryParse(flatId, out var flatGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId format."
             });
@@ -35,6 +36,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -42,6 +44,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         if (req.Form.Files.Count == 0)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "No file was uploaded."
             });
@@ -51,6 +54,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         if (string.IsNullOrWhiteSpace(plugId))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "A plugId is required."
             });
@@ -61,6 +65,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         if (!AllowedExtensions.Contains(ext))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "File must be a .xlsx or .csv file."
             });
@@ -68,6 +73,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
         if (file.Length == 0)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Uploaded file is empty."
             });
@@ -101,6 +107,7 @@ public class UploadFunction(AppDbContext db, BlobServiceClient blobServiceClient
             await db.SaveChangesAsync(ct);
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.6.4",
                 title = "Service Unavailable", status = 503,
                 detail = "Unable to store the uploaded file. Please try again later."
             }) { StatusCode = 503 };

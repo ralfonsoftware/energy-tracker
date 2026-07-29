@@ -27,6 +27,7 @@ public class SubmitReadingFunction(AppDbContext db, ReadingValidator validator)
         if (!Guid.TryParse(flatId, out var flatGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId format."
             });
@@ -35,6 +36,7 @@ public class SubmitReadingFunction(AppDbContext db, ReadingValidator validator)
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -49,6 +51,7 @@ public class SubmitReadingFunction(AppDbContext db, ReadingValidator validator)
         {
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid JSON in request body."
             });
@@ -57,6 +60,7 @@ public class SubmitReadingFunction(AppDbContext db, ReadingValidator validator)
         if (request is null)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Request body is required."
             });
@@ -67,6 +71,7 @@ public class SubmitReadingFunction(AppDbContext db, ReadingValidator validator)
             var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Validation Error", status = 400,
                 detail = errors
             });

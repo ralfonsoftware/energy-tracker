@@ -24,6 +24,7 @@ public class GetInsightsFunction(AppDbContext db, ILogger<GetInsightsFunction> l
         if (!Guid.TryParse(flatId, out var flatGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId format."
             });
@@ -33,6 +34,7 @@ public class GetInsightsFunction(AppDbContext db, ILogger<GetInsightsFunction> l
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };

@@ -93,6 +93,7 @@ public class UpdateUserSettingsFunction(AppDbContext db, ILogger<UpdateUserSetti
             if (!ownsFlat)
                 return new ObjectResult(new
                 {
+                    type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                     title = "Forbidden",
                     status = 403,
                     detail = "activeFlatId does not belong to the resolved user."

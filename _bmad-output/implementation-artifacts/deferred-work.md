@@ -1,5 +1,12 @@
 # Deferred Work
 
+## Deferred from: code review of story-11.5 (2026-07-29)
+
+- Test coverage: no test anywhere verifies the emitted `type` string for 404, 409, 422, 502, or 503 branches (e.g. `UploadFunction.cs`'s 503 branch, `GetImportStatusFunction.cs`'s 404 branch, most files' 409 branches), and 14 of the 15 newly-added 403 branches also have no assertion. AC #2 only required one `type` assertion per Function (satisfied everywhere), so this isn't an AC violation — but the emitted values for these status codes are otherwise unverified anywhere in the suite. `api.Tests/Features/**/*.cs`
+- Reflection-based `type` assertion (`GetType().GetProperty("type")!.GetValue(...)!`) throws a bare `NullReferenceException` instead of a readable assertion failure if the property is ever missing/renamed. Pre-existing pattern (mirrors the existing `detail`-assertion pattern at `PatchFlatFunctionTests.cs:180,301`), reused verbatim per this story's spec instruction — not introduced by this diff. `api.Tests/Features/**/*.cs` (18 files)
+- No shared `ProblemTypes` constants class — the `type` URI strings are hand-typed dozens of times (58× for the 400 URI alone) across ~20 files with no centralizing constant. Pre-existing duplication anti-pattern extended by this sweep, not introduced by it; any future URI change needs a manual multi-file find/replace. `api/Features/**/*.cs`
+- No systemic enforcement test (e.g. a reflection-based sweep over all `IActionResult` error paths) guards the new consistency going forward — a future Function shipping an error response without a `type` field would not be caught automatically. Follow-up improvement, not required by this story's AC.
+
 ## Deferred from: code review of story-11.14 (2026-07-27)
 
 - `InsightId` (GUID) tie-break may resolve differently on SQL Server (`uniqueidentifier` ordering) vs. .NET/InMemory (`Guid.CompareTo`) on an exact `CreatedAt` tie. Pre-existing pattern inherited from `InsightDeduplication.cs`'s identical tie-break (spec-mandated for consistency per AC #1); low-probability (exact-timestamp collision), low-impact (both candidate rows are legitimately current for that identity). The new tie-break test only verifies InMemory/.NET ordering, so the production winner on a true tie is unverified. `api/Features/Insights/GetInsightsFunction.cs:52`

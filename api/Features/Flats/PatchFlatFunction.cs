@@ -20,12 +20,12 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         var userId = context.GetUserId();
 
         if (!Guid.TryParse(flatId, out var flatGuid))
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "Invalid flatId format." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "Invalid flatId format." });
 
         var flat = await db.Flats.FirstOrDefaultAsync(f => f.FlatId == flatGuid, ct);
 
         if (flat is null || flat.UserId != userId)
-            return new ObjectResult(new { title = "Forbidden", status = 403, detail = "Flat not found or access denied." }) { StatusCode = 403 };
+            return new ObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.3", title = "Forbidden", status = 403, detail = "Flat not found or access denied." }) { StatusCode = 403 };
 
         using var reader = new StreamReader(req.Body);
         var body = await reader.ReadToEndAsync(ct);
@@ -33,7 +33,7 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         try { node = JsonNode.Parse(body); } catch (System.Text.Json.JsonException) { }
 
         if (node is not JsonObject obj)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "Request body must be a JSON object." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "Request body must be a JSON object." });
 
         decimal? kwhBaseline = null;
         if (obj["annualKwhBaseline"] is JsonValue kwhVal && kwhVal.TryGetValue<decimal>(out var kwh))
@@ -41,25 +41,25 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         else if (obj.ContainsKey("annualKwhBaseline"))
         {
             if (obj["annualKwhBaseline"] is null)
-                return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "annualKwhBaseline cannot be cleared — it is a required field." });
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "annualKwhBaseline must be a number." });
+                return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "annualKwhBaseline cannot be cleared — it is a required field." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "annualKwhBaseline must be a number." });
         }
 
         decimal? plannedSpend = null;
         if (obj["plannedAnnualSpend"] is JsonValue spendVal && spendVal.TryGetValue<decimal>(out var spend))
             plannedSpend = spend;
         else if (obj.ContainsKey("plannedAnnualSpend") && obj["plannedAnnualSpend"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "plannedAnnualSpend must be a number or null." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "plannedAnnualSpend must be a number or null." });
 
         var rowVersionStr = obj["rowVersion"] is JsonValue rowVersionVal && rowVersionVal.TryGetValue<string>(out var rvs) ? rvs : null;
         if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "rowVersion is required." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "rowVersion is required." });
 
         string? name = null;
         if (obj["name"] is JsonValue nameVal && nameVal.TryGetValue<string>(out var n))
             name = n;
         else if (obj.ContainsKey("name") && obj["name"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "name must be a string." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "name must be a string." });
 
         var request = new PatchFlatRequest(
             Name: name,
@@ -73,7 +73,7 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         if (!validationResult.IsValid)
         {
             var errors = validationResult.Errors.Select(e => e.ErrorMessage);
-            return new BadRequestObjectResult(new { title = "Validation Error", status = 400, detail = string.Join("; ", errors) });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Validation Error", status = 400, detail = string.Join("; ", errors) });
         }
 
         if (request.Name is not null) flat.Name = request.Name.Trim();
@@ -88,7 +88,7 @@ public class PatchFlatFunction(AppDbContext db, PatchFlatValidator validator)
         }
         catch (DbUpdateConcurrencyException)
         {
-            return new ObjectResult(new { title = "Conflict", status = 409, detail = "This record was modified by another request. Reload and try again." }) { StatusCode = 409 };
+            return new ObjectResult(new { type = "https://tools.ietf.org/html/rfc9110#section-15.5.10", title = "Conflict", status = 409, detail = "This record was modified by another request. Reload and try again." }) { StatusCode = 409 };
         }
 
         return new OkObjectResult(new FlatResponse(flat.FlatId, flat.Name, flat.AnnualKwhBaseline, flat.PlannedAnnualSpend, flat.RowVersion));

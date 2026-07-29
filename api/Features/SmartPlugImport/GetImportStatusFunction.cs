@@ -23,6 +23,7 @@ public class GetImportStatusFunction(AppDbContext db)
         if (!Guid.TryParse(flatId, out var flatGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId format."
             });
@@ -31,6 +32,7 @@ public class GetImportStatusFunction(AppDbContext db)
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -38,6 +40,7 @@ public class GetImportStatusFunction(AppDbContext db)
         if (!Guid.TryParse(jobId, out var jobGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid jobId format."
             });
@@ -47,6 +50,7 @@ public class GetImportStatusFunction(AppDbContext db)
         if (importJob is null)
             return new NotFoundObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
                 title = "Not Found", status = 404,
                 detail = "Import job not found."
             });

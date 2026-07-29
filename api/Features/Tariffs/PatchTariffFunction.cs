@@ -24,6 +24,7 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         if (!Guid.TryParse(flatId, out var flatGuid) || !Guid.TryParse(tariffId, out var tariffGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId or tariffId format."
             });
@@ -32,6 +33,7 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -41,6 +43,7 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         if (tariff is null)
             return new NotFoundObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
                 title = "Not Found", status = 404,
                 detail = "Tariff not found."
             });
@@ -54,6 +57,7 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         if (node is not JsonObject obj)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Request body must be a JSON object."
             });
@@ -62,35 +66,35 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         if (obj["pricePerKwh"] is JsonValue priceVal && priceVal.TryGetValue<decimal>(out var price))
             pricePerKwh = price;
         else if (obj.ContainsKey("pricePerKwh") && obj["pricePerKwh"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "pricePerKwh must be a number." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "pricePerKwh must be a number." });
 
         decimal? monthlyBaseFee = null;
         if (obj["monthlyBaseFee"] is JsonValue feeVal && feeVal.TryGetValue<decimal>(out var fee))
             monthlyBaseFee = fee;
         else if (obj.ContainsKey("monthlyBaseFee") && obj["monthlyBaseFee"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "monthlyBaseFee must be a number." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "monthlyBaseFee must be a number." });
 
         string? providerName = null;
         if (obj["providerName"] is JsonValue providerVal && providerVal.TryGetValue<string>(out var provider))
             providerName = provider;
         else if (obj.ContainsKey("providerName") && obj["providerName"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "providerName must be a string or null." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "providerName must be a string or null." });
 
         int? contractDurationMonths = null;
         if (obj["contractDurationMonths"] is JsonValue durVal && durVal.TryGetValue<int>(out var duration))
             contractDurationMonths = duration;
         else if (obj.ContainsKey("contractDurationMonths") && obj["contractDurationMonths"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "contractDurationMonths must be an integer or null." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "contractDurationMonths must be an integer or null." });
 
         var lockOverride = false;
         if (obj["lockOverride"] is JsonValue lockVal && lockVal.TryGetValue<bool>(out var lockOverrideValue))
             lockOverride = lockOverrideValue;
         else if (obj.ContainsKey("lockOverride") && obj["lockOverride"] is not null)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "lockOverride must be a boolean." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "lockOverride must be a boolean." });
 
         var rowVersionStr = obj["rowVersion"] is JsonValue rowVersionVal && rowVersionVal.TryGetValue<string>(out var rvs) ? rvs : null;
         if (!ConcurrencyExtensions.TryParseRowVersion(rowVersionStr, out var rowVersion))
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "rowVersion is required." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "rowVersion is required." });
 
         var request = new PatchTariffRequest(
             PricePerKwh: pricePerKwh,
@@ -108,6 +112,7 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
             var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Validation Error", status = 400,
                 detail = errors
             });
@@ -146,6 +151,7 @@ public class PatchTariffFunction(AppDbContext db, PatchTariffValidator validator
         {
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
                 detail = "This record was modified by another request. Reload and try again."
             }) { StatusCode = 409 };

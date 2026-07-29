@@ -28,6 +28,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         if (!Guid.TryParse(flatId, out var flatGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid flatId format."
             });
@@ -36,6 +37,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -49,6 +51,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         {
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid JSON in request body."
             });
@@ -57,6 +60,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         if (request is null)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Request body is required."
             });
@@ -64,6 +68,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         if (request.RowVersion is not { Length: > 0 })
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "rowVersion is required."
             });
@@ -74,6 +79,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
             var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Validation Error", status = 400,
                 detail = errors
             });
@@ -84,6 +90,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         if (plugIds.Count != plugIds.Distinct().Count())
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc4918#section-11.2",
                 title = "Unprocessable Entity", status = 422,
                 detail = "Each Smart Plug may be assigned to exactly one Power Point."
             }) { StatusCode = 422 };
@@ -131,6 +138,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         {
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
                 detail = "This record was modified by another request. Reload and try again."
             }) { StatusCode = 409 };
@@ -139,6 +147,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         {
             return new ConflictObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
                 detail = "This Smart Plug is already assigned to another Power Point in this flat."
             });

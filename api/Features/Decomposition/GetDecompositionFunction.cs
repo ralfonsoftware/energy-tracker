@@ -21,21 +21,21 @@ public class GetDecompositionFunction(AppDbContext db, DecompositionEngine engin
         var userId = context.GetUserId();
 
         if (!Guid.TryParse(flatId, out var flatGuid))
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "Invalid flatId format." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "Invalid flatId format." });
 
         var flat = await db.Flats.AsNoTracking()
             .SingleOrDefaultAsync(f => f.FlatId == flatGuid && f.UserId == userId, ct);
         if (flat is null)
-            return new ObjectResult(new { title = "Forbidden", status = 403, detail = "Flat not found or access denied." }) { StatusCode = 403 };
+            return new ObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.3", title = "Forbidden", status = 403, detail = "Flat not found or access denied." }) { StatusCode = 403 };
 
         if (!DateOnly.TryParseExact(req.Query["startDate"], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var startDate))
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "Invalid or missing startDate." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "Invalid or missing startDate." });
 
         if (!DateOnly.TryParseExact(req.Query["endDate"], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var endDate))
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "Invalid or missing endDate." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "Invalid or missing endDate." });
 
         if (endDate < startDate)
-            return new BadRequestObjectResult(new { title = "Bad Request", status = 400, detail = "endDate must not precede startDate." });
+            return new BadRequestObjectResult(new { type = "https://tools.ietf.org/html/rfc7231#section-6.5.1", title = "Bad Request", status = 400, detail = "endDate must not precede startDate." });
 
         var response = await engine.ComputeAsync(flatGuid, startDate, endDate, ct);
         return new OkObjectResult(response);

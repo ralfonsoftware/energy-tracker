@@ -30,6 +30,7 @@ public class CreateFlatFunction(AppDbContext db, CreateFlatValidator validator)
         {
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid JSON in request body."
             });
@@ -38,6 +39,7 @@ public class CreateFlatFunction(AppDbContext db, CreateFlatValidator validator)
         if (request is null)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Request body is required."
             });
@@ -48,6 +50,7 @@ public class CreateFlatFunction(AppDbContext db, CreateFlatValidator validator)
             var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Validation Error", status = 400,
                 detail = errors
             });

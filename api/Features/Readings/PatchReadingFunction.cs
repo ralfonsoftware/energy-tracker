@@ -27,6 +27,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         if (!Guid.TryParse(flatId, out var flatGuid) || !Guid.TryParse(readingId, out var readingGuid))
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid id format."
             });
@@ -35,6 +36,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         if (flat is null)
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 title = "Forbidden", status = 403,
                 detail = "Flat not found or access denied."
             }) { StatusCode = 403 };
@@ -44,6 +46,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         if (reading is null)
             return new NotFoundObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.4",
                 title = "Not Found", status = 404,
                 detail = "Reading not found."
             });
@@ -57,6 +60,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         {
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Invalid JSON in request body."
             });
@@ -65,6 +69,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         if (request is null)
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "Request body is required."
             });
@@ -72,6 +77,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         if (request.RowVersion is not { Length: > 0 })
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Bad Request", status = 400,
                 detail = "rowVersion is required."
             });
@@ -82,6 +88,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
             var errors = string.Join("; ", validationResult.Errors.Select(e => e.ErrorMessage));
             return new BadRequestObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 title = "Validation Error", status = 400,
                 detail = errors
             });
@@ -109,6 +116,7 @@ public class PatchReadingFunction(AppDbContext db, PatchReadingValidator validat
         {
             return new ObjectResult(new
             {
+                type = "https://tools.ietf.org/html/rfc9110#section-15.5.10",
                 title = "Conflict", status = 409,
                 detail = "This record was modified by another request. Reload and try again."
             }) { StatusCode = 409 };

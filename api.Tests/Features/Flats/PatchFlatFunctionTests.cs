@@ -82,6 +82,8 @@ public class PatchFlatFunctionTests
 
         var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
         badRequest.StatusCode.ShouldBe(400);
+        var type = (string)badRequest.Value!.GetType().GetProperty("type")!.GetValue(badRequest.Value)!;
+        type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.1");
     }
 
     [Fact]
