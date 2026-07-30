@@ -1,10 +1,17 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect } from 'vitest'
-import { InsightsPeriodSelector } from '@/features/insights/components/InsightsPeriodSelector'
+import userEvent from '@testing-library/user-event'
+import { InsightsPeriodSelector, type InsightsPeriod } from '@/features/insights/components/InsightsPeriodSelector'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }))
+
+const labelToValue: Record<string, InsightsPeriod> = {
+  'period.sevenDays': 7,
+  'period.thirtyDays': 30,
+  'period.ninetyDays': 90,
+}
 
 describe('InsightsPeriodSelector', () => {
   it('InsightsPeriodSelector_TriggerClicked_ListsAllThreeOptions', () => {
@@ -42,5 +49,39 @@ describe('InsightsPeriodSelector', () => {
     fireEvent.click(screen.getByRole('button', { name: /period.ninetyDays/ }))
     expect(screen.getByRole('option', { name: 'period.ninetyDays' })).toHaveAttribute('aria-selected', 'true')
     expect(screen.getByRole('option', { name: 'period.sevenDays' })).toHaveAttribute('aria-selected', 'false')
+  })
+
+  it('InsightsPeriodSelector_ArrowDownThenEnterPressedWhileOpen_MovesFocusAndSelectsNextOption', async () => {
+    const user = userEvent.setup()
+    const onChange = vi.fn()
+    render(<InsightsPeriodSelector value={30} onChange={onChange} />)
+    await user.click(screen.getByRole('button', { name: /period.thirtyDays/ }))
+    const options = screen.getAllByRole('option')
+    const activeIndex = options.findIndex(o => o.getAttribute('aria-selected') === 'true')
+    expect(options[activeIndex]).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    const nextOption = options[activeIndex + 1]
+    expect(nextOption).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(onChange).toHaveBeenCalledWith(labelToValue[nextOption.textContent ?? ''])
+  })
+
+  it('InsightsPeriodSelector_HomeThenEndPressedWhileOpen_MovesFocusToFirstThenLastOption', async () => {
+    const user = userEvent.setup()
+    render(<InsightsPeriodSelector value={30} onChange={vi.fn()} />)
+    await user.click(screen.getByRole('button', { name: /period.thirtyDays/ }))
+    const options = screen.getAllByRole('option')
+    await user.keyboard('{Home}')
+    expect(options[0]).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(options[options.length - 1]).toHaveFocus()
+  })
+
+  it('InsightsPeriodSelector_EscapeKeyPressedWhileOpen_ClosesDropdown', async () => {
+    render(<InsightsPeriodSelector value={30} onChange={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /period.thirtyDays/ }))
+    expect(screen.getByRole('listbox')).toBeInTheDocument()
+    fireEvent.keyDown(screen.getByRole('listbox'), { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
   })
 })

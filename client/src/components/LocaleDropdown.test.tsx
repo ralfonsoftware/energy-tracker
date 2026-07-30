@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { LocaleDropdown } from './LocaleDropdown'
 import i18n from '@/lib/i18n'
 
@@ -61,6 +62,30 @@ describe('LocaleDropdown', () => {
     fireEvent.pointerDown(document.body, { button: 0 })
     fireEvent.click(document.body)
     await waitFor(() => expect(screen.queryByRole('listbox')).not.toBeInTheDocument())
+  })
+
+  it('LocaleDropdown_ArrowUpThenEnterPressedWhileOpen_MovesFocusAndSelectsPreviousOption', async () => {
+    const user = userEvent.setup()
+    render(<LocaleDropdown />)
+    await user.click(screen.getByRole('button', { name: 'Language' }))
+    const options = screen.getAllByRole('option')
+    const selectedIndex = options.findIndex(o => o.getAttribute('aria-selected') === 'true')
+    expect(options[selectedIndex]).toHaveFocus()
+    await user.keyboard('{ArrowUp}')
+    expect(options[selectedIndex - 1]).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(mockMutate).toHaveBeenCalledWith('de-DE', expect.objectContaining({ onError: expect.any(Function) }))
+  })
+
+  it('LocaleDropdown_HomeThenEndPressedWhileOpen_MovesFocusToFirstThenLastOption', async () => {
+    const user = userEvent.setup()
+    render(<LocaleDropdown />)
+    await user.click(screen.getByRole('button', { name: 'Language' }))
+    const options = screen.getAllByRole('option')
+    await user.keyboard('{Home}')
+    expect(options[0]).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(options[options.length - 1]).toHaveFocus()
   })
 
   it('LocaleDropdown_DimmedProp_AppliesReducedOpacityToTriggerAndOpenMenu', () => {

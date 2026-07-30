@@ -7,6 +7,7 @@ import { useUserSettings } from '@/features/settings/hooks/useUserSettings'
 import { useFlats } from '@/features/settings/hooks/useFlats'
 import { useSwitchActiveFlat } from '@/features/settings/hooks/useSwitchActiveFlat'
 import { AddFlatForm } from '@/features/settings/components/AddFlatForm'
+import { useRovingListboxNav } from '@/lib/useRovingListboxNav'
 
 export function FlatSwitcher() {
   const { t } = useTranslation('common')
@@ -15,6 +16,13 @@ export function FlatSwitcher() {
   const { mutate: switchFlat, isPending: isSwitching } = useSwitchActiveFlat()
   const [isOpen, setIsOpen] = useState(false)
   const [isAddFlatOpen, setIsAddFlatOpen] = useState(false)
+
+  const itemCount = isFlatsError ? 0 : (flats ?? []).length
+  const selectedIndex = (flats ?? []).findIndex(f => f.flatId === settings?.flatId)
+  const { handleKeyDown, handleOpenAutoFocus, getItemProps } = useRovingListboxNav(
+    itemCount,
+    selectedIndex === -1 ? 0 : selectedIndex
+  )
 
   const handleSelect = (flatId: string) => {
     if (isSwitching) return
@@ -47,12 +55,14 @@ export function FlatSwitcher() {
           onCloseAutoFocus={e => {
             if (isAddFlatOpen) e.preventDefault()
           }}
+          onKeyDown={handleKeyDown}
+          onOpenAutoFocus={handleOpenAutoFocus}
           className="w-auto min-w-[180px] p-0 bg-white/10 backdrop-blur border border-white/20 rounded-xl overflow-hidden z-50"
         >
           {isFlatsError ? (
             <p className="px-4 py-2 text-sm text-white/50">{t('flatSwitcher.error')}</p>
           ) : (
-            (flats ?? []).map(flat => {
+            (flats ?? []).map((flat, index) => {
               const isActive = flat.flatId === settings?.flatId
               return (
                 <button
@@ -63,6 +73,7 @@ export function FlatSwitcher() {
                   onClick={() => handleSelect(flat.flatId)}
                   className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
                   style={isActive ? { background: 'rgba(255,255,255,0.14)', fontWeight: 600 } : undefined}
+                  {...getItemProps(index)}
                 >
                   {flat.name}
                 </button>

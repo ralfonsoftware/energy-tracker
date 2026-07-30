@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { useUpdateLocale } from '@/features/settings/hooks/useUpdateLocale'
+import { useRovingListboxNav } from '@/lib/useRovingListboxNav'
 
 interface LocaleDropdownProps {
   dimmed?: boolean
@@ -19,6 +20,11 @@ export function LocaleDropdown({ dimmed = false }: LocaleDropdownProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   const currentLabel = i18n.language.startsWith('de') ? t('locale.de') : t('locale.en')
+  const selectedIndex = LOCALES.findIndex(({ value }) => i18n.language.startsWith(value.split('-')[0]))
+  const { handleKeyDown, handleOpenAutoFocus, getItemProps } = useRovingListboxNav(
+    LOCALES.length,
+    selectedIndex === -1 ? 0 : selectedIndex
+  )
 
   const handleSelect = (value: string) => {
     const prev = i18n.language
@@ -45,8 +51,10 @@ export function LocaleDropdown({ dimmed = false }: LocaleDropdownProps) {
         sideOffset={4}
         style={dimmed ? { opacity: 0.7 } : undefined}
         className="w-auto min-w-[80px] p-0 bg-white/10 backdrop-blur border border-white/20 rounded-xl overflow-hidden z-50"
+        onKeyDown={handleKeyDown}
+        onOpenAutoFocus={handleOpenAutoFocus}
       >
-        {LOCALES.map(({ value, labelKey }) => {
+        {LOCALES.map(({ value, labelKey }, index) => {
           const isSelected = i18n.language.startsWith(value.split('-')[0])
           return (
             <button
@@ -55,6 +63,7 @@ export function LocaleDropdown({ dimmed = false }: LocaleDropdownProps) {
               aria-selected={isSelected}
               className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
               onClick={() => handleSelect(value)}
+              {...getItemProps(index)}
             >
               {t(labelKey)}
             </button>

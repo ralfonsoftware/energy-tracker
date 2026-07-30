@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
+import { useRovingListboxNav } from '@/lib/useRovingListboxNav'
 import type { PeriodOption } from '@/features/decomposition/lib/periods'
 
 type CustomRange = { startDate: string; endDate: string }
@@ -21,6 +22,10 @@ const dateInputStyle = { borderColor: 'rgba(255,255,255,0.15)', colorScheme: 'da
 export function PeriodSelector({ value, customRange, onChange, onCustomRangeChange }: Props) {
   const { t } = useTranslation('decomposition')
   const [isOpen, setIsOpen] = useState(false)
+  const { handleKeyDown, handleOpenAutoFocus, getItemProps } = useRovingListboxNav(
+    OPTIONS.length,
+    OPTIONS.indexOf(value)
+  )
 
   const handleSelect = (option: PeriodOption) => {
     setIsOpen(false)
@@ -44,8 +49,10 @@ export function PeriodSelector({ value, customRange, onChange, onCustomRangeChan
           align="start"
           sideOffset={4}
           className="w-auto min-w-[180px] p-0 bg-white/10 backdrop-blur border border-white/20 rounded-xl overflow-hidden z-50"
+          onKeyDown={handleKeyDown}
+          onOpenAutoFocus={handleOpenAutoFocus}
         >
-          {OPTIONS.map(option => (
+          {OPTIONS.map((option, index) => (
             <button
               key={option}
               type="button"
@@ -53,6 +60,7 @@ export function PeriodSelector({ value, customRange, onChange, onCustomRangeChan
               aria-selected={option === value}
               onClick={() => handleSelect(option)}
               className="block w-full px-4 py-2 text-sm text-left text-white/80 hover:bg-white/10"
+              {...getItemProps(index)}
             >
               {t(`period.${option}`)}
             </button>

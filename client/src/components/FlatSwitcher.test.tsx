@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+import userEvent from '@testing-library/user-event'
 import { FlatSwitcher } from './FlatSwitcher'
 import type { UserSettings, FlatSummary } from '@/features/settings/api/settingsApi'
 
@@ -139,6 +140,37 @@ describe('FlatSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: /Home/ }))
     fireEvent.click(screen.getByRole('option', { name: 'Cabin' }))
     expect(mockMutate).not.toHaveBeenCalled()
+  })
+
+  it('FlatSwitcher_ArrowDownThenEnterPressedWhileOpen_MovesFocusAndSelectsNextFlat', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: /Home/ }))
+    const options = screen.getAllByRole('option')
+    const activeIndex = options.findIndex(o => o.getAttribute('aria-selected') === 'true')
+    expect(options[activeIndex]).toHaveFocus()
+    await user.keyboard('{ArrowDown}')
+    expect(options[activeIndex + 1]).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(mockMutate).toHaveBeenCalledWith({ flatId: 'flat-2', locale: 'en-US', previousFlatId: 'flat-1' })
+  })
+
+  it('FlatSwitcher_HomeThenEndPressedWhileOpen_MovesFocusToFirstThenLastOption', async () => {
+    const user = userEvent.setup()
+    setup()
+    await user.click(screen.getByRole('button', { name: /Home/ }))
+    const options = screen.getAllByRole('option')
+    await user.keyboard('{Home}')
+    expect(options[0]).toHaveFocus()
+    await user.keyboard('{End}')
+    expect(options[options.length - 1]).toHaveFocus()
+  })
+
+  it('FlatSwitcher_FlatsFetchFails_OpeningDropdownDoesNotThrowOrFocusAnyOption', () => {
+    setup({}, false, { isError: true })
+    expect(() => fireEvent.click(screen.getByRole('button', { name: /Home/ }))).not.toThrow()
+    expect(screen.queryAllByRole('option')).toHaveLength(0)
+    expect(() => fireEvent.keyDown(screen.getByRole('listbox'), { key: 'ArrowDown' })).not.toThrow()
   })
 
   it('FlatSwitcher_EscapeKeyPressedWhileOpen_ClosesDropdown', async () => {
