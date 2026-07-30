@@ -38,4 +38,26 @@ describe('apiClient', () => {
     expect(init?.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(init?.body).toBe(JSON.stringify({ pricePerKwh: 0.28 }))
   })
+
+  it('apiClient_FetchThrowsNetworkError_ReshapesToErrorWithDetail', async () => {
+    const mockFetch = vi.mocked(fetch)
+    mockFetch.mockRejectedValue(new TypeError('Failed to fetch'))
+
+    await expect(apiClient.get('/flats/flat-1/dashboard')).rejects.toMatchObject({
+      message: 'Something went wrong. Please try again.',
+      detail: 'Something went wrong. Please try again.',
+    })
+  })
+
+  it('apiClient_HttpErrorResponse_StillReshapesToErrorWithDetail', async () => {
+    const mockFetch = vi.mocked(fetch)
+    mockFetch.mockResolvedValue(
+      new Response(JSON.stringify({ detail: 'Flat not found' }), { status: 404 })
+    )
+
+    await expect(apiClient.get('/flats/flat-1/dashboard')).rejects.toMatchObject({
+      message: 'Flat not found',
+      detail: 'Flat not found',
+    })
+  })
 })

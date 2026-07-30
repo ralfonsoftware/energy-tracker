@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-29 (Story 11.5 code-reviewed — done)
+last_updated: 2026-07-30 (Story 11.6 → done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -145,7 +145,7 @@ development_status:
   11-3-enforce-unique-plugid-across-power-points: done
   11-4-patchflatfunction-malformed-name-field-returns-400-not-500: done
   11-5-rfc-9457-type-field-consistency-sweep: done
-  11-6-frontend-network-error-reshaping-in-apiclient: backlog
+  11-6-frontend-network-error-reshaping-in-apiclient: done
   11-7-keyboard-accessible-custom-dropdowns: backlog
   11-8-room-list-per-row-save-state-consistency: backlog
   11-9-accessible-spike-bar-indicator-design-gated: backlog
