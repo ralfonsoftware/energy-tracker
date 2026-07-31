@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-07-29 (Story 11.4 implemented — review)
+# last_updated: 2026-07-31 (Story 11.9 → done)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-07-31 (Story 11.8 → done)
+last_updated: 2026-07-31 (Story 11.9 → done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -148,7 +148,7 @@ development_status:
   11-6-frontend-network-error-reshaping-in-apiclient: done
   11-7-keyboard-accessible-custom-dropdowns: done
   11-8-room-list-per-row-save-state-consistency: done
-  11-9-accessible-spike-bar-indicator-design-gated: backlog
+  11-9-accessible-spike-bar-indicator-design-gated: done
   11-10-http-level-test-coverage-onboarding-and-patchflat: backlog
   11-11-localdate-ts-correctness-hardening: backlog
   11-12-sqlite-integration-test-tier-for-schema-constraint-scenarios: backlog

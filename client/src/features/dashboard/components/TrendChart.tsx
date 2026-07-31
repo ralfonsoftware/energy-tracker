@@ -18,6 +18,7 @@ export function TrendChart({ dashboard, flatId, days = 7, headerExtra }: Props) 
   const { t } = useTranslation('dashboard')
   const [historyOpen, setHistoryOpen] = useState(false)
   const resetHatchId = `meterResetHatch-${useId()}`
+  const combinedHatchId = `spikeResetCombinedHatch-${useId()}`
 
   const spikeSet = useMemo(() => new Set(dashboard?.spikeDays ?? []), [dashboard?.spikeDays])
   const labelFormatter = useMemo(
@@ -48,6 +49,15 @@ export function TrendChart({ dashboard, flatId, days = 7, headerExtra }: Props) 
     })
     return chartData.filter(point => point.wasMeterReset).map(point => formatter.format(new Date(point.date)))
   }, [chartData])
+  const spikeDates = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(i18n.language, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+    return chartData.filter(point => spikeSet.has(point.date)).map(point => formatter.format(new Date(point.date)))
+  }, [chartData, spikeSet])
 
   // No trend data can exist yet with 0 or 1 total readings — hide the card rather than
   // render a misleading all-zero 7-day chart (mirrors the KPI tiles' cold-open dash state).
@@ -98,6 +108,32 @@ export function TrendChart({ dashboard, flatId, days = 7, headerExtra }: Props) 
                 <rect width="4" height="4" fill="var(--color-accent-reset)" />
                 <line x1="0" y1="0" x2="0" y2="4" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
               </pattern>
+              <pattern
+                id={combinedHatchId}
+                width="4"
+                height="4"
+                patternUnits="userSpaceOnUse"
+              >
+                <rect width="4" height="4" fill="var(--color-accent-spike)" />
+                <line
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="4"
+                  stroke="rgba(255,255,255,0.4)"
+                  strokeWidth="1.5"
+                  transform="rotate(45 2 2)"
+                />
+                <line
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="4"
+                  stroke="rgba(255,255,255,0.4)"
+                  strokeWidth="1.5"
+                  transform="rotate(-45 2 2)"
+                />
+              </pattern>
             </defs>
             <XAxis
               dataKey="label"
@@ -111,11 +147,13 @@ export function TrendChart({ dashboard, flatId, days = 7, headerExtra }: Props) 
                 <Cell
                   key={entry.date}
                   fill={
-                    entry.wasMeterReset
-                      ? `url(#${resetHatchId})`
-                      : spikeSet.has(entry.date)
-                        ? 'var(--color-accent-spike)'
-                        : 'rgba(255,255,255,0.5)'
+                    entry.wasMeterReset && spikeSet.has(entry.date)
+                      ? `url(#${combinedHatchId})`
+                      : entry.wasMeterReset
+                        ? `url(#${resetHatchId})`
+                        : spikeSet.has(entry.date)
+                          ? 'var(--color-accent-spike)'
+                          : 'rgba(255,255,255,0.5)'
                   }
                 />
               ))}
@@ -125,6 +163,9 @@ export function TrendChart({ dashboard, flatId, days = 7, headerExtra }: Props) 
       )}
       {resetDates.length > 0 && (
         <span className="sr-only">{t('trend.meterResetSummary', { dates: resetDates.join(', ') })}</span>
+      )}
+      {spikeDates.length > 0 && (
+        <span className="sr-only">{t('trend.spikeSummary', { dates: spikeDates.join(', ') })}</span>
       )}
     </div>
   )

@@ -22,6 +22,7 @@
   "trend": {
     "cardTitle": "Last {{days}} Days",
     "historyIconLabel": "View reading history",
-    "meterResetSummary": "Meter reset detected on: {{dates}}. Consumption shown as 0 for these days."
+    "meterResetSummary": "Meter reset detected on: {{dates}}. Consumption shown as 0 for these days.",
+    "spikeSummary": "Consumption spike detected on: {{dates}}."
   }
 }

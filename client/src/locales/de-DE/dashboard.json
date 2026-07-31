@@ -22,6 +22,7 @@
   "trend": {
     "cardTitle": "Letzte {{days}} Tage",
     "historyIconLabel": "Ablesehistorie anzeigen",
-    "meterResetSummary": "Zählerwechsel erkannt am: {{dates}}. Verbrauch für diese Tage als 0 angezeigt."
+    "meterResetSummary": "Zählerwechsel erkannt am: {{dates}}. Verbrauch für diese Tage als 0 angezeigt.",
+    "spikeSummary": "Verbrauchsspitze erkannt am: {{dates}}."
   }
 }

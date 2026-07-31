@@ -93,6 +93,38 @@ describe('TrendChart', () => {
     expect(nonSpikeBars).toHaveLength(6)
   })
 
+  it('TrendChart_SpikeDayAlsoMeterResetDay_ThatBarUsesDistinctCombinedPatternFromResetOnly', () => {
+    const withResetOnlyAndCombined = sevenDays.map(point => {
+      if (point.date === '2026-06-27') return { ...point, wasMeterReset: true, kwhValue: 0 }
+      if (point.date === '2026-06-28') return { ...point, wasMeterReset: true, kwhValue: 0 }
+      return point
+    })
+    const { container } = render(
+      <TrendChart
+        dashboard={makeDashboard({ dailyConsumption: withResetOnlyAndCombined, spikeDays: ['2026-06-28'] })}
+        flatId="flat-1"
+      />
+    )
+
+    const bars = Array.from(container.querySelectorAll('.recharts-bar-rectangle path'))
+    const patterns = Array.from(container.querySelectorAll('pattern'))
+    const resetOnlyIndex = withResetOnlyAndCombined.findIndex(point => point.date === '2026-06-27')
+    const combinedIndex = withResetOnlyAndCombined.findIndex(point => point.date === '2026-06-28')
+
+    const resetOnlyFill = bars[resetOnlyIndex].getAttribute('fill')
+    const combinedFill = bars[combinedIndex].getAttribute('fill')
+    expect(resetOnlyFill).toMatch(/^url\(#.+\)$/)
+    expect(combinedFill).toMatch(/^url\(#.+\)$/)
+    expect(combinedFill).not.toBe(resetOnlyFill)
+
+    const resetPatternId = resetOnlyFill?.match(/^url\(#(.+)\)$/)?.[1]
+    const combinedPatternId = combinedFill?.match(/^url\(#(.+)\)$/)?.[1]
+    const resetPatternEl = patterns.find(p => p.getAttribute('id') === resetPatternId)
+    const combinedPatternEl = patterns.find(p => p.getAttribute('id') === combinedPatternId)
+    expect(resetPatternEl?.querySelectorAll('line')).toHaveLength(1)
+    expect(combinedPatternEl?.querySelectorAll('line')).toHaveLength(2)
+  })
+
   it('TrendChart_Rendered_HistoryIconHasAriaLabelAnd44x44TapTarget', () => {
     render(<TrendChart dashboard={makeDashboard()} flatId="flat-1" />)
 
@@ -148,6 +180,42 @@ describe('TrendChart', () => {
       timeZone: 'UTC',
     }).format(new Date('2026-06-28'))
     expect(screen.getByText(`trend.meterResetSummary|${JSON.stringify({ dates: expectedDate })}`)).toBeInTheDocument()
+  })
+
+  it('TrendChart_NoSpikeDays_NoAccessibleSpikeSummaryRendered', () => {
+    render(<TrendChart dashboard={makeDashboard()} flatId="flat-1" />)
+
+    expect(screen.queryByText(/trend\.spikeSummary/)).not.toBeInTheDocument()
+  })
+
+  it('TrendChart_HasSpikeDay_RendersAccessibleSpikeSummaryTextWithLocaleFormattedDate', () => {
+    render(<TrendChart dashboard={makeDashboard({ spikeDays: ['2026-06-28'] })} flatId="flat-1" />)
+
+    const expectedDate = new Intl.DateTimeFormat(i18n.language, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date('2026-06-28'))
+    expect(screen.getByText(`trend.spikeSummary|${JSON.stringify({ dates: expectedDate })}`)).toBeInTheDocument()
+  })
+
+  it('TrendChart_SpikeAndResetSameDay_DateAppearsInBothAccessibleSummaries', () => {
+    const withReset = sevenDays.map(point =>
+      point.date === '2026-06-28' ? { ...point, kwhValue: 0, wasMeterReset: true } : point
+    )
+    render(
+      <TrendChart dashboard={makeDashboard({ dailyConsumption: withReset, spikeDays: ['2026-06-28'] })} flatId="flat-1" />
+    )
+
+    const expectedDate = new Intl.DateTimeFormat(i18n.language, {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date('2026-06-28'))
+    expect(screen.getByText(`trend.meterResetSummary|${JSON.stringify({ dates: expectedDate })}`)).toBeInTheDocument()
+    expect(screen.getByText(`trend.spikeSummary|${JSON.stringify({ dates: expectedDate })}`)).toBeInTheDocument()
   })
 
   it('TrendChart_DefaultDays_CardTitleShowsSeven', () => {
