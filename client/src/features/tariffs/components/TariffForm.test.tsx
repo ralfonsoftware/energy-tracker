@@ -1,7 +1,8 @@
 import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { TariffForm } from '@/features/tariffs/components/TariffForm'
+import { parseLocalDate, toLocalDateString } from '@/lib/localDate'
 import type { TariffResponse } from '@/features/tariffs/api/tariffApi'
 
 vi.mock('react-i18next', () => ({
@@ -199,6 +200,27 @@ describe('TariffForm', () => {
     await user.click(twelveMonthButton)
     await user.click(twelveMonthButton)
     // no assertion error means selecting/deselecting doesn't throw; value verified via submit test below
+  })
+})
+
+describe('TariffForm create-flow timezone round-trip', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('TariffForm_SubmitCreateWestOfUtc_ContractStartDateRoundTripsToPickedCalendarDate', async () => {
+    vi.stubEnv('TZ', 'America/Sao_Paulo')
+    const user = userEvent.setup()
+    const { mutate, priceInput, feeInput, saveButton } = setup()
+    const pickedDate = toLocalDateString(new Date())
+
+    await user.type(priceInput, '0.28')
+    await user.type(feeInput, '12')
+    await user.click(saveButton)
+
+    const [payload] = mutate.mock.calls[0] as [{ contractStartDate: string }]
+    const roundTripped = toLocalDateString(parseLocalDate(payload.contractStartDate))
+    expect(roundTripped).toBe(pickedDate)
   })
 })
 

@@ -37,6 +37,16 @@ describe('localDate', () => {
 
       expect(toLocalDateString(result)).toBe('2025-12-31')
     })
+
+    it('parseLocalDate_UnparseableString_Throws', () => {
+      expect(() => parseLocalDate('not-a-date')).toThrow()
+    })
+  })
+
+  describe('toLocalDateString invalid input', () => {
+    it('toLocalDateString_InvalidDate_Throws', () => {
+      expect(() => toLocalDateString(new Date('not-a-date'))).toThrow()
+    })
   })
 
   describe('addMonths', () => {
@@ -55,6 +65,34 @@ describe('localDate', () => {
       const result = addMonths(start, 12)
 
       expect(toLocalDateString(result)).toBe('2027-01-15')
+    })
+
+    it('addMonths_Jan31PlusOneMonthNonLeapYear_ClampsToFeb28', () => {
+      const start = new Date(2026, 0, 31)
+      const result = addMonths(start, 1)
+
+      expect(toLocalDateString(result)).toBe('2026-02-28')
+    })
+
+    it('addMonths_Jan31PlusOneMonthLeapYear_ClampsToFeb29', () => {
+      const start = new Date(2028, 0, 31)
+      const result = addMonths(start, 1)
+
+      expect(toLocalDateString(result)).toBe('2028-02-29')
+    })
+
+    it('addMonths_Mar31PlusOneMonth_ClampsToApr30', () => {
+      const start = new Date(2026, 2, 31)
+      const result = addMonths(start, 1)
+
+      expect(toLocalDateString(result)).toBe('2026-04-30')
+    })
+
+    it('addMonths_Feb28PlusOneMonthTargetIs31DayMonth_NoClampingApplied', () => {
+      const start = new Date(2026, 1, 28)
+      const result = addMonths(start, 1)
+
+      expect(toLocalDateString(result)).toBe('2026-03-28')
     })
   })
 

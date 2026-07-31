@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import { useSubmitGuard } from '@/lib/useSubmitGuard'
-import { toLocalDateString, parseLocalDate } from '@/lib/localDate'
+import { toLocalDateString, parseLocalDate, toLocalMidnightIsoString } from '@/lib/localDate'
 import { useCreateTariff } from '@/features/tariffs/hooks/useCreateTariff'
 import { usePatchTariff } from '@/features/tariffs/hooks/usePatchTariff'
 import { TariffLockIndicator } from '@/features/tariffs/components/TariffLockIndicator'
@@ -123,7 +123,7 @@ export function TariffForm({ flatId, tariff, onClose, onPendingChange, onSaveCon
     setSubmitError(null)
     createMutate(
       {
-        contractStartDate: `${data.contractStartDate}T00:00:00Z`,
+        contractStartDate: toLocalMidnightIsoString(data.contractStartDate),
         pricePerKwh: priceParsed,
         monthlyBaseFee: feeParsed,
         providerName: data.providerName || undefined,
