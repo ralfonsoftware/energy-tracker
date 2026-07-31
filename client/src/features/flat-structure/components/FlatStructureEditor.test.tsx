@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -254,7 +254,7 @@ describe('FlatStructureEditor', () => {
 
     renderEditor()
 
-    expect(screen.getByText('editor.plugIdConflict')).toBeInTheDocument()
+    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(3)
     expect(screen.getByRole('button', { name: 'editor.save' })).toBeDisabled()
   })
 
@@ -285,7 +285,10 @@ describe('FlatStructureEditor', () => {
     await user.clear(plugInput)
     await user.click(screen.getByRole('button', { name: /editor\.back/ }))
 
-    expect(screen.queryByText('editor.plugIdConflict')).not.toBeInTheDocument()
+    // Office's row still shows its own inline conflict reason: its (unchanged) PLUG-1
+    // still conflicts with Garage's *last-saved* PLUG-1 (Garage's clearing is draft-only,
+    // not yet persisted) — this matches hasPlugIdConflictForRoomSave's existing semantics.
+    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(1)
     expect(screen.getByRole('button', { name: 'editor.save' })).toBeEnabled()
   })
 
@@ -701,7 +704,7 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByText('editor.noRoomsError')).toBeInTheDocument()
   })
 
-  it('FlatStructureEditor_AnySavePending_DisablesAllRoomSaveButtonsDeleteAndSpeichern', () => {
+  it('FlatStructureEditor_HookIsPendingTrueOnMount_DisablesDeleteAndAddRoomButtonsOnly', () => {
     setupFlatStructure({ data: seededResponse() })
     mockUseUpdateFlatStructure.mockReturnValue({
       mutate: mockMutate,
@@ -710,12 +713,9 @@ describe('FlatStructureEditor', () => {
 
     renderEditor()
 
-    expect(screen.getByRole('button', { name: 'editor.saving: Office' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'editor.saving: Garage' })).toBeDisabled()
     expect(screen.getAllByRole('button', { name: 'room.delete' })[0]).toBeDisabled()
     expect(screen.getAllByRole('button', { name: 'room.delete' })[1]).toBeDisabled()
     expect(screen.getByRole('button', { name: 'editor.addRoom' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'editor.saving' })).toBeDisabled()
   })
 
   it('FlatStructureEditor_SaveRoomWithOwnNewPowerPoint_PayloadIncludesTheNewPowerPoint', async () => {
@@ -933,18 +933,97 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByRole('button', { name: 'editor.save' })).toBeEnabled()
   })
 
-  it('FlatStructureEditor_AnySavePendingWithRoomDetailViewActive_DisablesInRoomSaveButton', async () => {
+  it('FlatStructureEditor_SavingOneRoom_OtherDirtyRoomSaveButtonRemainsEnabledAndSavable', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
-    mockUseUpdateFlatStructure.mockReturnValue({
-      mutate: mockMutate,
-      isPending: true,
-    } as unknown as ReturnType<typeof useUpdateFlatStructure>)
 
     renderEditor()
-    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
+    const officeInput = screen.getByDisplayValue('Office')
+    await user.clear(officeInput)
+    await user.type(officeInput, 'Office Renamed')
+    await user.click(screen.getByRole('button', { name: 'editor.save: Office Renamed' }))
 
+    expect(screen.getByRole('button', { name: 'editor.saving: Office Renamed' })).toBeDisabled()
+
+    const garageInput = screen.getByDisplayValue('Garage')
+    await user.clear(garageInput)
+    await user.type(garageInput, 'Garage Renamed')
+
+    expect(screen.getByRole('button', { name: 'editor.save: Garage Renamed' })).toBeEnabled()
+    expect(mockMutate).toHaveBeenCalledTimes(1)
+  })
+
+  it('FlatStructureEditor_SavingOneRoomThenViewingUnrelatedRoomDetail_UnrelatedRoomSaveButtonNotDisabled', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    const officeInput = screen.getByDisplayValue('Office')
+    await user.clear(officeInput)
+    await user.type(officeInput, 'Office Renamed')
+    await user.click(screen.getByRole('button', { name: 'editor.save: Office Renamed' }))
+
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[1])
+    const ppInput = screen.getByDisplayValue('Charger Outlet')
+    await user.clear(ppInput)
+    await user.type(ppInput, 'Charger Outlet Updated')
+
+    const saveButton = screen.getByRole('button', { name: 'editor.save' })
+    expect(saveButton).toBeEnabled()
+  })
+
+  it('FlatStructureEditor_PageLevelBatchSaveInFlight_AllRoomSaveButtonsShowSavingAndDisabled', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    await user.click(screen.getByRole('button', { name: 'editor.save' }))
+
+    expect(screen.getByRole('button', { name: 'editor.saving: Office' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'editor.saving: Garage' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'editor.saving' })).toBeDisabled()
+  })
+
+  it('FlatStructureEditor_RoomBlockedByPlugIdConflict_ShowsInlineConflictReasonNearThatRow', () => {
+    setupFlatStructure({
+      data: seededResponse({
+        rooms: [
+          {
+            roomId: 'room-1',
+            name: 'Office',
+            sortOrder: 0,
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+          },
+          {
+            roomId: 'room-2',
+            name: 'Garage',
+            sortOrder: 1,
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [] }],
+          },
+        ],
+      }),
+    })
+
+    renderEditor()
+
+    const rows = screen.getAllByRole('listitem')
+    expect(within(rows[0]).getByText('editor.plugIdConflict')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('editor.plugIdConflict')).toBeInTheDocument()
+    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(3)
+  })
+
+  it('FlatStructureEditor_RoomBlockedByBlankName_ShowsInlineBlankNameReasonNearThatRow', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    const officeInput = screen.getByDisplayValue('Office')
+    await user.clear(officeInput)
+
+    const rows = screen.getAllByRole('listitem')
+    expect(within(rows[0]).getByText('editor.blankNameError')).toBeInTheDocument()
+    expect(within(rows[1]).queryByText('editor.blankNameError')).not.toBeInTheDocument()
+    expect(screen.getAllByText('editor.blankNameError')).toHaveLength(2)
   })
 
   it('FlatStructureEditor_PowerPointIdQueryParamMatchesExistingPowerPoint_OpensThatRoomDirectly', () => {
