@@ -289,6 +289,24 @@ public class PatchFlatFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_PlannedAnnualSpendNotANumber_Returns400BadRequest()
+    {
+        var (flat, db) = await SeedFlatAsync(plannedAnnualSpend: 800m);
+        var fn = new PatchFlatFunction(db, new PatchFlatValidator());
+        var req = MakeRequest("""{"plannedAnnualSpend":"not-a-number"}""");
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
+        badRequest.StatusCode.ShouldBe(400);
+        var detail = (string)badRequest.Value!.GetType().GetProperty("detail")!.GetValue(badRequest.Value)!;
+        detail.ShouldBe("plannedAnnualSpend must be a number or null.");
+        var persisted = await db.Flats.SingleAsync(f => f.FlatId == flat.FlatId);
+        persisted.PlannedAnnualSpend.ShouldBe(800m);
+    }
+
+    [Fact]
     public async Task RunAsync_NameNotAString_Returns400BadRequest()
     {
         var (flat, db) = await SeedFlatAsync();
