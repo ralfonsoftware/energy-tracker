@@ -109,8 +109,22 @@ public class DecompositionEngine(AppDbContext db)
                     foreach (var device in pp.Devices)
                     {
                         var (approach, dailyEstimate) = ResolveStandaloneApproach(device);
+                        var hasExistenceWindow = device.InUseSince is not null || device.DecommissionedDate is not null;
                         var kwh = dailyEstimate * dayCount;
-                        var cost = approach == AttributionApproach.None ? 0m : CostForDailySeries(_ => dailyEstimate);
+                        if (hasExistenceWindow)
+                        {
+                            kwh = 0m;
+                            for (var date = startDate; date <= endDate; date = date.AddDays(1))
+                            {
+                                if (IsDeviceActiveOn(device, ToLocalMidnight(date)))
+                                    kwh += dailyEstimate;
+                            }
+                        }
+                        var cost = approach == AttributionApproach.None
+                            ? 0m
+                            : hasExistenceWindow
+                                ? CostForDailySeries(date => IsDeviceActiveOn(device, ToLocalMidnight(date)) ? dailyEstimate : 0m)
+                                : CostForDailySeries(_ => dailyEstimate);
                         deviceDecompositions.Add(new DeviceDecomposition(
                             device.DeviceId, pp.PowerPointId, device.Name, kwh, cost, approach, IsSmartStrip: false, SubDevices: null));
                     }
@@ -243,6 +257,10 @@ public class DecompositionEngine(AppDbContext db)
 
     private static DateTimeOffset ToLocalMidnight(DateOnly date) =>
         new(date.Year, date.Month, date.Day, 0, 0, 0, AppTimeZone.GetUtcOffset(date.ToDateTime(TimeOnly.MinValue)));
+
+    private static bool IsDeviceActiveOn(Device device, DateTimeOffset date) =>
+        (device.InUseSince is null || device.InUseSince <= date) &&
+        (device.DecommissionedDate is null || date <= device.DecommissionedDate);
 
     // Duplicated verbatim from ReconciliationEngine.cs:64-82 per AC10/Task 2.
     private static decimal? TryComputeMainMeterTotal(List<MeterReading> readings, DateOnly periodStart, DateOnly periodEnd)

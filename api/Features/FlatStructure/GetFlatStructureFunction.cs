@@ -62,6 +62,8 @@ public class GetFlatStructureFunction(AppDbContext db)
                         d.Manufacturer,
                         d.Model,
                         d.PurchaseDate,
+                        d.InUseSince,
+                        d.DecommissionedDate,
                         d.ConsumptionApproach,
                         d.EuLabelClass,
                         d.EuAnnualKwh,

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
+import { toLocalDateString, parseLocalDate, toLocalMidnightIsoString } from '@/lib/localDate'
 import type { ConsumptionApproach, SelfMeasuredPeriod } from '@/features/flat-structure/api/flatStructureApi'
 import { StickyActionBar } from './StickyActionBar'
 import type { DraftDevice } from './draftModel'
@@ -53,13 +54,21 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
   const [selfMeasuredPeriod, setSelfMeasuredPeriod] = useState<Exclude<SelfMeasuredPeriod, null>>(
     device?.selfMeasuredPeriod ?? 'Daily'
   )
+  const [inUseSinceRaw, setInUseSinceRaw] = useState(
+    device?.inUseSince ? toLocalDateString(parseLocalDate(device.inUseSince)) : device ? '' : toLocalDateString(new Date())
+  )
+  const [decommissionedDateRaw, setDecommissionedDateRaw] = useState(
+    device?.decommissionedDate ? toLocalDateString(parseLocalDate(device.decommissionedDate)) : ''
+  )
 
   const parsedEuAnnualKwh = parseLocaleNumber(euAnnualKwhRaw, i18n.language)
   const parsedSelfMeasuredKwh = parseLocaleNumber(selfMeasuredKwhRaw, i18n.language)
   const euValid = approach !== 'EuLabel' || isValidKwhRaw(euAnnualKwhRaw, parsedEuAnnualKwh, i18n.language)
   const selfMeasuredValid =
     approach !== 'SelfMeasured' || isValidKwhRaw(selfMeasuredKwhRaw, parsedSelfMeasuredKwh, i18n.language)
-  const isSaveEnabled = name.trim() !== '' && euValid && selfMeasuredValid
+  const dateRangeValid =
+    !inUseSinceRaw || !decommissionedDateRaw || decommissionedDateRaw >= inUseSinceRaw
+  const isSaveEnabled = name.trim() !== '' && euValid && selfMeasuredValid && dateRangeValid
 
   const handleSave = () => {
     if (!isSaveEnabled) return
@@ -71,6 +80,8 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
       model,
       consumptionApproach: approach,
       purchaseDate: device?.purchaseDate,
+      inUseSince: inUseSinceRaw ? toLocalMidnightIsoString(inUseSinceRaw) : undefined,
+      decommissionedDate: decommissionedDateRaw ? toLocalMidnightIsoString(decommissionedDateRaw) : undefined,
       euLabelClass: approach === 'EuLabel' ? euLabelClass.trim() || undefined : undefined,
       euAnnualKwh: approach === 'EuLabel' ? parsedEuAnnualKwh : undefined,
       selfMeasuredKwh: approach === 'SelfMeasured' ? parsedSelfMeasuredKwh : undefined,
@@ -133,6 +144,30 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
               onChange={e => setModel(e.target.value)}
               placeholder={t('device.modelPlaceholder')}
               aria-label={t('device.modelPlaceholder')}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={sectionLabelClass}>{t('device.inUseSinceLabel')}</label>
+            <input
+              type="date"
+              value={inUseSinceRaw}
+              onChange={e => setInUseSinceRaw(e.target.value)}
+              aria-label={t('device.inUseSinceLabel')}
+              className={inputClass}
+              style={inputStyle}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className={sectionLabelClass}>{t('device.decommissionedDateLabel')}</label>
+            <input
+              type="date"
+              value={decommissionedDateRaw}
+              onChange={e => setDecommissionedDateRaw(e.target.value)}
+              aria-label={t('device.decommissionedDateLabel')}
               className={inputClass}
               style={inputStyle}
             />

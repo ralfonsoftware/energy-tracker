@@ -38,6 +38,8 @@
     "typePlaceholder": "Typ (optional)",
     "manufacturerPlaceholder": "Hersteller (optional)",
     "modelPlaceholder": "Modell (optional)",
+    "inUseSinceLabel": "In Gebrauch seit (optional)",
+    "decommissionedDateLabel": "Außer Betrieb seit (optional)",
     "consumptionNote": "Verbrauchsprofil konfigurieren, um dieses Gerät in die Aufschlüsselung aufzunehmen",
     "configureProfile": "Verbrauchsprofil konfigurieren",
     "consumptionApproach": {

@@ -16,6 +16,8 @@ export type DraftDevice = {
   // never edits these; only newly-added devices default to 'None'/undefined.
   consumptionApproach: ConsumptionApproach
   purchaseDate?: string
+  inUseSince?: string
+  decommissionedDate?: string
   euLabelClass?: string
   euAnnualKwh?: number
   selfMeasuredKwh?: number
@@ -60,6 +62,8 @@ export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
         model: device.model ?? '',
         consumptionApproach: device.consumptionApproach,
         purchaseDate: device.purchaseDate ?? undefined,
+        inUseSince: device.inUseSince ?? undefined,
+        decommissionedDate: device.decommissionedDate ?? undefined,
         euLabelClass: device.euLabelClass ?? undefined,
         euAnnualKwh: device.euAnnualKwh ?? undefined,
         selfMeasuredKwh: device.selfMeasuredKwh ?? undefined,
@@ -92,6 +96,8 @@ export function toRoomInput(room: DraftRoom, name: string): RoomInput {
         manufacturer: device.manufacturer.trim() || undefined,
         model: device.model.trim() || undefined,
         purchaseDate: device.purchaseDate,
+        inUseSince: device.inUseSince,
+        decommissionedDate: device.decommissionedDate,
         consumptionApproach: device.consumptionApproach,
         euLabelClass: device.euLabelClass,
         euAnnualKwh: device.euAnnualKwh,

@@ -18,6 +18,11 @@ public class DecompositionEngineTests
     // Noon UTC keeps the local (Europe/Berlin) calendar date unambiguous regardless of DST.
     private static DateTimeOffset NoonUtc(int year, int month, int day) => new(year, month, day, 12, 0, 0, TimeSpan.Zero);
 
+    // Matches DecompositionEngine's own ToLocalMidnight construction exactly (Europe/Berlin is
+    // UTC+1 with no DST in January), so InUseSince/DecommissionedDate boundary tests below compare
+    // against the identical instant the engine itself compares against.
+    private static DateTimeOffset LocalMidnight(int year, int month, int day) => new(year, month, day, 0, 0, 0, TimeSpan.FromHours(1));
+
     private static async Task<Room> SeedRoomAsync(AppDbContext db, Guid flatId, string name = "Room")
     {
         var room = new Room { RoomId = Guid.NewGuid(), FlatId = flatId, Name = name };
@@ -39,7 +44,9 @@ public class DecompositionEngineTests
         ConsumptionApproach approach = ConsumptionApproach.None,
         decimal? euAnnualKwh = null,
         decimal? selfMeasuredKwh = null,
-        SelfMeasuredPeriod? selfMeasuredPeriod = null)
+        SelfMeasuredPeriod? selfMeasuredPeriod = null,
+        DateTimeOffset? inUseSince = null,
+        DateTimeOffset? decommissionedDate = null)
     {
         var device = new Device
         {
@@ -49,7 +56,9 @@ public class DecompositionEngineTests
             ConsumptionApproach = approach,
             EuAnnualKwh = euAnnualKwh,
             SelfMeasuredKwh = selfMeasuredKwh,
-            SelfMeasuredPeriod = selfMeasuredPeriod
+            SelfMeasuredPeriod = selfMeasuredPeriod,
+            InUseSince = inUseSince,
+            DecommissionedDate = decommissionedDate
         };
         db.Devices.Add(device);
         await db.SaveChangesAsync();
@@ -584,5 +593,175 @@ public class DecompositionEngineTests
         var euLabel = result.Rooms.Single().Devices.Single(d => d.Name == "EuLabelDevice");
         measured.Approach.ShouldBe(AttributionApproach.Measured);
         euLabel.Approach.ShouldBe(AttributionApproach.EuLabel);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_InUseSinceMidPeriod_CountsOnlyFromThatDateForward()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Fridge", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            inUseSince: LocalMidnight(2026, 1, 3));
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+        await SeedTariffAsync(db, flatId, NoonUtc(2025, 1, 1), pricePerKwh: 0.30m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
+        device.Kwh.ShouldBe(3m); // active Jan 3, 4, 5 -> 3 days * 1 kWh/day
+        device.Cost.ShouldBe(0.9m);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_DecommissionedDateMidPeriod_StopsCountingAfterThatDate()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Fridge", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            decommissionedDate: LocalMidnight(2026, 1, 3));
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+        await SeedTariffAsync(db, flatId, NoonUtc(2025, 1, 1), pricePerKwh: 0.30m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
+        device.Kwh.ShouldBe(3m); // active Jan 1, 2, 3 -> 3 days * 1 kWh/day
+        device.Cost.ShouldBe(0.9m);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_BothDatesSetWithActiveWindowFullyInsideQueryPeriod_CountsOnlyActiveDays()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Fridge", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            inUseSince: LocalMidnight(2026, 1, 3), decommissionedDate: LocalMidnight(2026, 1, 6));
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+        await SeedTariffAsync(db, flatId, NoonUtc(2025, 1, 1), pricePerKwh: 0.30m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 10), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
+        device.Kwh.ShouldBe(4m); // active Jan 3-6 inclusive -> 4 days * 1 kWh/day
+        device.Cost.ShouldBe(1.2m);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_ExistenceWindowEntirelyOutsideQueryPeriod_ContributesZeroWithoutException()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var ppBefore = await SeedPowerPointAsync(db, room.RoomId, "Before Socket");
+        await SeedDeviceAsync(db, ppBefore.PowerPointId, "RetiredBeforePeriod", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            inUseSince: LocalMidnight(2026, 1, 1), decommissionedDate: LocalMidnight(2026, 1, 5));
+        var ppAfter = await SeedPowerPointAsync(db, room.RoomId, "After Socket");
+        await SeedDeviceAsync(db, ppAfter.PowerPointId, "NotYetInstalledAfterPeriod", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            inUseSince: LocalMidnight(2026, 2, 1));
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 10), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 10), new DateOnly(2026, 1, 15), CancellationToken.None);
+
+        var before = result.Rooms.Single().Devices.Single(d => d.Name == "RetiredBeforePeriod");
+        var after = result.Rooms.Single().Devices.Single(d => d.Name == "NotYetInstalledAfterPeriod");
+        before.Kwh.ShouldBe(0m);
+        before.Cost.ShouldBe(0m);
+        after.Kwh.ShouldBe(0m);
+        after.Cost.ShouldBe(0m);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_NeitherExistenceDateSet_FullPeriodInclusionUnchanged()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Fridge", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m);
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
+        device.Kwh.ShouldBe(5m); // full 5-day period, unchanged from pre-story behavior
+    }
+
+    [Fact]
+    public async Task ComputeAsync_SmartPowerStripSubDeviceWithExistenceWindow_PoolMathUnaffected()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Strip", plugId: "strip-existence");
+        // DeviceA's existence window is entirely outside the query period; if strip pooling
+        // applied the standalone-path clamp (per AC4, it must not), this would zero its estimate
+        // and change the pool split. It must be byte-for-byte identical to the dates-unset case.
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceA", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 730m,
+            inUseSince: LocalMidnight(2025, 1, 1), decommissionedDate: LocalMidnight(2025, 1, 5));
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceB", approach: ConsumptionApproach.SelfMeasured, selfMeasuredKwh: 6m, selfMeasuredPeriod: SelfMeasuredPeriod.Daily);
+        await SeedDailyRowAsync(db, flatId, "strip-existence", new DateOnly(2026, 1, 1), 80m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var strip = result.Rooms.Single().Devices.Single();
+        strip.SubDevices.ShouldNotBeNull();
+        var a = strip.SubDevices!.Single(d => d.Name == "DeviceA");
+        var b = strip.SubDevices!.Single(d => d.Name == "DeviceB");
+        a.Kwh.ShouldBe(20m); // 2/8 * 80 — identical to ComputeAsync_SmartPowerStripFullyConfigured_SplitsProportionallyUnchanged
+        b.Kwh.ShouldBe(60m); // 6/8 * 80
+    }
+
+    [Fact]
+    public async Task ComputeAsync_InUseSinceEqualsEndDate_CountsExactlyTheLastDay()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Fridge", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            inUseSince: LocalMidnight(2026, 1, 5));
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
+        device.Kwh.ShouldBe(1m); // InUseSince == endDate is still inclusive -> counts only Jan 5
+    }
+
+    [Fact]
+    public async Task ComputeAsync_DecommissionedDateEqualsStartDate_CountsExactlyTheFirstDay()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Fridge", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 365m,
+            decommissionedDate: LocalMidnight(2026, 1, 1));
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
+        device.Kwh.ShouldBe(1m); // DecommissionedDate == startDate is still inclusive -> counts only Jan 1
     }
 }

@@ -38,6 +38,8 @@
     "typePlaceholder": "Type (optional)",
     "manufacturerPlaceholder": "Manufacturer (optional)",
     "modelPlaceholder": "Model (optional)",
+    "inUseSinceLabel": "In use since (optional)",
+    "decommissionedDateLabel": "Decommissioned (optional)",
     "consumptionNote": "Configure consumption profile to include this device in Decomposition",
     "configureProfile": "Configure consumption profile",
     "consumptionApproach": {

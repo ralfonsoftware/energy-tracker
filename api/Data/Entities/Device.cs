@@ -22,6 +22,8 @@ public class Device
     public string? Manufacturer { get; set; }
     public string? Model { get; set; }
     public DateTimeOffset? PurchaseDate { get; set; }
+    public DateTimeOffset? InUseSince { get; set; }
+    public DateTimeOffset? DecommissionedDate { get; set; }
     public ConsumptionApproach ConsumptionApproach { get; set; }
     public string? EuLabelClass { get; set; }
     public decimal? EuAnnualKwh { get; set; }

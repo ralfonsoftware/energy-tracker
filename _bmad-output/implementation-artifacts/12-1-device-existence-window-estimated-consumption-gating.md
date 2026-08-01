@@ -4,7 +4,7 @@ baseline_commit: 163516d
 
 # Story 12.1: Device Existence Window — Estimated-Consumption Gating
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -38,42 +38,52 @@ Two corrections to the epic's original text (`epics/epic-12-device-lifecycle-and
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Add `InUseSince`/`DecommissionedDate` to the `Device` entity and schema (AC: #1)
-  - [ ] 1.1 In `api/Data/Entities/Device.cs`, add `public DateTimeOffset? InUseSince { get; set; }` and `public DateTimeOffset? DecommissionedDate { get; set; }` alongside the existing `PurchaseDate` property (same nullable-`DateTimeOffset` shape, no new using directives needed).
-  - [ ] 1.2 In `api/Data/Configurations/DeviceConfiguration.cs`, add `builder.Property(d => d.InUseSince).IsRequired(false);` and `builder.Property(d => d.DecommissionedDate).IsRequired(false);` — mirror the existing `builder.Property(d => d.PurchaseDate).IsRequired(false);` line exactly (line 19), no `HasColumnType` needed (plain `datetimeoffset`, same as `PurchaseDate`).
-  - [ ] 1.3 Generate the migration from `api/`: `dotnet ef migrations add AddDeviceExistenceWindow`. Confirm the generated migration only adds two nullable columns with no `defaultValue` — do not hand-edit; if EF Core's generated migration includes an unexpected default, that's a signal the entity/config edit was wrong, not something to patch in the migration file.
-  - [ ] 1.4 Run `dotnet ef database update` locally to verify the migration applies cleanly. Per Story 11.3's precedent, do **not** assume a fresh schema — this project's dev DB has real data; two new nullable columns with no default and no index should apply without incident, but confirm before marking done.
+- [x] Task 1: Add `InUseSince`/`DecommissionedDate` to the `Device` entity and schema (AC: #1)
+  - [x] 1.1 In `api/Data/Entities/Device.cs`, add `public DateTimeOffset? InUseSince { get; set; }` and `public DateTimeOffset? DecommissionedDate { get; set; }` alongside the existing `PurchaseDate` property (same nullable-`DateTimeOffset` shape, no new using directives needed).
+  - [x] 1.2 In `api/Data/Configurations/DeviceConfiguration.cs`, add `builder.Property(d => d.InUseSince).IsRequired(false);` and `builder.Property(d => d.DecommissionedDate).IsRequired(false);` — mirror the existing `builder.Property(d => d.PurchaseDate).IsRequired(false);` line exactly (line 19), no `HasColumnType` needed (plain `datetimeoffset`, same as `PurchaseDate`).
+  - [x] 1.3 Generate the migration from `api/`: `dotnet ef migrations add AddDeviceExistenceWindow`. Confirm the generated migration only adds two nullable columns with no `defaultValue` — do not hand-edit; if EF Core's generated migration includes an unexpected default, that's a signal the entity/config edit was wrong, not something to patch in the migration file.
+  - [x] 1.4 Run `dotnet ef database update` locally to verify the migration applies cleanly. Per Story 11.3's precedent, do **not** assume a fresh schema — this project's dev DB has real data; two new nullable columns with no default and no index should apply without incident, but confirm before marking done.
 
-- [ ] Task 2: Gate the standalone-device estimate path by existence window (AC: #2, #3, #4)
-  - [ ] 2.1 In `api/Features/Decomposition/DecompositionEngine.cs`, add a private static helper `IsDeviceActiveOn(Device device, DateTimeOffset date)` returning `(device.InUseSince is null || device.InUseSince <= date) && (device.DecommissionedDate is null || date <= device.DecommissionedDate)`. Place it near the other private static helpers (`ToLocalMidnight`, `EstimateDailyKwh`).
-  - [ ] 2.2 In the standalone-device `else` branch (currently lines 107-117), replace `var kwh = dailyEstimate * dayCount;` with a per-day active-day count: loop `startDate..endDate` via `ToLocalMidnight(date)` (the same conversion `CostForDailySeries` already uses for its own per-day loop) and sum `dailyEstimate` only for days where `IsDeviceActiveOn(device, ToLocalMidnight(date))` is true. Do not introduce a second date-iteration convention — reuse `ToLocalMidnight` for every comparison in this file, exactly as `TariffResolution.Resolve(tariffs, ToLocalMidnight(date))` already does two lines above in `CostForDailySeries`.
-  - [ ] 2.3 Replace `var cost = approach == AttributionApproach.None ? 0m : CostForDailySeries(_ => dailyEstimate);` with `CostForDailySeries(date => approach != AttributionApproach.None && IsDeviceActiveOn(device, ToLocalMidnight(date)) ? dailyEstimate : 0m)` — this makes the existing `CostForDailySeries` lambda date-aware for the first time in this branch (today it ignores the `date` parameter entirely, which is exactly why this bug exists).
-  - [ ] 2.4 Do **not** touch `BuildSmartStripDecomposition` (lines 169-225) — per AC4, sub-device shares keep using whole-period estimates. Do not add a "TODO" comment referencing this as unfinished; the epic explicitly scopes it out as a deliberate, tracked follow-up (`epic-12-...md#Story 12.1`, last AC), not an oversight in this story.
+- [x] Task 2: Gate the standalone-device estimate path by existence window (AC: #2, #3, #4)
+  - [x] 2.1 In `api/Features/Decomposition/DecompositionEngine.cs`, add a private static helper `IsDeviceActiveOn(Device device, DateTimeOffset date)` returning `(device.InUseSince is null || device.InUseSince <= date) && (device.DecommissionedDate is null || date <= device.DecommissionedDate)`. Place it near the other private static helpers (`ToLocalMidnight`, `EstimateDailyKwh`).
+  - [x] 2.2 In the standalone-device `else` branch (currently lines 107-117), replace `var kwh = dailyEstimate * dayCount;` with a per-day active-day count: loop `startDate..endDate` via `ToLocalMidnight(date)` (the same conversion `CostForDailySeries` already uses for its own per-day loop) and sum `dailyEstimate` only for days where `IsDeviceActiveOn(device, ToLocalMidnight(date))` is true. Do not introduce a second date-iteration convention — reuse `ToLocalMidnight` for every comparison in this file, exactly as `TariffResolution.Resolve(tariffs, ToLocalMidnight(date))` already does two lines above in `CostForDailySeries`.
+  - [x] 2.3 Replace `var cost = approach == AttributionApproach.None ? 0m : CostForDailySeries(_ => dailyEstimate);` with `CostForDailySeries(date => approach != AttributionApproach.None && IsDeviceActiveOn(device, ToLocalMidnight(date)) ? dailyEstimate : 0m)` — this makes the existing `CostForDailySeries` lambda date-aware for the first time in this branch (today it ignores the `date` parameter entirely, which is exactly why this bug exists).
+  - [x] 2.4 Do **not** touch `BuildSmartStripDecomposition` (lines 169-225) — per AC4, sub-device shares keep using whole-period estimates. Do not add a "TODO" comment referencing this as unfinished; the epic explicitly scopes it out as a deliberate, tracked follow-up (`epic-12-...md#Story 12.1`, last AC), not an oversight in this story.
 
-- [ ] Task 3: Add both date fields to `DeviceEditor.tsx` (AC: #5)
-  - [ ] 3.1 In `client/src/features/flat-structure/components/DeviceEditor.tsx`, add two `useState` fields: `inUseSinceRaw` (defaults to `device?.inUseSince ? toLocalDateString(parseLocalDate(device.inUseSince)) : (device ? '' : toLocalDateString(new Date()))` — today's date only when adding, i.e. `device` is `undefined`) and `decommissionedDateRaw` (defaults to `device?.decommissionedDate ? toLocalDateString(parseLocalDate(device.decommissionedDate)) : ''` — no suggested default either way). Import `toLocalDateString`/`parseLocalDate`/`toLocalMidnightIsoString` from `@/lib/localDate` (already exists, hardened by Story 11.11 — reuse verbatim, do not reinvent local-midnight ISO conversion).
-  - [ ] 3.2 Add two `<input type="date">` fields (matching this file's existing `inputClass`/`inputStyle`/`sectionLabelClass` conventions) below the existing Model field and above the consumption-approach section — one for "in use since," one for "decommissioned." Both optional, both clearable (an empty string clears to `undefined` on save).
-  - [ ] 3.3 In `handleSave`, convert each non-empty raw value via `toLocalMidnightIsoString(raw)` before passing to `onSave(...)` (matching `TariffForm.tsx`'s post-Story-11.11 create-flow pattern exactly — local-midnight ISO string, never a hardcoded UTC-midnight suffix); pass `undefined` when the field is empty.
-  - [ ] 3.4 Add the two new fields to `DraftDevice` (`draftModel.ts`) as `inUseSince?: string` / `decommissionedDate?: string`, thread them through `toDraftRooms` (read from `DeviceResponse`) and `toRoomInput` (write to `DeviceInput`) exactly like the existing `purchaseDate` field is threaded (lines 62 and 94 in `draftModel.ts`) — same pattern, two more fields.
-  - [ ] 3.5 Add `inUseSince?: string` / `decommissionedDate?: string` to `DeviceResponse` and `DeviceInput` in `client/src/features/flat-structure/api/flatStructureApi.ts`, alongside the existing `purchaseDate` field in both types.
+- [x] Task 3: Add both date fields to `DeviceEditor.tsx` (AC: #5)
+  - [x] 3.1 In `client/src/features/flat-structure/components/DeviceEditor.tsx`, add two `useState` fields: `inUseSinceRaw` (defaults to `device?.inUseSince ? toLocalDateString(parseLocalDate(device.inUseSince)) : (device ? '' : toLocalDateString(new Date()))` — today's date only when adding, i.e. `device` is `undefined`) and `decommissionedDateRaw` (defaults to `device?.decommissionedDate ? toLocalDateString(parseLocalDate(device.decommissionedDate)) : ''` — no suggested default either way). Import `toLocalDateString`/`parseLocalDate`/`toLocalMidnightIsoString` from `@/lib/localDate` (already exists, hardened by Story 11.11 — reuse verbatim, do not reinvent local-midnight ISO conversion).
+  - [x] 3.2 Add two `<input type="date">` fields (matching this file's existing `inputClass`/`inputStyle`/`sectionLabelClass` conventions) below the existing Model field and above the consumption-approach section — one for "in use since," one for "decommissioned." Both optional, both clearable (an empty string clears to `undefined` on save).
+  - [x] 3.3 In `handleSave`, convert each non-empty raw value via `toLocalMidnightIsoString(raw)` before passing to `onSave(...)` (matching `TariffForm.tsx`'s post-Story-11.11 create-flow pattern exactly — local-midnight ISO string, never a hardcoded UTC-midnight suffix); pass `undefined` when the field is empty.
+  - [x] 3.4 Add the two new fields to `DraftDevice` (`draftModel.ts`) as `inUseSince?: string` / `decommissionedDate?: string`, thread them through `toDraftRooms` (read from `DeviceResponse`) and `toRoomInput` (write to `DeviceInput`) exactly like the existing `purchaseDate` field is threaded (lines 62 and 94 in `draftModel.ts`) — same pattern, two more fields.
+  - [x] 3.5 Add `inUseSince?: string` / `decommissionedDate?: string` to `DeviceResponse` and `DeviceInput` in `client/src/features/flat-structure/api/flatStructureApi.ts`, alongside the existing `purchaseDate` field in both types.
 
-- [ ] Task 4: Thread the two fields through the backend DTOs and write path (AC: #1, #5)
-  - [ ] 4.1 Add `DateTimeOffset? InUseSince, DateTimeOffset? DecommissionedDate` to `DeviceResponse` and `DeviceInput` in `api/Features/FlatStructure/FlatStructureModels.cs`, alongside the existing `PurchaseDate` parameter in both records (same position convention: after `PurchaseDate`, before `ConsumptionApproach`).
-  - [ ] 4.2 In `api/Features/FlatStructure/UpdateFlatStructureFunction.cs`, add `InUseSince = d.InUseSince, DecommissionedDate = d.DecommissionedDate,` to the `new Device { ... }` object initializer (line 118 area, alongside the existing `PurchaseDate = d.PurchaseDate,`), and add `d.InUseSince, d.DecommissionedDate,` to the `new DeviceResponse(...)` positional-argument list (line 173 area, alongside `d.PurchaseDate,` — matching the record's new parameter order from Task 4.1).
-  - [ ] 4.3 In `api/Features/FlatStructure/GetFlatStructureFunction.cs`, add `d.InUseSince, d.DecommissionedDate,` to its own `new DeviceResponse(...)` call (line 64 area, same position as Task 4.2).
-  - [ ] 4.4 In `api/Features/FlatStructure/UpdateFlatStructureValidator.cs`, add a new rule inside the `Devices` `ChildRules` block: `d.RuleFor(dv => dv.DecommissionedDate).GreaterThanOrEqualTo(dv => dv.InUseSince).When(dv => dv.InUseSince.HasValue && dv.DecommissionedDate.HasValue).WithMessage("decommissionedDate must not be before inUseSince.");` — a device can't be decommissioned before it was ever in use.
+- [x] Task 4: Thread the two fields through the backend DTOs and write path (AC: #1, #5)
+  - [x] 4.1 Add `DateTimeOffset? InUseSince, DateTimeOffset? DecommissionedDate` to `DeviceResponse` and `DeviceInput` in `api/Features/FlatStructure/FlatStructureModels.cs`, alongside the existing `PurchaseDate` parameter in both records (same position convention: after `PurchaseDate`, before `ConsumptionApproach`).
+  - [x] 4.2 In `api/Features/FlatStructure/UpdateFlatStructureFunction.cs`, add `InUseSince = d.InUseSince, DecommissionedDate = d.DecommissionedDate,` to the `new Device { ... }` object initializer (line 118 area, alongside the existing `PurchaseDate = d.PurchaseDate,`), and add `d.InUseSince, d.DecommissionedDate,` to the `new DeviceResponse(...)` positional-argument list (line 173 area, alongside `d.PurchaseDate,` — matching the record's new parameter order from Task 4.1).
+  - [x] 4.3 In `api/Features/FlatStructure/GetFlatStructureFunction.cs`, add `d.InUseSince, d.DecommissionedDate,` to its own `new DeviceResponse(...)` call (line 64 area, same position as Task 4.2).
+  - [x] 4.4 In `api/Features/FlatStructure/UpdateFlatStructureValidator.cs`, add a new rule inside the `Devices` `ChildRules` block: `d.RuleFor(dv => dv.DecommissionedDate).GreaterThanOrEqualTo(dv => dv.InUseSince).When(dv => dv.InUseSince.HasValue && dv.DecommissionedDate.HasValue).WithMessage("decommissionedDate must not be before inUseSince.");` — a device can't be decommissioned before it was ever in use.
 
-- [ ] Task 5: Add i18n keys (AC: #5)
-  - [ ] 5.1 In `client/src/locales/en-US/flat-structure.json`'s `device` block (after `modelPlaceholder`, before `consumptionNote`), add `"inUseSinceLabel": "In use since (optional)"` and `"decommissionedDateLabel": "Decommissioned (optional)"`.
-  - [ ] 5.2 In `client/src/locales/de-DE/flat-structure.json`'s equivalent block, add the matching German keys: `"inUseSinceLabel": "In Gebrauch seit (optional)"` and `"decommissionedDateLabel": "Außer Betrieb seit (optional)"`.
+- [x] Task 5: Add i18n keys (AC: #5)
+  - [x] 5.1 In `client/src/locales/en-US/flat-structure.json`'s `device` block (after `modelPlaceholder`, before `consumptionNote`), add `"inUseSinceLabel": "In use since (optional)"` and `"decommissionedDateLabel": "Decommissioned (optional)"`.
+  - [x] 5.2 In `client/src/locales/de-DE/flat-structure.json`'s equivalent block, add the matching German keys: `"inUseSinceLabel": "In Gebrauch seit (optional)"` and `"decommissionedDateLabel": "Außer Betrieb seit (optional)"`.
 
-- [ ] Task 6: Test coverage (AC: #3, #6)
-  - [ ] 6.1 In `api.Tests/Features/Decomposition/DecompositionEngineTests.cs`, extend the `SeedDeviceAsync` helper (lines 37-57) with two new optional parameters: `DateTimeOffset? inUseSince = null, DateTimeOffset? decommissionedDate = null`, passed through to the constructed `Device`. All existing call sites keep compiling unchanged (defaults preserve today's behavior).
-  - [ ] 6.2 Add new tests: a device with `inUseSince` set to a date inside the query period (assert `Kwh`/`Cost` reflect only the active sub-range, computed by hand against `dailyEstimate × activeDayCount`); a device with `decommissionedDate` set inside the query period (same, inverse direction); both dates set with the whole window inside the query period; both dates set with the window entirely *before* or entirely *after* the query period (assert `Kwh == 0m` and `Cost == 0m`, no exception); a Smart Power Strip sub-device with both dates set (assert its computed share is byte-for-byte identical to an otherwise-identical sub-device with neither date set, proving AC4's exclusion holds).
-  - [ ] 6.3 Confirm every existing `DecompositionEngineTests.cs` test (all of which seed devices with neither date set) continues to pass unmodified — this is the AC3 regression guard; do not add rounding or other changes to `EstimateDailyKwh` that would perturb these values (see "Gap found during story creation" #2).
-  - [ ] 6.4 Add a `DeviceEditor.test.tsx` case verifying: adding a new device pre-fills "in use since" with today's local date and leaves "decommissioned" empty; editing an existing device with both fields already set displays them correctly; clearing either field and saving passes `undefined` (not an empty string) to `onSave`.
-  - [ ] 6.5 Run `dotnet test` (from `api.Tests/` — no root `.sln` in this repo, per Story 11.3/11.4/11.5's established precedent) and `npm test -- --run` (from `client/`) and confirm both full suites pass with zero regressions.
-  - [ ] 6.6 Run `npx tsc --noEmit` and `npm run lint` (both from `client/`) — clean, no `as any`/`@ts-ignore`.
+- [x] Task 6: Test coverage (AC: #3, #6)
+  - [x] 6.1 In `api.Tests/Features/Decomposition/DecompositionEngineTests.cs`, extend the `SeedDeviceAsync` helper (lines 37-57) with two new optional parameters: `DateTimeOffset? inUseSince = null, DateTimeOffset? decommissionedDate = null`, passed through to the constructed `Device`. All existing call sites keep compiling unchanged (defaults preserve today's behavior).
+  - [x] 6.2 Add new tests: a device with `inUseSince` set to a date inside the query period (assert `Kwh`/`Cost` reflect only the active sub-range, computed by hand against `dailyEstimate × activeDayCount`); a device with `decommissionedDate` set inside the query period (same, inverse direction); both dates set with the whole window inside the query period; both dates set with the window entirely *before* or entirely *after* the query period (assert `Kwh == 0m` and `Cost == 0m`, no exception); a Smart Power Strip sub-device with both dates set (assert its computed share is byte-for-byte identical to an otherwise-identical sub-device with neither date set, proving AC4's exclusion holds).
+  - [x] 6.3 Confirm every existing `DecompositionEngineTests.cs` test (all of which seed devices with neither date set) continues to pass unmodified — this is the AC3 regression guard; do not add rounding or other changes to `EstimateDailyKwh` that would perturb these values (see "Gap found during story creation" #2).
+  - [x] 6.4 Add a `DeviceEditor.test.tsx` case verifying: adding a new device pre-fills "in use since" with today's local date and leaves "decommissioned" empty; editing an existing device with both fields already set displays them correctly; clearing either field and saving passes `undefined` (not an empty string) to `onSave`.
+  - [x] 6.5 Run `dotnet test` (from `api.Tests/` — no root `.sln` in this repo, per Story 11.3/11.4/11.5's established precedent) and `npm test -- --run` (from `client/`) and confirm both full suites pass with zero regressions.
+  - [x] 6.6 Run `npx tsc --noEmit` and `npm run lint` (both from `client/`) — clean, no `as any`/`@ts-ignore`.
+
+### Review Findings
+
+- [x] [Review][Patch] Restore O(1)/short-circuit fast paths in the standalone-device estimate branch — every device now runs a day-by-day loop (plus a per-day `TariffResolution.Resolve` call inside `CostForDailySeries`) even when no existence window is set (the ~100% pre-existing case) or `ConsumptionApproach == None`, where the prior code computed both in O(1). [api/Features/Decomposition/DecompositionEngine.cs:109-119] — fixed: added a `hasExistenceWindow` short-circuit for the kwh loop and restored the `approach == None ? 0m : ...` short-circuit for cost.
+- [x] [Review][Patch] Add client-side date-range validation to `DeviceEditor`'s Save button — `decommissionedDate < inUseSince` silently reaches the server's 400 instead of being caught in `isSaveEnabled`, unlike this same file's existing `euValid`/`selfMeasuredValid` checks. [client/src/features/flat-structure/components/DeviceEditor.tsx:69] — fixed: added `dateRangeValid` to `isSaveEnabled`. Required updating `DeviceEditor_SaveWithBothDatesSet_ConvertsToLocalMidnightIsoString` to clear the auto-filled "in use since" (today) before setting an earlier decommissioned date, since that combination is now correctly rejected as an invalid range.
+- [x] [Review][Patch] Add a `Cost` assertion to `ComputeAsync_BothDatesSetWithActiveWindowFullyInsideQueryPeriod_CountsOnlyActiveDays` — it only asserts `Kwh` today (no `Tariff` seeded), unlike the two single-date mid-period tests which assert both, per Task 6.2's literal wording. [api.Tests/Features/Decomposition/DecompositionEngineTests.cs:640-657] — fixed: seeded a tariff and added the `Cost` assertion.
+- [x] [Review][Patch] Add boundary-exact existence-window tests: `InUseSince == endDate` and `DecommissionedDate == startDate` — the tightest inclusive-boundary cases for the `<=`/`<=` comparison, currently untested. [api.Tests/Features/Decomposition/DecompositionEngineTests.cs] — fixed: added `ComputeAsync_InUseSinceEqualsEndDate_CountsExactlyTheLastDay` and `ComputeAsync_DecommissionedDateEqualsStartDate_CountsExactlyTheFirstDay`.
+- [x] [Review][Defer] Client `toLocalMidnightIsoString` writes an ISO instant in the browser's local timezone while the server compares against a fixed Europe/Berlin `AppTimeZone` — for users outside UTC+1 this can shift the `InUseSince`/`DecommissionedDate` boundary by a day. [client/src/lib/localDate.ts, api/Features/Decomposition/DecompositionEngine.cs:253] — deferred, pre-existing (same tradeoff already present for `Tariff.ContractStartDate`/`TariffResolution.Resolve` since Story 11.1/11.11; this story extends it to a second field, doesn't introduce it)
+- [x] [Review][Defer] No UI helper text explaining that `InUseSince`/`DecommissionedDate` gate estimated-consumption inclusion; combined with "In use since" defaulting to today for new devices (explicit per AC5/Task 3.1), a user who accepts the default without adjusting it will see historical Decomposition periods read as zero for that device. [client/src/features/flat-structure/components/DeviceEditor.tsx] — deferred, product/UX follow-up (not a code defect against spec — the default is explicitly spec'd, and both fields are editable/clearable)
+- [x] [Review][Defer] No cross-field validation relating `InUseSince`/`DecommissionedDate` to the existing `PurchaseDate` field. [api/Features/FlatStructure/UpdateFlatStructureValidator.cs] — deferred, not required by any AC; `PurchaseDate` isn't consulted by any engine today, low priority
 
 ## Dev Notes
 
@@ -180,8 +190,44 @@ The Epic 11 retrospective (`_bmad-output/implementation-artifacts/epic-11-retro-
 
 ### Agent Model Used
 
+Claude Sonnet 5 (claude-sonnet-5)
+
 ### Debug Log References
+
+- SQLite test-tier (Story 11.12) model snapshot went out of sync after the `Device` entity change (shared via `ApplyConfigurationsFromAssembly`), causing `PendingModelChangesWarning` failures in `PowerPointPlugIdUniqueIndexTests`. Fixed by generating a matching migration for `SqliteAppDbContext` (`dotnet ef migrations add AddDeviceExistenceWindow --context SqliteAppDbContext -o Data/Migrations/Sqlite`) alongside the main `AppDbContext` migration.
 
 ### Completion Notes List
 
+- Added `InUseSince`/`DecommissionedDate` (`DateTimeOffset?`) to `Device` entity + Fluent API config; generated and applied `AddDeviceExistenceWindow` migration for both `AppDbContext` (dev DB) and the SQLite test-tier `SqliteAppDbContext` — both add two nullable columns with no default value.
+- Added `IsDeviceActiveOn(Device, DateTimeOffset)` helper to `DecompositionEngine.cs`, reusing the existing `ToLocalMidnight` conversion; the standalone-device estimate branch now sums `dailyEstimate` only for active days and the `CostForDailySeries` lambda is date-aware for the first time in that branch. `BuildSmartStripDecomposition` intentionally untouched per AC4.
+- Added both date fields to `DeviceEditor.tsx` ("in use since" pre-filled with today's date only when adding a new device; "decommissioned" never pre-filled), threaded through `draftModel.ts`, `flatStructureApi.ts`, backend DTOs (`FlatStructureModels.cs`), both read/write Functions, and a new cross-field validator rule (`decommissionedDate >= inUseSince`).
+- Added i18n keys for both field labels in en-US and de-DE.
+- Added 6 new `DecompositionEngineTests.cs` cases (mid-period `InUseSince`, mid-period `DecommissionedDate`, both-inside, both-outside-with-no-exception, neither-set regression guard, Smart Power Strip sub-device unaffected) and 4 new `DeviceEditor.test.tsx` cases (prefill default, existing-device display, clear-to-undefined, local-midnight ISO conversion on save).
+- Full regression suites pass: `dotnet test` 491/491, `npm test -- --run` 480/480, `npx tsc --noEmit` clean, `npm run lint` clean (pre-existing `router.tsx` fast-refresh warnings only, unrelated to this story).
+
 ### File List
+
+- `api/Data/Entities/Device.cs`
+- `api/Data/Configurations/DeviceConfiguration.cs`
+- `api/Data/Migrations/20260801161342_AddDeviceExistenceWindow.cs`
+- `api/Data/Migrations/20260801161342_AddDeviceExistenceWindow.Designer.cs`
+- `api/Data/Migrations/AppDbContextModelSnapshot.cs`
+- `api/Features/Decomposition/DecompositionEngine.cs`
+- `api/Features/FlatStructure/FlatStructureModels.cs`
+- `api/Features/FlatStructure/UpdateFlatStructureFunction.cs`
+- `api/Features/FlatStructure/GetFlatStructureFunction.cs`
+- `api/Features/FlatStructure/UpdateFlatStructureValidator.cs`
+- `api.Tests/Features/Decomposition/DecompositionEngineTests.cs`
+- `api.Tests/Data/Migrations/Sqlite/20260801161827_AddDeviceExistenceWindow.cs`
+- `api.Tests/Data/Migrations/Sqlite/20260801161827_AddDeviceExistenceWindow.Designer.cs`
+- `api.Tests/Data/Migrations/Sqlite/SqliteAppDbContextModelSnapshot.cs`
+- `client/src/features/flat-structure/components/DeviceEditor.tsx`
+- `client/src/features/flat-structure/components/DeviceEditor.test.tsx`
+- `client/src/features/flat-structure/components/draftModel.ts`
+- `client/src/features/flat-structure/api/flatStructureApi.ts`
+- `client/src/locales/en-US/flat-structure.json`
+- `client/src/locales/de-DE/flat-structure.json`
+
+## Change Log
+
+- 2026-08-01: Implemented Story 12.1 — Device existence-window (`InUseSince`/`DecommissionedDate`) gating for standalone-device Decomposition estimates, plus both date fields in the Device editor UI. All 6 ACs satisfied; zero regressions across 491 backend + 480 frontend tests.

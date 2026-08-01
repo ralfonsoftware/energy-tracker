@@ -17,6 +17,8 @@ public class DeviceConfiguration : IEntityTypeConfiguration<Device>
         builder.Property(d => d.Manufacturer).HasMaxLength(200).IsRequired(false);
         builder.Property(d => d.Model).HasMaxLength(200).IsRequired(false);
         builder.Property(d => d.PurchaseDate).IsRequired(false);
+        builder.Property(d => d.InUseSince).IsRequired(false);
+        builder.Property(d => d.DecommissionedDate).IsRequired(false);
         builder.Property(d => d.ConsumptionApproach).IsRequired();
         builder.Property(d => d.EuLabelClass).HasMaxLength(200).IsRequired(false);
         builder.Property(d => d.EuAnnualKwh).HasColumnType("decimal(18,4)").IsRequired(false);

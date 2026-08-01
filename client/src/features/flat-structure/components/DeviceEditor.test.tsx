@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
+import { toLocalDateString, toLocalMidnightIsoString } from '@/lib/localDate'
 import { DeviceEditor } from './DeviceEditor'
 import type { DraftDevice } from './draftModel'
 
@@ -213,6 +214,60 @@ describe('DeviceEditor', () => {
 
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ consumptionApproach: 'EuLabel', euLabelClass: 'A+++', euAnnualKwh: 150 })
+    )
+  })
+
+  it('DeviceEditor_NewDevice_PrefillsInUseSinceWithTodayAndLeavesDecommissionedEmpty', () => {
+    render(<DeviceEditor device={undefined} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    expect(screen.getByLabelText('device.inUseSinceLabel')).toHaveValue(toLocalDateString(new Date()))
+    expect(screen.getByLabelText('device.decommissionedDateLabel')).toHaveValue('')
+  })
+
+  it('DeviceEditor_ExistingDeviceWithBothDatesSet_DisplaysThemCorrectly', () => {
+    const deviceWithDates: DraftDevice = {
+      ...sampleDevice,
+      inUseSince: '2026-01-15T12:00:00.000Z',
+      decommissionedDate: '2026-06-30T12:00:00.000Z',
+    }
+    render(<DeviceEditor device={deviceWithDates} onSave={vi.fn()} onCancel={vi.fn()} />)
+
+    expect(screen.getByLabelText('device.inUseSinceLabel')).toHaveValue('2026-01-15')
+    expect(screen.getByLabelText('device.decommissionedDateLabel')).toHaveValue('2026-06-30')
+  })
+
+  it('DeviceEditor_ClearingEitherDateFieldAndSaving_PassesUndefinedNotEmptyString', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    const deviceWithDates: DraftDevice = {
+      ...sampleDevice,
+      inUseSince: '2026-01-15T12:00:00.000Z',
+      decommissionedDate: '2026-06-30T12:00:00.000Z',
+    }
+    render(<DeviceEditor device={deviceWithDates} onSave={onSave} onCancel={vi.fn()} />)
+
+    await user.clear(screen.getByLabelText('device.inUseSinceLabel'))
+    await user.clear(screen.getByLabelText('device.decommissionedDateLabel'))
+    await user.click(screen.getByRole('button', { name: 'device.save' }))
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ inUseSince: undefined, decommissionedDate: undefined })
+    )
+  })
+
+  it('DeviceEditor_SaveWithBothDatesSet_ConvertsToLocalMidnightIsoString', async () => {
+    const user = userEvent.setup()
+    const onSave = vi.fn()
+    render(<DeviceEditor device={undefined} onSave={onSave} onCancel={vi.fn()} />)
+
+    await user.type(screen.getByLabelText('device.namePlaceholder'), 'Fridge')
+    await user.clear(screen.getByLabelText('device.inUseSinceLabel'))
+    const decommissionedInput = screen.getByLabelText('device.decommissionedDateLabel')
+    await user.type(decommissionedInput, '2026-06-30')
+    await user.click(screen.getByRole('button', { name: 'device.save' }))
+
+    expect(onSave).toHaveBeenCalledWith(
+      expect.objectContaining({ decommissionedDate: toLocalMidnightIsoString('2026-06-30') })
     )
   })
 })

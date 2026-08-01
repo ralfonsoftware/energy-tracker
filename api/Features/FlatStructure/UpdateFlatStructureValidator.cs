@@ -41,6 +41,9 @@ public class UpdateFlatStructureValidator : AbstractValidator<UpdateFlatStructur
                         .When(dv => dv.ConsumptionApproach == ConsumptionApproach.SelfMeasured);
                     d.RuleFor(dv => dv.SelfMeasuredPeriod).NotNull()
                         .When(dv => dv.ConsumptionApproach == ConsumptionApproach.SelfMeasured);
+                    d.RuleFor(dv => dv.DecommissionedDate).GreaterThanOrEqualTo(dv => dv.InUseSince)
+                        .When(dv => dv.InUseSince.HasValue && dv.DecommissionedDate.HasValue)
+                        .WithMessage("decommissionedDate must not be before inUseSince.");
                 });
             });
         });

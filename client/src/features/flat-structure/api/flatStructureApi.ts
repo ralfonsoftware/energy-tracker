@@ -10,6 +10,8 @@ export type DeviceResponse = {
   manufacturer: string | null
   model: string | null
   purchaseDate: string | null
+  inUseSince: string | null
+  decommissionedDate: string | null
   consumptionApproach: ConsumptionApproach
   euLabelClass: string | null
   euAnnualKwh: number | null
@@ -44,6 +46,8 @@ export type DeviceInput = {
   manufacturer?: string
   model?: string
   purchaseDate?: string
+  inUseSince?: string
+  decommissionedDate?: string
   consumptionApproach: ConsumptionApproach
   euLabelClass?: string
   euAnnualKwh?: number

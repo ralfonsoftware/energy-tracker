@@ -31,12 +31,18 @@ namespace EnergyTracker.Api.Data.Migrations
                     b.Property<int>("ConsumptionApproach")
                         .HasColumnType("int");
 
+                    b.Property<DateTimeOffset?>("DecommissionedDate")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<decimal?>("EuAnnualKwh")
                         .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("EuLabelClass")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTimeOffset?>("InUseSince")
+                        .HasColumnType("datetimeoffset");
 
                     b.Property<string>("Manufacturer")
                         .HasMaxLength(200)
