@@ -73,7 +73,7 @@ Two corrections to the epic's original text (`epics/epic-12-device-lifecycle-and
   - [x] 6.3 Confirm every existing `DecompositionEngineTests.cs` test (all of which seed devices with neither date set) continues to pass unmodified — this is the AC3 regression guard; do not add rounding or other changes to `EstimateDailyKwh` that would perturb these values (see "Gap found during story creation" #2).
   - [x] 6.4 Add a `DeviceEditor.test.tsx` case verifying: adding a new device pre-fills "in use since" with today's local date and leaves "decommissioned" empty; editing an existing device with both fields already set displays them correctly; clearing either field and saving passes `undefined` (not an empty string) to `onSave`.
   - [x] 6.5 Run `dotnet test` (from `api.Tests/` — no root `.sln` in this repo, per Story 11.3/11.4/11.5's established precedent) and `npm test -- --run` (from `client/`) and confirm both full suites pass with zero regressions.
-  - [x] 6.6 Run `npx tsc --noEmit` and `npm run lint` (both from `client/`) — clean, no `as any`/`@ts-ignore`.
+  - [x] 6.6 Run `npx tsc -b` and `npm run lint` (both from `client/`) — no `as any`/`@ts-ignore`. **Correction (2026-08-01, post-deploy-failure fix):** this task originally documented and ran `npx tsc --noEmit`, which is a silent no-op in this repo (`client/tsconfig.json` has `"files": []` with only project references) — it reported "clean" having checked zero files. The task now reads `npx tsc -b` (the command that actually type-checks `src/`, matching `npm run build`); re-run and confirmed clean as of this correction. See `_bmad-output/implementation-artifacts/investigations/story-12-1-deploy-failure-investigation.md` for the full root-cause chain.
 
 ### Review Findings
 
@@ -203,7 +203,7 @@ Claude Sonnet 5 (claude-sonnet-5)
 - Added both date fields to `DeviceEditor.tsx` ("in use since" pre-filled with today's date only when adding a new device; "decommissioned" never pre-filled), threaded through `draftModel.ts`, `flatStructureApi.ts`, backend DTOs (`FlatStructureModels.cs`), both read/write Functions, and a new cross-field validator rule (`decommissionedDate >= inUseSince`).
 - Added i18n keys for both field labels in en-US and de-DE.
 - Added 6 new `DecompositionEngineTests.cs` cases (mid-period `InUseSince`, mid-period `DecommissionedDate`, both-inside, both-outside-with-no-exception, neither-set regression guard, Smart Power Strip sub-device unaffected) and 4 new `DeviceEditor.test.tsx` cases (prefill default, existing-device display, clear-to-undefined, local-midnight ISO conversion on save).
-- Full regression suites pass: `dotnet test` 491/491, `npm test -- --run` 480/480, `npx tsc --noEmit` clean, `npm run lint` clean (pre-existing `router.tsx` fast-refresh warnings only, unrelated to this story).
+- Original completion claim: `dotnet test` 491/491, `npm test -- --run` 480/480, `npx tsc --noEmit` clean, `npm run lint` clean (pre-existing `router.tsx` fast-refresh warnings only, unrelated to this story). **Correction (2026-08-01):** the `npx tsc --noEmit` result was a false negative — that command checks zero files in this repo, so it was never actually verifying anything. The real deploy build (`tsc -b`, via `npm run build`) caught a genuine, previously-undetected error: two pre-existing `DeviceResponse` mock fixtures in `FlatStructureEditor.test.tsx` (a file this story never touched) were missing the new `inUseSince`/`decommissionedDate` fields, and CI's `deploy` job failed on `main` as a result. Fixed post-merge; re-verified with `npx tsc -b` clean, `npm run build` clean, `dotnet test` 493/493, `npm test -- --run` 480/480, `npm run lint` clean. See the investigation case file for the full root-cause chain.
 
 ### File List
 
@@ -227,7 +227,9 @@ Claude Sonnet 5 (claude-sonnet-5)
 - `client/src/features/flat-structure/api/flatStructureApi.ts`
 - `client/src/locales/en-US/flat-structure.json`
 - `client/src/locales/de-DE/flat-structure.json`
+- `client/src/features/flat-structure/components/FlatStructureEditor.test.tsx` (post-merge fix, 2026-08-01 — see Change Log)
 
 ## Change Log
 
 - 2026-08-01: Implemented Story 12.1 — Device existence-window (`InUseSince`/`DecommissionedDate`) gating for standalone-device Decomposition estimates, plus both date fields in the Device editor UI. All 6 ACs satisfied; zero regressions across 491 backend + 480 frontend tests.
+- 2026-08-01 (post-merge): Deploy failed at CI's `deploy` job ("Build frontend" → `tsc -b`) — two pre-existing `DeviceResponse` mock literals in `FlatStructureEditor.test.tsx` (a file this story never touched) were missing the newly-required `inUseSince`/`decommissionedDate` fields. This went undetected pre-merge because `npm test -- --run` (Vitest) doesn't type-check, and the documented verification command (`npx tsc --noEmit`) is a silent no-op in this repo (`client/tsconfig.json` has `"files": []`, project-references only) — it was checking zero files during this story's original implementation and code review. Fixed by adding the two missing fields (both `null`) to both literals; re-verified with the correct command, `npx tsc -b`, plus a full `npm run build`, `dotnet test` (493/493), and `npm test -- --run` (480/480) — all clean. Full root-cause chain: `_bmad-output/implementation-artifacts/investigations/story-12-1-deploy-failure-investigation.md`.
