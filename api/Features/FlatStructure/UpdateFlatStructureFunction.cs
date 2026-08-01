@@ -95,39 +95,195 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                 detail = "Each Smart Plug may be assigned to exactly one Power Point."
             }) { StatusCode = 422 };
 
-        var existingRooms = await db.Rooms.Where(r => r.FlatId == flatGuid).ToListAsync(ct);
-        await db.LoadPowerPointsAndDevicesAsync(flatGuid, ct);
-        db.Rooms.RemoveRange(existingRooms);
-
-        var newRooms = request.Rooms.Select(r => new Room
-        {
-            FlatId = flatGuid,
-            Name = r.Name.Trim(),
-            SortOrder = r.SortOrder,
-            PowerPoints = r.PowerPoints.Select(pp => new PowerPoint
+        var roomIds = request.Rooms.Where(r => r.RoomId.HasValue).Select(r => r.RoomId!.Value).ToList();
+        var powerPointIds = request.Rooms.SelectMany(r => r.PowerPoints)
+            .Where(pp => pp.PowerPointId.HasValue).Select(pp => pp.PowerPointId!.Value).ToList();
+        var deviceIds = request.Rooms.SelectMany(r => r.PowerPoints).SelectMany(pp => pp.Devices)
+            .Where(d => d.DeviceId.HasValue).Select(d => d.DeviceId!.Value).ToList();
+        if (roomIds.Count != roomIds.Distinct().Count()
+            || powerPointIds.Count != powerPointIds.Distinct().Count()
+            || deviceIds.Count != deviceIds.Distinct().Count())
+            return new ObjectResult(new
             {
-                FlatId = flatGuid,
-                Name = pp.Name.Trim(),
-                PlugId = pp.PlugId,
-                Devices = pp.Devices.Select(d => new Device
-                {
-                    Name = d.Name.Trim(),
-                    Type = d.Type,
-                    Manufacturer = d.Manufacturer,
-                    Model = d.Model,
-                    PurchaseDate = d.PurchaseDate,
-                    InUseSince = d.InUseSince,
-                    DecommissionedDate = d.DecommissionedDate,
-                    ConsumptionApproach = d.ConsumptionApproach,
-                    EuLabelClass = d.EuLabelClass,
-                    EuAnnualKwh = d.EuAnnualKwh,
-                    SelfMeasuredKwh = d.SelfMeasuredKwh,
-                    SelfMeasuredPeriod = d.SelfMeasuredPeriod
-                }).ToList()
-            }).ToList()
-        }).ToList();
+                type = "https://tools.ietf.org/html/rfc4918#section-11.2",
+                title = "Unprocessable Entity", status = 422,
+                detail = "Each roomId, powerPointId, and deviceId may appear at most once in the request."
+            }) { StatusCode = 422 };
 
-        db.Rooms.AddRange(newRooms);
+        var existingRooms = await db.Rooms
+            .Include(r => r.PowerPoints)
+            .ThenInclude(pp => pp.Devices)
+            .Where(r => r.FlatId == flatGuid)
+            .ToListAsync(ct);
+
+        var existingRoomsById = existingRooms.ToDictionary(r => r.RoomId);
+        var existingPowerPointsById = existingRooms.SelectMany(r => r.PowerPoints)
+            .ToDictionary(pp => pp.PowerPointId);
+        var existingDevicesById = existingRooms.SelectMany(r => r.PowerPoints).SelectMany(pp => pp.Devices)
+            .ToDictionary(d => d.DeviceId);
+
+        // Loaded up front (all periods, not just open ones) so InMemory-provider cascade delete
+        // can see and remove every period belonging to a Device that gets deleted below.
+        var assignmentPeriods = await db.DeviceAssignmentPeriods.Where(p => p.FlatId == flatGuid).ToListAsync(ct);
+        var openPeriodByDeviceId = assignmentPeriods.Where(p => p.To == null).ToDictionary(p => p.DeviceId);
+
+        var matchedRoomIds = new HashSet<Guid>();
+        var matchedPowerPointIds = new HashSet<Guid>();
+        var matchedDeviceIds = new HashSet<Guid>();
+        var resultRooms = new List<Room>();
+        // Tracks the final PowerPoints/Devices per Room/PowerPoint explicitly, rather than relying on
+        // EF's as-loaded navigation collections — those are a pre-mutation snapshot and would not
+        // reflect entities added/moved above via db.Set<T>().Add(...) rather than collection.Add(...).
+        var powerPointsByRoom = new Dictionary<Room, List<PowerPoint>>();
+        var devicesByPowerPoint = new Dictionary<PowerPoint, List<Device>>();
+        var now = DateTimeOffset.UtcNow;
+
+        foreach (var roomInput in request.Rooms)
+        {
+            Room room;
+            if (roomInput.RoomId.HasValue && existingRoomsById.TryGetValue(roomInput.RoomId.Value, out var matchedRoom))
+            {
+                room = matchedRoom;
+                room.Name = roomInput.Name.Trim();
+                room.SortOrder = roomInput.SortOrder;
+                matchedRoomIds.Add(room.RoomId);
+            }
+            else
+            {
+                room = new Room { FlatId = flatGuid, Name = roomInput.Name.Trim(), SortOrder = roomInput.SortOrder };
+                db.Rooms.Add(room);
+            }
+
+            var roomPowerPoints = new List<PowerPoint>();
+            powerPointsByRoom[room] = roomPowerPoints;
+
+            foreach (var ppInput in roomInput.PowerPoints)
+            {
+                PowerPoint pp;
+                if (ppInput.PowerPointId.HasValue
+                    && existingPowerPointsById.TryGetValue(ppInput.PowerPointId.Value, out var matchedPp))
+                {
+                    pp = matchedPp;
+                    pp.RoomId = room.RoomId;
+                    pp.Name = ppInput.Name.Trim();
+                    pp.PlugId = ppInput.PlugId;
+                    matchedPowerPointIds.Add(pp.PowerPointId);
+                }
+                else
+                {
+                    pp = new PowerPoint
+                    {
+                        RoomId = room.RoomId,
+                        FlatId = flatGuid,
+                        Name = ppInput.Name.Trim(),
+                        PlugId = ppInput.PlugId
+                    };
+                    db.PowerPoints.Add(pp);
+                }
+
+                roomPowerPoints.Add(pp);
+                var ppDevices = new List<Device>();
+                devicesByPowerPoint[pp] = ppDevices;
+
+                foreach (var deviceInput in ppInput.Devices)
+                {
+                    if (deviceInput.DeviceId.HasValue
+                        && existingDevicesById.TryGetValue(deviceInput.DeviceId.Value, out var matchedDevice))
+                    {
+                        var previousPowerPointId = matchedDevice.PowerPointId;
+
+                        matchedDevice.Name = deviceInput.Name.Trim();
+                        matchedDevice.Type = deviceInput.Type;
+                        matchedDevice.Manufacturer = deviceInput.Manufacturer;
+                        matchedDevice.Model = deviceInput.Model;
+                        matchedDevice.PurchaseDate = deviceInput.PurchaseDate;
+                        matchedDevice.InUseSince = deviceInput.InUseSince;
+                        matchedDevice.DecommissionedDate = deviceInput.DecommissionedDate;
+                        matchedDevice.ConsumptionApproach = deviceInput.ConsumptionApproach;
+                        matchedDevice.EuLabelClass = deviceInput.EuLabelClass;
+                        matchedDevice.EuAnnualKwh = deviceInput.EuAnnualKwh;
+                        matchedDevice.SelfMeasuredKwh = deviceInput.SelfMeasuredKwh;
+                        matchedDevice.SelfMeasuredPeriod = deviceInput.SelfMeasuredPeriod;
+                        matchedDevice.PowerPointId = pp.PowerPointId;
+
+                        if (previousPowerPointId != pp.PowerPointId)
+                        {
+                            if (openPeriodByDeviceId.TryGetValue(matchedDevice.DeviceId, out var openPeriod))
+                                openPeriod.To = now;
+
+                            db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
+                            {
+                                DeviceId = matchedDevice.DeviceId,
+                                PowerPointId = pp.PowerPointId,
+                                FlatId = flatGuid,
+                                From = now,
+                                To = null
+                            });
+                        }
+
+                        matchedDeviceIds.Add(matchedDevice.DeviceId);
+                        ppDevices.Add(matchedDevice);
+                    }
+                    else
+                    {
+                        var device = new Device
+                        {
+                            PowerPointId = pp.PowerPointId,
+                            Name = deviceInput.Name.Trim(),
+                            Type = deviceInput.Type,
+                            Manufacturer = deviceInput.Manufacturer,
+                            Model = deviceInput.Model,
+                            PurchaseDate = deviceInput.PurchaseDate,
+                            InUseSince = deviceInput.InUseSince,
+                            DecommissionedDate = deviceInput.DecommissionedDate,
+                            ConsumptionApproach = deviceInput.ConsumptionApproach,
+                            EuLabelClass = deviceInput.EuLabelClass,
+                            EuAnnualKwh = deviceInput.EuAnnualKwh,
+                            SelfMeasuredKwh = deviceInput.SelfMeasuredKwh,
+                            SelfMeasuredPeriod = deviceInput.SelfMeasuredPeriod
+                        };
+                        db.Devices.Add(device);
+
+                        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
+                        {
+                            DeviceId = device.DeviceId,
+                            PowerPointId = pp.PowerPointId,
+                            FlatId = flatGuid,
+                            From = device.InUseSince ?? now,
+                            To = null
+                        });
+
+                        ppDevices.Add(device);
+                    }
+                }
+            }
+
+            resultRooms.Add(room);
+        }
+
+        foreach (var room in existingRooms)
+        {
+            if (!matchedRoomIds.Contains(room.RoomId))
+            {
+                db.Rooms.Remove(room);
+                continue;
+            }
+
+            foreach (var pp in room.PowerPoints.ToList())
+            {
+                if (!matchedPowerPointIds.Contains(pp.PowerPointId))
+                {
+                    db.PowerPoints.Remove(pp);
+                    continue;
+                }
+
+                foreach (var device in pp.Devices.ToList())
+                {
+                    if (!matchedDeviceIds.Contains(device.DeviceId))
+                        db.Devices.Remove(device);
+                }
+            }
+        }
 
         db.ApplyRowVersionCheck(flat, request.RowVersion);
         db.Entry(flat).State = EntityState.Modified;
@@ -157,16 +313,16 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
 
         var response = new FlatStructureResponse(
             flatGuid,
-            HasDefaultTemplate: newRooms.Count == 0,
-            Rooms: newRooms.OrderBy(r => r.SortOrder).Select(r => new RoomResponse(
+            HasDefaultTemplate: resultRooms.Count == 0,
+            Rooms: resultRooms.OrderBy(r => r.SortOrder).Select(r => new RoomResponse(
                 r.RoomId,
                 r.Name,
                 r.SortOrder,
-                r.PowerPoints.Select(pp => new PowerPointResponse(
+                powerPointsByRoom[r].Select(pp => new PowerPointResponse(
                     pp.PowerPointId,
                     pp.Name,
                     pp.PlugId,
-                    pp.Devices.Select(d => new DeviceResponse(
+                    devicesByPowerPoint[pp].Select(d => new DeviceResponse(
                         d.DeviceId,
                         d.Name,
                         d.Type,

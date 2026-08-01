@@ -41,6 +41,7 @@ export type FlatStructureResponse = {
 }
 
 export type DeviceInput = {
+  deviceId?: string
   name: string
   type?: string
   manufacturer?: string
@@ -56,12 +57,14 @@ export type DeviceInput = {
 }
 
 export type PowerPointInput = {
+  powerPointId?: string
   name: string
   plugId?: string
   devices: DeviceInput[]
 }
 
 export type RoomInput = {
+  roomId?: string
   name: string
   sortOrder: number
   powerPoints: PowerPointInput[]

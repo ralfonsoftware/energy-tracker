@@ -270,6 +270,160 @@ public class UpdateFlatStructureFunctionTests
     }
 
     [Fact]
+    public async Task RunAsync_DuplicateDeviceIdWithinSameFlatPayload_Returns422AndPersistsNothing()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room A", SortOrder = 0 };
+        var ppA = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Socket A" };
+        var ppB = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Socket B" };
+        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = ppA.PowerPointId, Name = "TV", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(room);
+        db.PowerPoints.AddRange(ppA, ppB);
+        db.Devices.Add(device);
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "roomId": "{{room.RoomId}}", "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "powerPointId": "{{ppA.PowerPointId}}", "name": "Socket A", "plugId": null,
+                                "devices": [ { "deviceId": "{{device.DeviceId}}", "name": "TV", "consumptionApproach": "None" } ]
+                            },
+                            {
+                                "powerPointId": "{{ppB.PowerPointId}}", "name": "Socket B", "plugId": null,
+                                "devices": [ { "deviceId": "{{device.DeviceId}}", "name": "TV", "consumptionApproach": "None" } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var objectResult = result.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(422);
+        (await db.DeviceAssignmentPeriods.CountAsync(p => p.DeviceId == device.DeviceId)).ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task RunAsync_DuplicateRoomIdWithinSameFlatPayload_Returns422()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room A", SortOrder = 0 };
+        db.Rooms.Add(room);
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    { "roomId": "{{room.RoomId}}", "name": "Room A", "sortOrder": 0, "powerPoints": [] },
+                    { "roomId": "{{room.RoomId}}", "name": "Room A Renamed", "sortOrder": 1, "powerPoints": [] }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var objectResult = result.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(422);
+    }
+
+    [Fact]
+    public async Task RunAsync_DuplicatePowerPointIdWithinSameFlatPayload_Returns422()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var roomA = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room A", SortOrder = 0 };
+        var roomB = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room B", SortOrder = 1 };
+        var pp = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = roomA.RoomId, Name = "Socket" };
+        db.Rooms.AddRange(roomA, roomB);
+        db.PowerPoints.Add(pp);
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "roomId": "{{roomA.RoomId}}", "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [ { "powerPointId": "{{pp.PowerPointId}}", "name": "Socket", "plugId": null, "devices": [] } ]
+                    },
+                    {
+                        "roomId": "{{roomB.RoomId}}", "name": "Room B", "sortOrder": 1,
+                        "powerPoints": [ { "powerPointId": "{{pp.PowerPointId}}", "name": "Socket", "plugId": null, "devices": [] } ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var objectResult = result.ShouldBeOfType<ObjectResult>();
+        objectResult.StatusCode.ShouldBe(422);
+    }
+
+    [Fact]
+    public async Task RunAsync_DeviceIdBelongsToAnotherFlat_TreatsAsNewInsteadOfHijackingIt()
+    {
+        var (flatA, db) = await SeedFlatAsync(userId: "user-a");
+        db.Users.Add(new User { UserId = "user-b" });
+        var flatB = new Flat
+        {
+            FlatId = Guid.NewGuid(),
+            UserId = "user-b",
+            Name = "Flat B",
+            AnnualKwhBaseline = 3500m,
+            SpikeThreshold = 2.0m,
+            RowVersion = TestRowVersion
+        };
+        db.Flats.Add(flatB);
+        var roomB = new Room { RoomId = Guid.NewGuid(), FlatId = flatB.FlatId, Name = "Room B", SortOrder = 0 };
+        var ppB = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = roomB.RoomId, Name = "Socket B" };
+        var deviceB = new Device { DeviceId = Guid.NewGuid(), PowerPointId = ppB.PowerPointId, Name = "Flat B's Device", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(roomB);
+        db.PowerPoints.Add(ppB);
+        db.Devices.Add(deviceB);
+        await db.SaveChangesAsync();
+
+        // Payload for flat A references flat B's deviceId — a stale/foreign id that must not be
+        // matched against flat B's row (which is scoped out of flat A's existingDevicesById lookup).
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "name": "Room A", "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "name": "Socket A", "plugId": null,
+                                "devices": [ { "deviceId": "{{deviceB.DeviceId}}", "name": "New Device", "consumptionApproach": "None" } ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flatA.FlatId.ToString(), MakeFunctionContext("user-a"), CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<FlatStructureResponse>();
+        var insertedDevice = response.Rooms.Single().PowerPoints.Single().Devices.Single();
+        insertedDevice.DeviceId.ShouldNotBe(deviceB.DeviceId); // inserted with a fresh id, not flat B's
+
+        // Flat B's original device is completely untouched.
+        var untouchedDeviceB = await db.Devices.SingleAsync(d => d.DeviceId == deviceB.DeviceId);
+        untouchedDeviceB.Name.ShouldBe("Flat B's Device");
+        untouchedDeviceB.PowerPointId.ShouldBe(ppB.PowerPointId);
+        (await db.Devices.CountAsync(d => d.PowerPointId == ppB.PowerPointId)).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task RunAsync_SamePlugIdAcrossDifferentFlats_Succeeds()
     {
         var (flatA, db) = await SeedFlatAsync(userId: "user-a");
@@ -854,5 +1008,178 @@ public class UpdateFlatStructureFunctionTests
 
         result.ShouldBeOfType<OkObjectResult>();
         (await db.PowerPoints.CountAsync(pp => pp.PlugId == null)).ShouldBe(2);
+    }
+
+    [Fact]
+    public async Task RunAsync_PayloadWithMatchingIds_UpdatesRowsInPlacePreservingPrimaryKeys()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Old Name", SortOrder = 0 };
+        var pp = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Old Socket" };
+        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = pp.PowerPointId, Name = "Old Device", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(room);
+        db.PowerPoints.Add(pp);
+        db.Devices.Add(device);
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "roomId": "{{room.RoomId}}",
+                        "name": "Renamed Room",
+                        "sortOrder": 0,
+                        "powerPoints": [
+                            {
+                                "powerPointId": "{{pp.PowerPointId}}",
+                                "name": "Renamed Socket",
+                                "plugId": null,
+                                "devices": [
+                                    { "deviceId": "{{device.DeviceId}}", "name": "Renamed Device", "consumptionApproach": "None" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        (await db.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(1);
+        var dbRoom = await db.Rooms.SingleAsync(r => r.FlatId == flat.FlatId);
+        dbRoom.RoomId.ShouldBe(room.RoomId);
+        dbRoom.Name.ShouldBe("Renamed Room");
+        var dbPp = await db.PowerPoints.SingleAsync();
+        dbPp.PowerPointId.ShouldBe(pp.PowerPointId);
+        dbPp.Name.ShouldBe("Renamed Socket");
+        var dbDevice = await db.Devices.SingleAsync();
+        dbDevice.DeviceId.ShouldBe(device.DeviceId);
+        dbDevice.Name.ShouldBe("Renamed Device");
+    }
+
+    [Fact]
+    public async Task RunAsync_MatchedDeviceMovedToDifferentPowerPoint_ClosesOldPeriodAndOpensNewOnePreservingDevicePk()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room", SortOrder = 0 };
+        var ppOld = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket A" };
+        var ppNew = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket B" };
+        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = ppOld.PowerPointId, Name = "Device", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(room);
+        db.PowerPoints.AddRange(ppOld, ppNew);
+        db.Devices.Add(device);
+        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = device.DeviceId,
+            PowerPointId = ppOld.PowerPointId,
+            FlatId = flat.FlatId,
+            From = DateTimeOffset.UtcNow.AddDays(-10),
+            To = null
+        });
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "roomId": "{{room.RoomId}}",
+                        "name": "Room",
+                        "sortOrder": 0,
+                        "powerPoints": [
+                            { "powerPointId": "{{ppOld.PowerPointId}}", "name": "Socket A", "plugId": null, "devices": [] },
+                            {
+                                "powerPointId": "{{ppNew.PowerPointId}}",
+                                "name": "Socket B",
+                                "plugId": null,
+                                "devices": [
+                                    { "deviceId": "{{device.DeviceId}}", "name": "Device", "consumptionApproach": "None" }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        var dbDevice = await db.Devices.SingleAsync();
+        dbDevice.DeviceId.ShouldBe(device.DeviceId);
+        dbDevice.PowerPointId.ShouldBe(ppNew.PowerPointId);
+
+        var periods = await db.DeviceAssignmentPeriods.Where(p => p.DeviceId == device.DeviceId).ToListAsync();
+        periods.Count.ShouldBe(2);
+        var closed = periods.Single(p => p.PowerPointId == ppOld.PowerPointId);
+        closed.To.ShouldNotBeNull();
+        var open = periods.Single(p => p.PowerPointId == ppNew.PowerPointId);
+        open.To.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task RunAsync_BrandNewDevice_GetsFreshlySeededDeviceAssignmentPeriod()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = MakeFunction(db);
+        var req = MakeRequest(ValidPayload); // ValidPayload's device carries no deviceId -> treated as new
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        var device = await db.Devices.SingleAsync();
+        var periods = await db.DeviceAssignmentPeriods.Where(p => p.DeviceId == device.DeviceId).ToListAsync();
+        var period = periods.ShouldHaveSingleItem();
+        period.To.ShouldBeNull();
+        period.PowerPointId.ShouldBe(device.PowerPointId);
+    }
+
+    [Fact]
+    public async Task RunAsync_DeviceAbsentFromPayload_IsDeletedAndItsAssignmentPeriodsCascadeAway()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room", SortOrder = 0 };
+        var pp = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket" };
+        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = pp.PowerPointId, Name = "Device", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(room);
+        db.PowerPoints.Add(pp);
+        db.Devices.Add(device);
+        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = device.DeviceId,
+            PowerPointId = pp.PowerPointId,
+            FlatId = flat.FlatId,
+            From = DateTimeOffset.UtcNow.AddDays(-5),
+            To = null
+        });
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "roomId": "{{room.RoomId}}",
+                        "name": "Room",
+                        "sortOrder": 0,
+                        "powerPoints": [
+                            { "powerPointId": "{{pp.PowerPointId}}", "name": "Socket", "plugId": null, "devices": [] }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        result.ShouldBeOfType<OkObjectResult>();
+        (await db.Devices.AnyAsync(d => d.DeviceId == device.DeviceId)).ShouldBeFalse();
+        (await db.DeviceAssignmentPeriods.AnyAsync(p => p.DeviceId == device.DeviceId)).ShouldBeFalse();
     }
 }

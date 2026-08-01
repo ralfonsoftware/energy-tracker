@@ -4,6 +4,7 @@ using EnergyTracker.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace EnergyTracker.Api.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260801190753_AddDeviceAssignmentPeriods")]
+    partial class AddDeviceAssignmentPeriods
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -108,11 +111,6 @@ namespace EnergyTracker.Api.Data.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("DeviceId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_DeviceAssignmentPeriods_DeviceId_OneOpenPeriod")
-                        .HasFilter("[To] IS NULL");
 
                     b.HasIndex("DeviceId", "From")
                         .HasDatabaseName("IX_DeviceAssignmentPeriods_DeviceId_From");

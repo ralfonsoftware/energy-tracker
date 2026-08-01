@@ -90,6 +90,20 @@ public class DecompositionEngineTests
         await db.SaveChangesAsync();
     }
 
+    private static async Task SeedAssignmentPeriodAsync(
+        AppDbContext db, Guid deviceId, Guid powerPointId, Guid flatId, DateTimeOffset from, DateTimeOffset? to = null)
+    {
+        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
+        {
+            DeviceId = deviceId,
+            PowerPointId = powerPointId,
+            FlatId = flatId,
+            From = from,
+            To = to
+        });
+        await db.SaveChangesAsync();
+    }
+
     [Fact]
     public async Task ComputeAsync_MeasuredSingleDevicePowerPoint_SumsPlugKwhAndAppliesTariff()
     {
@@ -110,6 +124,32 @@ public class DecompositionEngineTests
         device.IsSmartStrip.ShouldBeFalse();
         device.Cost.ShouldBe(1.5m);
         device.PowerPointId.ShouldBe(pp.PowerPointId);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_DeviceWithOnlyItsBackfilledPeriod_MatchesZeroPeriodBaseline()
+    {
+        // Literal AC2 backfill shape: a single open period whose PowerPointId already matches the
+        // device's current PowerPointId. This exercises DeviceAssignmentResolution's resolved,
+        // non-null branch — distinct from the null-fallback branch a zero-period device takes — and
+        // must produce identical output.
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId, "Living Room");
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Socket", plugId: "plug-1");
+        var device = await SeedDeviceAsync(db, pp.PowerPointId, "TV", approach: ConsumptionApproach.None);
+        await SeedAssignmentPeriodAsync(db, device.DeviceId, pp.PowerPointId, flatId, DateTimeOffset.MinValue, null);
+        await SeedDailyRowAsync(db, flatId, "plug-1", new DateOnly(2026, 1, 1), 2m);
+        await SeedDailyRowAsync(db, flatId, "plug-1", new DateOnly(2026, 1, 2), 3m);
+        await SeedTariffAsync(db, flatId, NoonUtc(2025, 1, 1), pricePerKwh: 0.30m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 2), CancellationToken.None);
+
+        var deviceResult = result.Rooms.Single().Devices.Single();
+        deviceResult.Kwh.ShouldBe(5m);
+        deviceResult.Approach.ShouldBe(AttributionApproach.Measured);
+        deviceResult.Cost.ShouldBe(1.5m);
+        deviceResult.PowerPointId.ShouldBe(pp.PowerPointId);
     }
 
     [Fact]
@@ -763,5 +803,171 @@ public class DecompositionEngineTests
 
         var device = result.Rooms.Single().Devices.Single(d => d.Name == "Fridge");
         device.Kwh.ShouldBe(1m); // DecommissionedDate == startDate is still inclusive -> counts only Jan 1
+    }
+
+    [Fact]
+    public async Task ComputeAsync_DeviceMidPeriodRoomMove_SplitsAcrossBothRoomsWithCorrectPartialTotals()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var roomA = await SeedRoomAsync(db, flatId, "Room A");
+        var roomB = await SeedRoomAsync(db, flatId, "Room B");
+        var ppA = await SeedPowerPointAsync(db, roomA.RoomId, "Socket A", plugId: "plug-a");
+        var ppB = await SeedPowerPointAsync(db, roomB.RoomId, "Socket B", plugId: "plug-b");
+        // Device's own current PowerPointId is ppB, matching its latest (open) assignment period.
+        var device = await SeedDeviceAsync(db, ppB.PowerPointId, "Traveling Device", approach: ConsumptionApproach.None);
+
+        await SeedAssignmentPeriodAsync(db, device.DeviceId, ppA.PowerPointId, flatId,
+            LocalMidnight(2026, 1, 1), LocalMidnight(2026, 1, 2));
+        await SeedAssignmentPeriodAsync(db, device.DeviceId, ppB.PowerPointId, flatId,
+            LocalMidnight(2026, 1, 3), null);
+
+        await SeedDailyRowAsync(db, flatId, "plug-a", new DateOnly(2026, 1, 1), 2m);
+        await SeedDailyRowAsync(db, flatId, "plug-a", new DateOnly(2026, 1, 2), 3m);
+        await SeedDailyRowAsync(db, flatId, "plug-b", new DateOnly(2026, 1, 3), 4m);
+        await SeedDailyRowAsync(db, flatId, "plug-b", new DateOnly(2026, 1, 4), 1m);
+        await SeedDailyRowAsync(db, flatId, "plug-b", new DateOnly(2026, 1, 5), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 5), CancellationToken.None);
+
+        var deviceInA = result.Rooms.Single(r => r.RoomId == roomA.RoomId).Devices.Single(d => d.DeviceId == device.DeviceId);
+        var deviceInB = result.Rooms.Single(r => r.RoomId == roomB.RoomId).Devices.Single(d => d.DeviceId == device.DeviceId);
+
+        deviceInA.Kwh.ShouldBe(5m); // Jan 1 + Jan 2
+        deviceInB.Kwh.ShouldBe(6m); // Jan 3 + Jan 4 + Jan 5
+        (deviceInA.Kwh + deviceInB.Kwh).ShouldBe(11m);
+        // ppA now has zero current Devices (the device moved to ppB) and would otherwise also feed
+        // its Jan 1/2 kwh into the orphaned-plug fallback, double-counting it into TotalKwh.
+        result.TotalKwh.ShouldBe(11m);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_DeviceMovedAwayFromPowerPointWithOtherUnclaimedDays_OnlyUnclaimedDaysCountAsOrphaned()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var roomA = await SeedRoomAsync(db, flatId, "Room A");
+        var roomB = await SeedRoomAsync(db, flatId, "Room B");
+        var ppA = await SeedPowerPointAsync(db, roomA.RoomId, "Socket A", plugId: "plug-a");
+        var ppB = await SeedPowerPointAsync(db, roomB.RoomId, "Socket B", plugId: "plug-b");
+        var device = await SeedDeviceAsync(db, ppB.PowerPointId, "Traveling Device", approach: ConsumptionApproach.None);
+
+        // Device only claims ppA for Jan 1 — Jan 2's plug-a reading has no device history behind it
+        // at all (e.g. ppA sat briefly empty) and must still surface as orphaned kwh (AC10), not be
+        // silently dropped by the double-count fix.
+        await SeedAssignmentPeriodAsync(db, device.DeviceId, ppA.PowerPointId, flatId,
+            LocalMidnight(2026, 1, 1), LocalMidnight(2026, 1, 2));
+        await SeedAssignmentPeriodAsync(db, device.DeviceId, ppB.PowerPointId, flatId,
+            LocalMidnight(2026, 1, 2), null);
+
+        await SeedDailyRowAsync(db, flatId, "plug-a", new DateOnly(2026, 1, 1), 2m);
+        await SeedDailyRowAsync(db, flatId, "plug-a", new DateOnly(2026, 1, 2), 9m); // unclaimed by any device
+        await SeedDailyRowAsync(db, flatId, "plug-b", new DateOnly(2026, 1, 2), 4m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 2), CancellationToken.None);
+
+        var deviceInA = result.Rooms.Single(r => r.RoomId == roomA.RoomId).Devices.Single(d => d.DeviceId == device.DeviceId);
+        deviceInA.Kwh.ShouldBe(2m); // Jan 1 only
+        result.TotalKwh.ShouldBe(15m); // 2 (deviceA, Jan1) + 4 (deviceB, Jan2) + 9 (orphaned plug-a, Jan2)
+    }
+
+    [Fact]
+    public async Task ComputeAsync_ResolvedPowerPointNoLongerExists_FallsBackToCurrentPowerPointWithoutLosingKwh()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Socket", plugId: "plug-1");
+        var device = await SeedDeviceAsync(db, pp.PowerPointId, "Device", approach: ConsumptionApproach.None);
+
+        // Simulates a PowerPoint that's since been deleted — the historical period still points at
+        // a PowerPointId absent from the current structure snapshot.
+        var deletedPowerPointId = Guid.NewGuid();
+        await SeedAssignmentPeriodAsync(db, device.DeviceId, deletedPowerPointId, flatId, LocalMidnight(2026, 1, 1), null);
+
+        await SeedDailyRowAsync(db, flatId, "plug-1", new DateOnly(2026, 1, 1), 5m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var deviceResult = result.Rooms.Single().Devices.Single(d => d.DeviceId == device.DeviceId);
+        deviceResult.Kwh.ShouldBe(5m);
+        deviceResult.PowerPointId.ShouldBe(pp.PowerPointId);
+    }
+
+    [Fact]
+    public async Task ComputeAsync_ResolvedPowerPointIsNowASmartStrip_FallsBackInsteadOfDoubleCountingPlugKwh()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var roomA = await SeedRoomAsync(db, flatId, "Room A");
+        var roomB = await SeedRoomAsync(db, flatId, "Room B");
+        var ppX = await SeedPowerPointAsync(db, roomA.RoomId, "Socket X", plugId: "plug-x");
+        var deviceX = await SeedDeviceAsync(db, ppX.PowerPointId, "DeviceX", approach: ConsumptionApproach.None);
+        var ppStrip = await SeedPowerPointAsync(db, roomB.RoomId, "Strip", plugId: "strip-1");
+        await SeedDeviceAsync(db, ppStrip.PowerPointId, "DeviceY", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 730m); // daily = 2
+        await SeedDeviceAsync(db, ppStrip.PowerPointId, "DeviceZ", approach: ConsumptionApproach.SelfMeasured, selfMeasuredKwh: 6m, selfMeasuredPeriod: SelfMeasuredPeriod.Daily);
+        await SeedDailyRowAsync(db, flatId, "strip-1", new DateOnly(2026, 1, 1), 80m);
+
+        // DeviceX's entire history says it was on ppStrip — but ppStrip is *currently* a Smart Power
+        // Strip shared by DeviceY/DeviceZ. The day-by-day path must not attribute ppStrip's full raw
+        // plug kwh to DeviceX on top of the strip's own pool-math share for DeviceY/DeviceZ.
+        await SeedAssignmentPeriodAsync(db, deviceX.DeviceId, ppStrip.PowerPointId, flatId, LocalMidnight(2026, 1, 1), null);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var stripDecomposition = result.Rooms.Single(r => r.RoomId == roomB.RoomId).Devices.Single();
+        stripDecomposition.IsSmartStrip.ShouldBeTrue();
+        stripDecomposition.Kwh.ShouldBe(80m);
+
+        var deviceXResult = result.Rooms.Single(r => r.RoomId == roomA.RoomId).Devices.Single(d => d.DeviceId == deviceX.DeviceId);
+        deviceXResult.Kwh.ShouldBe(0m); // ppX (its current PowerPoint) has no daily data seeded — falls back, doesn't inherit the strip's 80
+        result.Rooms.Sum(r => r.Kwh).ShouldBe(80m); // not 160 — the strip's kwh must not be counted twice
+    }
+
+    [Fact]
+    public async Task ComputeAsync_SmartPowerStripSubDeviceWithAssignmentPeriod_PoolMathUnaffected()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var roomA = await SeedRoomAsync(db, flatId, "Room A");
+        var roomB = await SeedRoomAsync(db, flatId, "Room B");
+        var pp = await SeedPowerPointAsync(db, roomA.RoomId, "Strip", plugId: "strip-1");
+        var deviceA = await SeedDeviceAsync(db, pp.PowerPointId, "DeviceA", approach: ConsumptionApproach.EuLabel, euAnnualKwh: 730m); // daily = 2
+        await SeedDeviceAsync(db, pp.PowerPointId, "DeviceB", approach: ConsumptionApproach.SelfMeasured, selfMeasuredKwh: 6m, selfMeasuredPeriod: SelfMeasuredPeriod.Daily);
+        await SeedDailyRowAsync(db, flatId, "strip-1", new DateOnly(2026, 1, 1), 80m);
+
+        // Even though a period claims DeviceA moved to a Power Point in Room B, sub-device pool
+        // math (AC7) must ignore assignment-period history entirely and keep using the strip's
+        // current, structural Room.
+        var otherPpInRoomB = await SeedPowerPointAsync(db, roomB.RoomId, "Unrelated Socket");
+        await SeedAssignmentPeriodAsync(db, deviceA.DeviceId, otherPpInRoomB.PowerPointId, flatId, LocalMidnight(2026, 1, 1), null);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 1), CancellationToken.None);
+
+        var stripInRoomA = result.Rooms.Single(r => r.RoomId == roomA.RoomId).Devices.Single();
+        stripInRoomA.IsSmartStrip.ShouldBeTrue();
+        stripInRoomA.Kwh.ShouldBe(80m);
+        stripInRoomA.SubDevices!.Single(d => d.Name == "DeviceA").Kwh.ShouldBe(20m); // unchanged pool math (2/8 * 80)
+        result.Rooms.Single(r => r.RoomId == roomB.RoomId).Devices.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task ComputeAsync_NonTerminatingDecimalDivision_RoundsToExactlyFourDecimalPlaces()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var room = await SeedRoomAsync(db, flatId);
+        var pp = await SeedPowerPointAsync(db, room.RoomId, "Unplugged Socket");
+        await SeedDeviceAsync(db, pp.PowerPointId, "Lamp", approach: ConsumptionApproach.SelfMeasured, selfMeasuredKwh: 10m, selfMeasuredPeriod: SelfMeasuredPeriod.Weekly);
+        var otherPp = await SeedPowerPointAsync(db, room.RoomId, "Other Socket", plugId: "plug-other");
+        await SeedDeviceAsync(db, otherPp.PowerPointId, "Other", approach: ConsumptionApproach.None);
+        await SeedDailyRowAsync(db, flatId, "plug-other", new DateOnly(2026, 1, 1), 1m);
+
+        var result = await MakeEngine(db).ComputeAsync(flatId, new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 3), CancellationToken.None);
+
+        var device = result.Rooms.Single().Devices.Single(d => d.Name == "Lamp");
+        var expected = Math.Round(10m / 7m * 3m, 4, MidpointRounding.AwayFromZero);
+        device.Kwh.ShouldBe(expected);
+        device.Kwh.ShouldNotBe(10m / 7m * 3m); // proves rounding actually happened, not a pass-through
     }
 }

@@ -74,6 +74,7 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
     if (!isSaveEnabled) return
     onSave({
       key: device?.key ?? crypto.randomUUID(),
+      deviceId: device?.deviceId,
       name: name.trim(),
       type,
       manufacturer,

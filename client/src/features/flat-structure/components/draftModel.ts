@@ -8,6 +8,10 @@ import type {
 
 export type DraftDevice = {
   key: string
+  // Absent = new device, client-added, never persisted. Present = the
+  // server-side Device id, round-tripped back on save so the backend can
+  // preserve its identity (and DeviceAssignmentPeriod history) across saves.
+  deviceId?: string
   name: string
   type: string
   manufacturer: string
@@ -30,13 +34,17 @@ export type DraftPowerPoint = {
   plugId: string
   devices: DraftDevice[]
   // Absent = new power point, client-added, never persisted. Present = the
-  // server-side PowerPoint id, used only for deep-link view targeting
-  // (never sent back to the server).
+  // server-side PowerPoint id, used both for deep-link view targeting and
+  // round-tripped back on save so the backend can preserve its identity.
   powerPointId?: string
 }
 
 export type DraftRoom = {
   key: string
+  // Absent = new room, client-added, never persisted. Present = the
+  // server-side Room id, round-tripped back on save so the backend can
+  // preserve its identity.
+  roomId?: string
   name: string
   // Absent = new room, never persisted (always dirty). Present = existing
   // room; dirty only when `name` differs from this last-saved value.
@@ -47,6 +55,7 @@ export type DraftRoom = {
 export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
   return rooms.map(room => ({
     key: crypto.randomUUID(),
+    roomId: room.roomId,
     name: room.name,
     originalName: room.name.trim(),
     powerPoints: room.powerPoints.map(powerPoint => ({
@@ -56,6 +65,7 @@ export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
       powerPointId: powerPoint.powerPointId,
       devices: powerPoint.devices.map(device => ({
         key: crypto.randomUUID(),
+        deviceId: device.deviceId,
         name: device.name,
         type: device.type ?? '',
         manufacturer: device.manufacturer ?? '',
@@ -85,12 +95,15 @@ export function createDefaultDraftRooms(t: (key: string) => string): DraftRoom[]
 
 export function toRoomInput(room: DraftRoom, name: string): RoomInput {
   return {
+    roomId: room.roomId,
     name,
     sortOrder: 0,
     powerPoints: room.powerPoints.map(powerPoint => ({
+      powerPointId: powerPoint.powerPointId,
       name: powerPoint.name,
       plugId: powerPoint.plugId.trim() || undefined,
       devices: powerPoint.devices.map(device => ({
+        deviceId: device.deviceId,
         name: device.name,
         type: device.type.trim() || undefined,
         manufacturer: device.manufacturer.trim() || undefined,

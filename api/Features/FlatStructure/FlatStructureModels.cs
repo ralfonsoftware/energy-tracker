@@ -36,6 +36,7 @@ public record FlatStructureResponse(
     byte[] RowVersion);
 
 public record DeviceInput(
+    Guid? DeviceId,
     string Name,
     string? Type,
     string? Manufacturer,
@@ -50,11 +51,13 @@ public record DeviceInput(
     SelfMeasuredPeriod? SelfMeasuredPeriod);
 
 public record PowerPointInput(
+    Guid? PowerPointId,
     string Name,
     string? PlugId,
     List<DeviceInput> Devices);
 
 public record RoomInput(
+    Guid? RoomId,
     string Name,
     int SortOrder,
     List<PowerPointInput> PowerPoints);

@@ -24,6 +24,7 @@ public static class AppDbContextExtensions
         await db.Set<Tariff>().Where(t => t.FlatId == flatId).LoadAsync(ct);
         await db.Set<Room>().Where(r => r.FlatId == flatId).LoadAsync(ct);
         await db.LoadPowerPointsAndDevicesAsync(flatId, ct);
+        await db.Set<DeviceAssignmentPeriod>().Where(p => p.FlatId == flatId).LoadAsync(ct);
         await db.Set<ImportJob>().Where(j => j.FlatId == flatId).LoadAsync(ct);
         await db.Set<SmartPlugDailyData>().Where(d => d.FlatId == flatId).LoadAsync(ct);
         await db.Set<SmartPlugIntervalData>().Where(d => d.FlatId == flatId).LoadAsync(ct);

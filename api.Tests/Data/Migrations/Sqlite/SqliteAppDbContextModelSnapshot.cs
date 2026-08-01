@@ -80,6 +80,40 @@ namespace api.Tests.Data.Migrations.Sqlite
                     b.ToTable("Devices", (string)null);
                 });
 
+            modelBuilder.Entity("EnergyTracker.Api.Data.Entities.DeviceAssignmentPeriod", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("DeviceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("FlatId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("From")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PowerPointId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("To")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DeviceId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_DeviceAssignmentPeriods_DeviceId_OneOpenPeriod")
+                        .HasFilter("[To] IS NULL");
+
+                    b.HasIndex("DeviceId", "From")
+                        .HasDatabaseName("IX_DeviceAssignmentPeriods_DeviceId_From");
+
+                    b.ToTable("DeviceAssignmentPeriods", (string)null);
+                });
+
             modelBuilder.Entity("EnergyTracker.Api.Data.Entities.Flat", b =>
                 {
                     b.Property<Guid>("FlatId")
@@ -463,6 +497,17 @@ namespace api.Tests.Data.Migrations.Sqlite
                         .IsRequired();
 
                     b.Navigation("PowerPoint");
+                });
+
+            modelBuilder.Entity("EnergyTracker.Api.Data.Entities.DeviceAssignmentPeriod", b =>
+                {
+                    b.HasOne("EnergyTracker.Api.Data.Entities.Device", "Device")
+                        .WithMany()
+                        .HasForeignKey("DeviceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Device");
                 });
 
             modelBuilder.Entity("EnergyTracker.Api.Data.Entities.Flat", b =>

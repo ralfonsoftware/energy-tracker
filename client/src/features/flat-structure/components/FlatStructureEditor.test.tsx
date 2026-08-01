@@ -234,6 +234,26 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByLabelText('device.namePlaceholder')).toHaveValue('')
   })
 
+  it('FlatStructureEditor_SaveAfterAddingDevice_ExistingDeviceKeepsDeviceIdNewDeviceOmitsIt', async () => {
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponseWithDevice() })
+
+    renderEditor()
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[0])
+    await user.click(screen.getByRole('button', { name: 'powerPoint.addDevice' }))
+    await user.type(screen.getByLabelText('device.namePlaceholder'), 'Toaster')
+    await user.click(screen.getByRole('button', { name: 'device.save' }))
+    await user.click(screen.getByRole('button', { name: /editor\.back/ }))
+    await user.click(screen.getByRole('button', { name: 'editor.save: Office' }))
+
+    expect(mockMutate).toHaveBeenCalledTimes(1)
+    const payload = mockMutate.mock.calls[0][0]
+    const devices = payload.rooms[0].powerPoints[0].devices
+    expect(devices.find((d: { name: string }) => d.name === 'Lamp')).toMatchObject({ deviceId: 'device-1' })
+    const toaster = devices.find((d: { name: string }) => d.name === 'Toaster')
+    expect(toaster.deviceId).toBeUndefined()
+  })
+
   it('FlatStructureEditor_TwoPowerPointsSameNonEmptyPlugId_SaveDisabledWithConflictText', () => {
     setupFlatStructure({
       data: seededResponse({
@@ -365,14 +385,17 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
             powerPoints: [
               {
+                powerPointId: 'pp-1',
                 name: 'Desk Outlet',
                 plugId: 'PLUG-1',
                 devices: [
                   {
+                    deviceId: 'device-1',
                     name: 'Lamp',
                     type: undefined,
                     manufacturer: undefined,
@@ -583,14 +606,16 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-1',
             name: 'Office Renamed',
             sortOrder: 0,
-            powerPoints: [{ name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
           },
           {
+            roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
         rowVersion: 'AQID',
@@ -617,14 +642,16 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
           },
           {
+            roomId: 'room-2',
             name: 'Garage Renamed',
             sortOrder: 1,
-            powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
         rowVersion: 'AQID',
@@ -674,9 +701,10 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-2',
             name: 'Garage',
             sortOrder: 0,
-            powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
         rowVersion: 'AQID',
@@ -742,17 +770,19 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-1',
             name: 'Office Renamed',
             sortOrder: 0,
             powerPoints: [
-              { name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] },
-              { name: 'Fridge Outlet', plugId: undefined, devices: [] },
+              { powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] },
+              { powerPointId: undefined, name: 'Fridge Outlet', plugId: undefined, devices: [] },
             ],
           },
           {
+            roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
         rowVersion: 'AQID',
@@ -786,16 +816,18 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
           },
           {
+            roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
-          { name: 'NewB Renamed', sortOrder: 2, powerPoints: [] },
+          { roomId: undefined, name: 'NewB Renamed', sortOrder: 2, powerPoints: [] },
         ],
         rowVersion: 'new-version',
       },
@@ -857,14 +889,16 @@ describe('FlatStructureEditor', () => {
       {
         rooms: [
           {
+            roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ name: 'Desk Outlet Updated', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet Updated', plugId: 'PLUG-1', devices: [] }],
           },
           {
+            roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
           },
         ],
         rowVersion: 'AQID',
