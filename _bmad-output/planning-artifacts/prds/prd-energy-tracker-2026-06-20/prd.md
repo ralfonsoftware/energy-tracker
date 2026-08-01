@@ -2,7 +2,7 @@
 title: "PRD: energy-tracker"
 status: final
 created: 2026-06-20
-updated: 2026-07-27
+updated: 2026-08-01
 ---
 
 # PRD: energy-tracker
@@ -388,6 +388,22 @@ A standalone Device (no Smart Plug, no Smart Power Strip assignment) with no con
 **Consequences (testable):**
 - A standalone Device with `ConsumptionApproach = None` shows no kWh/cost figure and no zero value in the Decomposition view — only a configuration prompt.
 
+#### FR-52: Device existence window
+The user can specify when a Device started consuming power (`InUseSince`) and, optionally, when it was decommissioned (`DecommissionedDate`). When set, these dates gate the Device's inclusion in Decomposition for periods outside that window; when unset, the Device is treated as always included (backward-compatible default). `InUseSince`/`DecommissionedDate` apply independently of `PurchaseDate` (FR-29), which remains purely informational (e.g., for warranty tracking).
+
+**Consequences (testable):**
+- A Device with `InUseSince` set to a date within the query period contributes estimated kWh only for days on/after that date, not the full period.
+- A Device with `DecommissionedDate` set stops contributing estimated kWh for days after that date.
+- A Device with neither date set behaves exactly as before — full-period inclusion, preserving backward compatibility for all existing data.
+
+#### FR-53: Device room-assignment history
+The app tracks a Device's Power Point assignment history over time. When a Device's Power Point assignment changes via the Flat Structure editor, the app records the date of the change automatically — no manual date entry required. For any Decomposition query period spanning a Device's reassignment, the Device's consumption for each day is attributed to the Room its Power Point belonged to on that day, not to its current Room.
+
+**Consequences (testable):**
+- A Device reassigned to a different Power Point on date X, queried over a period spanning both before and after X, shows consumption split between the two Rooms by date.
+- Reassigning a Device requires no manual date entry — the change is recorded automatically at save time.
+- Existing Devices (predating this feature) resolve to their current Power Point for their entire history via a one-time migration backfill — no device silently disappears from Decomposition.
+
 ---
 
 ### 4.10 Consumption Decomposition
@@ -417,6 +433,13 @@ Periods with no imported Smart Plug Data are shown in the Decomposition view as 
 **Consequences (testable):**
 - Selecting a period with no Smart Plug Data in the Decomposition view displays the "decomposition unavailable" state and an import prompt.
 - Selecting a period with interpolated data displays the interpolated-data hint.
+
+#### FR-54: Period total consumption summary
+The Decomposition view shows the selected period's total kWh and total cost alongside the period selector, so the user can relate individual Room and Device breakdown figures to the period total without doing mental math. Not shown in the "decomposition unavailable" state, consistent with FR-34.
+
+**Consequences (testable):**
+- Selecting a period with Smart Plug Data shows a total-kWh and total-cost figure next to the period selector.
+- Selecting a period with no Smart Plug Data (the "decomposition unavailable" state) does not show the total figure.
 
 ---
 
@@ -475,6 +498,15 @@ When a discovery run's detector produces a finding whose primary quantified figu
 - A detector finding matching the most recently stored Insight of the same Type/Device within 5% does not create a new `Insight` row.
 - A detector finding differing from the most recently stored Insight of the same Type/Device by more than 5% creates a new `Insight` row; the prior row is not deleted or modified, but is no longer returned by the default Insights read.
 - The Insights page never shows more than one card per `(Type, Device)` identity at a time, regardless of how many historical `Insight` rows exist for it in the data store.
+
+#### FR-55: Insight dismiss and reactivate
+A user can dismiss an Insight they've acted on or don't want to see, and later reactivate it. Dismissing an Insight suppresses its entire finding identity (`Type`, and `Device` where applicable) from both the default Insights view and future discovery runs — a dismissed identity does not resurface with a new finding, even if the underlying figure changes, until the user reactivates it. Reactivating restores the Insight to the default view and allows future discovery runs to detect and persist new findings for that identity again, per FR-51's existing de-duplication rule.
+
+**Consequences (testable):**
+- Dismissing an Insight removes it from the default Insights view immediately.
+- While an identity is dismissed, a scheduled or manual discovery run that would otherwise persist a new finding for that identity (per FR-51) does not do so.
+- Reactivating a dismissed Insight returns it to the default Insights view.
+- After reactivation, a subsequent discovery run persists a new finding for that identity per FR-51's normal 5%-tolerance rule.
 
 ---
 
@@ -592,7 +624,16 @@ On tablet and desktop viewports, device cards within a Room Card lay out in a re
 - Dropdown/overlay visibility (FR-46)
 - Responsive device card grid on tablet/desktop (FR-47)
 
-### 6.4 Out of Scope (All Releases)
+### 6.4 Release 4 — Device Lifecycle Attribution (In Scope)
+
+*Added 2026-08-01 via architecture review + brainstorming session, not the original PRD or a retrospective — see `epics/epic-12-device-lifecycle-and-date-aware-decomposition-attribution.md`.*
+
+- Device existence window gating estimated-device inclusion in Decomposition (FR-52)
+- Device room-assignment history for date-aware Decomposition attribution (FR-53)
+- Period total consumption summary alongside the Decomposition period selector (FR-54) — added 2026-08-01 via `bmad-correct-course`, sourced directly from Ralf, not from architecture review or brainstorming like FR-52/53
+- Insight dismiss and reactivate (FR-55) — added 2026-08-01 via `bmad-correct-course`, sourced directly from Ralf; placed in Epic 12 despite living in the Actionable Insights FR cluster (§4.11), same split as FR-54/§4.10
+
+### 6.5 Out of Scope (All Releases)
 
 See §5 Non-Goals for the full explicit exclusions list.
 

@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-08-01 (Story 11.12 → done)
+# last_updated: 2026-08-01 (Epic 12 added — backlog, via bmad-correct-course; Story 12.3 added same day, second bmad-correct-course pass; Story 12.4 added same day, third bmad-correct-course pass)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -157,3 +157,11 @@ development_status:
   # 11.14 amends FR-51 (same-day follow-up to 11.13) — scopes GetInsightsFunction's default read
   11-14-scope-default-insights-read-to-most-recent-per-identity: done
   epic-11-retrospective: optional
+
+  # Epic 12: Device Lifecycle & Date-Aware Decomposition Attribution
+  # Starts after epic-11-retrospective completes, per Ralf's 2026-08-01 sequencing decision
+  epic-12: backlog
+  12-1-device-existence-window-estimated-consumption-gating: backlog
+  12-2-device-room-assignment-history-date-aware-decomposition-attribution: backlog
+  12-3-decomposition-tab-period-total-consumption-summary: backlog
+  12-4-insight-dismiss-and-reactivate: backlog

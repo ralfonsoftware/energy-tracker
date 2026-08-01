@@ -56,4 +56,9 @@ A prioritized batch of deferred technical-debt, correctness, and consistency ite
 **FRs covered:** FR-51 (Stories 11.13, 11.14) — otherwise entirely engineering-hardening/bugfix work, consistent with the precedent set by Story 6.0 and Epic 9 Part 2.
 **UX items:** A new UX-DR may be assigned during Story 11.9's design gate, same pattern as Stories 9.1/9.6.
 
+## Epic 12: Device Lifecycle & Date-Aware Decomposition Attribution
+Devices gain an existence window and a room-assignment history, so Decomposition figures stay accurate as the device inventory and physical layout change over time. Sourced from an architecture review and a brainstorming session, not the original PRD or a retrospective — see `brainstorming-session-2026-08-01-14-56.md` and `sprint-change-proposal-2026-08-01.md`. Also carries two thematically unrelated small asks bucketed here per Ralf's choice rather than reopening Epic 7 or Epic 11: Story 12.3 (Decomposition period total, `sprint-change-proposal-2026-08-01-period-total.md`) and Story 12.4 (Insight dismiss/reactivate, `sprint-change-proposal-2026-08-01-insight-dismiss.md`).
+**FRs covered:** FR-52, FR-53, FR-54, FR-55
+**UX items:** UX-DR21 (Period Total summary tile, Story 12.3), UX-DR22 (Insight dismiss/reactivate affordances, Story 12.4). Stories 12.1/12.2 remain UX-DR-free — 12.1 adds one optional date field to the existing Device form, 12.2 is implemented transparently.
+
 ---

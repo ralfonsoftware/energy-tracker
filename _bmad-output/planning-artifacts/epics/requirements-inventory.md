@@ -50,6 +50,7 @@ FR-37: The app computes a rolling monthly projection and generates a budget pres
 FR-38: Insight discovery runs automatically daily at 02:00 UTC. The user can also trigger discovery manually. Prior insights remain visible during a new run.
 FR-39: A visible progress indicator is displayed for the full duration of an insight discovery run.
 FR-43: The app computes a rolling annual kWh figure and generates an invoice deviation Insight when consumption is trending ±10% or more above or below the Annual kWh Baseline. Insight shows projected annual kWh, baseline, and implied euro difference at current Tariff.
+FR-51: When a discovery run's detector produces a finding whose primary figure is within 5% of the same finding identity's most recently stored value, the new finding is not persisted; the default Insights view shows only the most-recently-stored row per `(Type, Device)` identity. *(Epic 11, Story 11.13/11.14 — backfilled here 2026-08-01; this FR existed in `prd.md` since 2026-07-27 but was never added to this inventory or the FR Coverage Map below.)*
 
 **Release 3 (UI & Behavior Consistency, added post-Epic-7 retro):**
 
@@ -59,6 +60,13 @@ FR-44: Structural edits to Flat Structure (adding or deleting a Room) save autom
 FR-45: Every save/cancel action in a form or sheet is positioned adjacent to the fields it commits, and remains within the visible viewport without requiring the user to scroll to find it, across all supported browsers (including Safari).
 FR-46: Every dropdown/overlay/popover in the app renders fully visible and unclipped within the viewport, regardless of its trigger's position on the page.
 FR-47: On tablet and desktop viewports, device cards within a Room Card lay out in a responsive multi-column grid instead of a single full-width column per device.
+
+**Release 4 (Device Lifecycle Attribution, added 2026-08-01 via brainstorming + bmad-correct-course):**
+
+FR-52: The user can specify a Device's `InUseSince` and optional `DecommissionedDate`. These gate estimated-device inclusion in Decomposition for periods outside that window; unset means always-included (backward compatible). Independent of `PurchaseDate` (FR-29).
+FR-53: The app tracks a Device's Power Point assignment history automatically (no manual date entry). Decomposition attributes a Device's daily consumption to whichever Room it belonged to on that day, splitting across Rooms for a period spanning a reassignment.
+FR-54: The Decomposition tab shows the period's total kWh and total cost alongside the period selector, so the user can relate individual Room/Device figures to the period total. Not shown in the "decomposition unavailable" state.
+FR-55: The user can dismiss an Insight (suppressing its entire finding identity from the default view and future discovery runs) and later reactivate it (restoring the view and resuming detection). See FR-51 for the identity/de-duplication mechanics this builds on.
 
 ## NonFunctional Requirements
 
@@ -140,6 +148,10 @@ UX-DR19: Voice and tone microcopy — arrow-first numeric deltas (↓/↑ symbol
 
 UX-DR20: Onboarding flow — Intro screen (app name + value prop, locale dropdown top-right, "Get Started" CTA) → Step 1 (flat name input) → Step 2 (Annual kWh Baseline with 4 household-size presets + custom value input; required Tariff fields + optional fields; auto-derived annual budget showing calculation derivation, editable). Onboarding gate component blocks all main routes until both steps complete. Step indicator shows current step position.
 
+UX-DR21: Period Total summary tile — glass-surface KpiTile pattern (label + kWh headline + € subline) rendered alongside the Decomposition period selector; skeleton-aware while loading; suppressed in the "decomposition unavailable" state.
+
+UX-DR22: Insight dismiss/reactivate — dismiss affordance (icon button) on `InsightCard`; Active/Dismissed toggle on the Insights tab; reactivate affordance on cards shown in the Dismissed view. No new glass-surface pattern — reuses existing card chrome and icon-button conventions.
+
 ## FR Coverage Map
 
 ```
@@ -190,4 +202,9 @@ FR-44: Epic 8 — Flat Structure room add/delete autosave
 FR-45: Epic 8 — Save/cancel action placement and viewport visibility (conformance completed in Epic 9 — Story 8.2's StickyActionBar did not structurally satisfy this FR)
 FR-46: Epic 8 — Dropdown/overlay visibility (unclipped rendering)
 FR-47: Epic 8 — Responsive device card grid on tablet/desktop
+FR-51: Epic 11 — Insight de-duplication and historical retention
+FR-52: Epic 12 — Device existence window
+FR-53: Epic 12 — Device room-assignment history
+FR-54: Epic 12 — Period total consumption summary
+FR-55: Epic 12 — Insight dismiss and reactivate
 ```

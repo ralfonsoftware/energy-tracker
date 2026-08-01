@@ -208,6 +208,12 @@ Flat deletion cascades all child data (FR-23). Meter Readings are edited in-plac
 **AD-8a: Smart Power Strip decomposition allocation formula (D-44, amended 2026-07-18)**
 Each configured device's share is `(device_estimated_kWh / pool_total) × strip_measured_total`, where `pool_total` = sum of configured devices' estimates + (unconfigured_device_count × nominal_weight), and `nominal_weight` is the average estimated kWh across configured devices. Each unconfigured device receives an identical share of `(nominal_weight / pool_total) × strip_measured_total`. When a strip has zero configured devices, every device receives an equal split of `strip_measured_total ÷ device_count`. All shares sum to exactly `strip_measured_total` by construction.
 
+**AD-8b: Device existence window and room-assignment history (added 2026-08-01)**
+`Device.InUseSince`/`DecommissionedDate` (nullable) gate estimated-device inclusion in `DecompositionEngine`, day-clamped; unset means always-included (backward compatible). A device's Power Point assignment history is tracked in a new `DeviceAssignmentPeriods` table, resolved via the same "latest period with `From <= date`" idiom already established for `Tariff`/`TariffResolution` — day-by-day room resolution, not a single current-structure snapshot. `PowerPoint.PlugId` gains no equivalent history — a relocated/repurposed Smart Plug or Smart Power Strip is handled as a new plug via manual delete-and-re-add, a deliberate simplification (see Epic 12).
+
+**AD-8c: Insight de-duplication, retention, and dismiss/reactivate (added 2026-08-01, backfilling FR-51's undocumented design + new FR-55)**
+`InsightDeduplication.cs` compares a new finding's primary figure against the most-recently-stored `Insight` row for its `(FlatId, Type, DeviceId)` identity within a 5% relative tolerance; a near-duplicate is not persisted, so the default read (`GetInsightsFunction.cs`) already collapses to one representative row per identity. FR-55 (Story 12.4) reuses that same representative row rather than introducing a separate suppression table: `IsDismissed`/`DismissedAt` on the `Insight` row doubles as both "hide from default view" and "suppress future detection for this identity" — a dismissed identity's dedup check short-circuits to "skip" regardless of the 5% comparison, and reactivating (clearing the flag) restores both the view and normal dedup evaluation in one step.
+
 **Entity model:**
 
 | Table | Key columns |
@@ -218,12 +224,13 @@ Each configured device's share is `(device_estimated_kWh / pool_total) × strip_
 | `MeterReadings` | `ReadingId` (guid), `FlatId` FK, `ReadingDate` (datetimeoffset), `KwhValue` (decimal), `IsCorrected` (bool), `OriginalKwhValue` (nullable decimal) |
 | `Rooms` | `RoomId` (guid), `FlatId` FK, `Name`, `SortOrder` (int) |
 | `PowerPoints` | `PowerPointId` (guid), `RoomId` FK, `Name`, `PlugId` (string, nullable — assigned smart plug identifier) |
-| `Devices` | `DeviceId` (guid), `PowerPointId` FK, `Name`, `Type`, `Manufacturer`, `Model`, `PurchaseDate` (nullable), `ConsumptionApproach` (enum: None/EuLabel/SelfMeasured), `EuLabelClass` (nullable), `EuAnnualKwh` (nullable decimal), `SelfMeasuredKwh` (nullable decimal), `SelfMeasuredPeriod` (nullable enum: Daily/Weekly) |
+| `Devices` | `DeviceId` (guid), `PowerPointId` FK, `Name`, `Type`, `Manufacturer`, `Model`, `PurchaseDate` (nullable), `InUseSince` (nullable datetimeoffset), `DecommissionedDate` (nullable datetimeoffset), `ConsumptionApproach` (enum: None/EuLabel/SelfMeasured), `EuLabelClass` (nullable), `EuAnnualKwh` (nullable decimal), `SelfMeasuredKwh` (nullable decimal), `SelfMeasuredPeriod` (nullable enum: Daily/Weekly) |
+| `DeviceAssignmentPeriods` | `Id` (guid), `DeviceId` FK, `PowerPointId` FK, `FlatId` FK, `From` (datetimeoffset), `To` (nullable datetimeoffset — null = current) |
 | `SmartPlugDailyData` | `Id` (guid), `PlugId` (string), `FlatId` FK, `Date` (date), `KwhValue` (decimal), `IsInterpolated` (bool) |
 | `SmartPlugIntervalData` | `Id` (guid), `PlugId` (string), `FlatId` FK, `Timestamp` (datetimeoffset), `WhValue` (decimal) — Eve Home only |
 | `ImportJobs` | `ImportJobId` (guid), `FlatId` FK, `Status` (enum), `CreatedAt`, `CompletedAt` (nullable), `ErrorCategory` (nullable enum) |
 | `InsightRuns` | `RunId` (guid), `FlatId` FK, `Status` (enum), `StartedAt`, `CompletedAt` (nullable) |
-| `Insights` | `InsightId` (guid), `FlatId` FK, `RunId` FK, `Type` (enum: Standby/Replacement/Budget/InvoiceDeviation), `DeviceId` (nullable guid FK), `Data` (JSON column), `CreatedAt` |
+| `Insights` | `InsightId` (guid), `FlatId` FK, `RunId` FK, `Type` (enum: Standby/Replacement/Budget/InvoiceDeviation), `DeviceId` (nullable guid FK), `Data` (JSON column), `CreatedAt`, `IsDismissed` (bool, default false), `DismissedAt` (nullable datetimeoffset) |
 
 `Insights.Data` is a JSON column. The `Type` enum determines the shape of the JSON payload; no separate per-insight-type tables. Azure SQL supports JSON natively; insight payloads are never queried relationally.
 
@@ -903,6 +910,7 @@ All 43 functional requirements and all 4 non-functional requirements are archite
 | Decomposition | FR-32–34 | `DecompositionEngine.cs`; `ResidualCard.tsx` always rendered; `DecompositionUnavailable.tsx` for no-data periods |
 | Standby Detection | FR-35 | `StandbyDetector.cs` on `SmartPlugIntervalData` (Eve Home only); Meross excluded by data format constraint (AD-2) |
 | Insights | FR-36–39 | `Insights/` slice; queue-triggered processing; timer trigger at 02:00 UTC; `InsightDiscoveryProgress.tsx` |
+| Insight De-dup / Dismiss | FR-51, FR-55 | `InsightDeduplication.cs` (5% tolerance vs. most-recent per identity, AD-8c); `GetInsightsFunction.cs` active/dismissed filtering; `PatchInsightFunction.cs` dismiss/reactivate |
 | Localization | FR-40–42 | `LocaleResolver.cs`; `i18n.ts`; `Intl.NumberFormat` / `Intl.DateTimeFormat` at render time only; stored locale override in user profile |
 | Invoice Deviation | FR-43 | `InvoiceDeviationDetector.cs`; threshold ±10% of `AnnualKwhBaseline` |
 | NFR-1 Performance | — | Three-tier model; Tier 1 synchronous; Tier 3 blob + queue async |
