@@ -493,6 +493,10 @@
 - No `aria-describedby` linking a blocked room's name/plug-ID input to its inline error text — same gap already exists in `RoomEditor.tsx`'s source pattern, not introduced by this diff. `client/src/features/flat-structure/components/FlatStructureEditor.tsx:435-439`
 - Plug-ID conflict compares against other rooms' last-saved (not draft) state, producing a confusing "still blocked after you fixed it" UX case — traced and confirmed as existing, unmodified `hasPlugIdConflictForRoomSave` logic; this diff only makes the pre-existing staleness visible via the new inline text, documented in a test comment rather than fixed. `client/src/features/flat-structure/components/draftModel.ts` (unmodified), test comment at `client/src/features/flat-structure/components/FlatStructureEditor.test.tsx:288-290`
 
+## Deferred from: code review of story-12.4 (2026-08-02)
+
+- Active/Dismissed toggle uses `role="radiogroup"`/`role="radio"` without roving-tabindex/arrow-key keyboard support — same gap already present in `DeviceEditor.tsx`'s toggle that this story's Dev Notes explicitly directed to copy, not introduced by this diff. `client/src/features/insights/components/InsightsTab.tsx:65-91`, `client/src/features/flat-structure/components/DeviceEditor.tsx:208-217`
+
 ## Deferred from: code review of story 11.11 (2026-07-31)
 
 - `parseLocalDate`/`formatDate` can still throw uncaught on malformed backend-sourced dates, with no error boundary anywhere in `client/src` to catch it — explicitly scoped out by Story 11.11's own Dev Notes ("the backend always returns valid `DateTimeOffset` values today... not a new runtime safety net for a reachable production path"); pre-existing, not newly introduced. `client/src/features/tariffs/components/TariffForm.tsx:70,194`

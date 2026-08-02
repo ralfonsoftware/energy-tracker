@@ -17,6 +17,9 @@ public class InsightConfiguration : IEntityTypeConfiguration<Insight>
         builder.Property(i => i.DeviceId).IsRequired(false);
         builder.Property(i => i.Data).IsRequired();
         builder.Property(i => i.CreatedAt).IsRequired();
+        builder.Property(i => i.IsDismissed).IsRequired().HasDefaultValue(false);
+        builder.Property(i => i.DismissedAt).IsRequired(false);
+        builder.Property(i => i.RowVersion).IsRowVersion();
 
         builder.HasOne(i => i.Flat)
             .WithMany()

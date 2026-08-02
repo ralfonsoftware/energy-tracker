@@ -22,6 +22,14 @@ vi.mock('@/features/insights/hooks/useTriggerInsights')
 import { useTriggerInsights } from '@/features/insights/hooks/useTriggerInsights'
 const mockUseTriggerInsights = vi.mocked(useTriggerInsights)
 
+vi.mock('@/features/insights/hooks/useDismissInsight')
+import { useDismissInsight } from '@/features/insights/hooks/useDismissInsight'
+const mockUseDismissInsight = vi.mocked(useDismissInsight)
+
+vi.mock('@/features/insights/hooks/useReactivateInsight')
+import { useReactivateInsight } from '@/features/insights/hooks/useReactivateInsight'
+const mockUseReactivateInsight = vi.mocked(useReactivateInsight)
+
 const sevenDaysConsumption = Array.from({ length: 30 }, (_, i) => ({
   date: `2026-06-${String(i + 1).padStart(2, '0')}`,
   kwhValue: 5,
@@ -71,6 +79,8 @@ function mockInsights(overrides: {
 }
 
 const mockMutate = vi.fn()
+const mockDismissMutate = vi.fn()
+const mockReactivateMutate = vi.fn()
 
 describe('InsightsTab', () => {
   beforeEach(() => {
@@ -79,6 +89,14 @@ describe('InsightsTab', () => {
       mutate: mockMutate,
       isPending: false,
     } as unknown as ReturnType<typeof useTriggerInsights>)
+    mockUseDismissInsight.mockReturnValue({
+      mutate: mockDismissMutate,
+      isPending: false,
+    } as unknown as ReturnType<typeof useDismissInsight>)
+    mockUseReactivateInsight.mockReturnValue({
+      mutate: mockReactivateMutate,
+      isPending: false,
+    } as unknown as ReturnType<typeof useReactivateInsight>)
   })
 
   it('InsightsTab_Loading_RendersSkeletonBlocks', () => {
@@ -113,6 +131,7 @@ describe('InsightsTab', () => {
             insightId: 'i-1',
             deviceId: null,
             createdAt: '2026-07-19T00:00:00Z',
+            rowVersion: 'rv-1',
             type: 'Standby',
             data: { deviceName: 'Coffee Machine', meanStandbyWatts: 4, estimatedMonthlyKwh: 2, estimatedMonthlyCost: 0.5 },
           },
@@ -136,6 +155,7 @@ describe('InsightsTab', () => {
             insightId: 'i-1',
             deviceId: null,
             createdAt: '2026-07-19T00:00:00Z',
+            rowVersion: 'rv-1',
             type: 'Standby',
             data: { deviceName: 'Coffee Machine', meanStandbyWatts: 4, estimatedMonthlyKwh: 2, estimatedMonthlyCost: 0.5 },
           },
@@ -222,5 +242,113 @@ describe('InsightsTab', () => {
 
     expect(screen.getByText('emptyState.noFindings')).toBeInTheDocument()
     expect(screen.queryByText('emptyState.insufficientData')).not.toBeInTheDocument()
+  })
+
+  it('InsightsTab_ClickDismissedToggle_SwitchesUseInsightsStatusArgAndRendersReactivateButtons', async () => {
+    const user = userEvent.setup()
+    mockDashboard(30)
+    mockInsights({
+      data: {
+        runStatus: null,
+        insights: [
+          {
+            insightId: 'i-1',
+            deviceId: null,
+            createdAt: '2026-07-19T00:00:00Z',
+            rowVersion: 'rv-1',
+            type: 'Standby',
+            data: { deviceName: 'Coffee Machine', meanStandbyWatts: 4, estimatedMonthlyKwh: 2, estimatedMonthlyCost: 0.5 },
+          },
+        ],
+      },
+    })
+
+    render(<InsightsTab flatId="flat-1" />)
+    expect(mockUseInsights).toHaveBeenLastCalledWith('flat-1', 'active')
+    expect(screen.getByRole('button', { name: 'card.dismissLabel' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'toggle.dismissed' }))
+
+    expect(mockUseInsights).toHaveBeenLastCalledWith('flat-1', 'dismissed')
+    expect(screen.getByRole('button', { name: 'card.reactivateLabel' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'card.dismissLabel' })).not.toBeInTheDocument()
+  })
+
+  it('InsightsTab_DismissedToggleWithNoResults_ShowsNoDismissedEmptyStateNotActiveEmptyStates', async () => {
+    const user = userEvent.setup()
+    mockDashboard(10)
+    mockInsights({ data: { runStatus: null, insights: [] } })
+
+    render(<InsightsTab flatId="flat-1" />)
+    await user.click(screen.getByRole('radio', { name: 'toggle.dismissed' }))
+
+    expect(screen.getByText('emptyState.noDismissed')).toBeInTheDocument()
+    expect(screen.queryByText('emptyState.insufficientData')).not.toBeInTheDocument()
+  })
+
+  it('InsightsTab_ClickDismissButton_CallsDismissMutateWithInsightIdAndRowVersion', async () => {
+    const user = userEvent.setup()
+    mockDashboard(30)
+    mockInsights({
+      data: {
+        runStatus: null,
+        insights: [
+          {
+            insightId: 'i-1',
+            deviceId: null,
+            createdAt: '2026-07-19T00:00:00Z',
+            rowVersion: 'rv-1',
+            type: 'Standby',
+            data: { deviceName: 'Coffee Machine', meanStandbyWatts: 4, estimatedMonthlyKwh: 2, estimatedMonthlyCost: 0.5 },
+          },
+        ],
+      },
+    })
+
+    render(<InsightsTab flatId="flat-1" />)
+    await user.click(screen.getByRole('button', { name: 'card.dismissLabel' }))
+
+    expect(mockDismissMutate).toHaveBeenCalledWith({ insightId: 'i-1', rowVersion: 'rv-1' })
+  })
+
+  it('InsightsTab_DismissMutationPending_DisablesTheDismissButton', () => {
+    mockDashboard(30)
+    mockInsights({
+      data: {
+        runStatus: null,
+        insights: [
+          {
+            insightId: 'i-1',
+            deviceId: null,
+            createdAt: '2026-07-19T00:00:00Z',
+            rowVersion: 'rv-1',
+            type: 'Standby',
+            data: { deviceName: 'Coffee Machine', meanStandbyWatts: 4, estimatedMonthlyKwh: 2, estimatedMonthlyCost: 0.5 },
+          },
+        ],
+      },
+    })
+    mockUseDismissInsight.mockReturnValue({
+      mutate: mockDismissMutate,
+      isPending: true,
+    } as unknown as ReturnType<typeof useDismissInsight>)
+
+    render(<InsightsTab flatId="flat-1" />)
+
+    expect(screen.getByRole('button', { name: 'card.dismissLabel' })).toBeDisabled()
+  })
+
+  it('InsightsTab_DismissMutationErrored_ShowsActionErrorAlert', () => {
+    mockDashboard(30)
+    mockInsights({ data: { runStatus: null, insights: [] } })
+    mockUseDismissInsight.mockReturnValue({
+      mutate: mockDismissMutate,
+      isPending: false,
+      isError: true,
+    } as unknown as ReturnType<typeof useDismissInsight>)
+
+    render(<InsightsTab flatId="flat-1" />)
+
+    expect(screen.getByText('actionError')).toBeInTheDocument()
   })
 })

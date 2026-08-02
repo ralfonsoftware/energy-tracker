@@ -48,11 +48,30 @@ public class GetInsightsFunction(AppDbContext db, ILogger<GetInsightsFunction> l
             ? null
             : new RunStatusDto(mostRecentRun.Status, mostRecentRun.StartedAt, mostRecentRun.CompletedAt);
 
+        var status = req.Query["status"].ToString();
+        bool wantDismissed;
+        if (string.IsNullOrEmpty(status) || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase))
+            wantDismissed = false;
+        else if (string.Equals(status, "dismissed", StringComparison.OrdinalIgnoreCase))
+            wantDismissed = true;
+        else
+            return new BadRequestObjectResult(new
+            {
+                type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
+                title = "Bad Request", status = 400,
+                detail = "status must be 'active' or 'dismissed'."
+            });
+
+        // Fetched unfiltered by IsDismissed: the per-identity selection below must pick each
+        // identity's single true most-recent row first (regardless of dismissal state) before
+        // routing by view, otherwise dismissing the current row could let an older, still-active
+        // row for the same identity resurface in the Active view instead of the identity
+        // disappearing entirely (AD-8c's whole-identity-suppression design).
         var insights = await db.Insights.AsNoTracking()
             .Where(i => i.FlatId == flatGuid)
             .OrderByDescending(i => i.CreatedAt)
             .ThenByDescending(i => i.InsightId)
-            .Select(i => new { i.InsightId, i.Type, i.DeviceId, i.Data, i.CreatedAt })
+            .Select(i => new { i.InsightId, i.Type, i.DeviceId, i.Data, i.CreatedAt, i.IsDismissed, i.RowVersion })
             .ToListAsync(ct);
 
         var insightsByIdentity = insights.GroupBy(i => (i.Type, i.DeviceId)).ToList();
@@ -62,6 +81,7 @@ public class GetInsightsFunction(AppDbContext db, ILogger<GetInsightsFunction> l
         {
             var candidates = group.ToList();
             InsightDto? selected = null;
+            var selectedIsDismissed = false;
 
             foreach (var i in candidates)
             {
@@ -80,11 +100,15 @@ public class GetInsightsFunction(AppDbContext db, ILogger<GetInsightsFunction> l
                     continue;
                 }
 
-                selected = new InsightDto(i.InsightId, i.Type, i.DeviceId, data, i.CreatedAt);
+                selected = new InsightDto(i.InsightId, i.Type, i.DeviceId, data, i.CreatedAt, i.RowVersion);
+                selectedIsDismissed = i.IsDismissed;
                 break;
             }
 
-            if (selected is null)
+            // The identity's current representative row belongs to exactly one view at a time —
+            // if it doesn't match the requested view, the identity has nothing to show here (no
+            // fallback to an older row of the other dismissal state).
+            if (selected is null || selectedIsDismissed != wantDismissed)
                 continue;
 
             insightDtos.Add(selected);

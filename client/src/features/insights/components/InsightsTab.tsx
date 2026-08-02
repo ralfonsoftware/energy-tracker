@@ -4,6 +4,8 @@ import { useDashboard } from '@/features/dashboard/hooks/useDashboard'
 import { TrendChart } from '@/features/dashboard/components/TrendChart'
 import { useInsights } from '@/features/insights/hooks/useInsights'
 import { useTriggerInsights } from '@/features/insights/hooks/useTriggerInsights'
+import { useDismissInsight } from '@/features/insights/hooks/useDismissInsight'
+import { useReactivateInsight } from '@/features/insights/hooks/useReactivateInsight'
 import { InsightsPeriodSelector, type InsightsPeriod } from '@/features/insights/components/InsightsPeriodSelector'
 import { InsightCard } from '@/features/insights/components/InsightCard'
 import { InsightDiscoveryProgress } from '@/features/insights/components/InsightDiscoveryProgress'
@@ -13,6 +15,7 @@ type Props = { flatId: string | undefined }
 export function InsightsTab({ flatId }: Props) {
   const { t } = useTranslation('insights')
   const [days, setDays] = useState<InsightsPeriod>(30)
+  const [view, setView] = useState<'active' | 'dismissed'>('active')
 
   const {
     data: dashboard,
@@ -31,8 +34,10 @@ export function InsightsTab({ flatId }: Props) {
     isPending: isInsightsPending,
     isError: isInsightsError,
     refetch: refetchInsights,
-  } = useInsights(flatId)
+  } = useInsights(flatId, view)
   const triggerInsights = useTriggerInsights(flatId)
+  const dismissInsight = useDismissInsight(flatId)
+  const reactivateInsight = useReactivateInsight(flatId)
 
   const isPending = isHistoryPending || isInsightsPending
   const isError = isDashboardError || isHistoryError || isInsightsError
@@ -59,6 +64,41 @@ export function InsightsTab({ flatId }: Props) {
       >
         {t('refreshButton')}
       </button>
+
+      {(dismissInsight.isError || reactivateInsight.isError) && (
+        <p role="alert" className="mx-4 text-body-sm text-accent-error">
+          {t('actionError')}
+        </p>
+      )}
+
+      <div className="mx-4 flex gap-2" role="radiogroup" aria-label={t('toggle.sectionLabel')}>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={view === 'active'}
+          onClick={() => setView('active')}
+          className={`min-h-11 rounded-input border px-4 py-2.5 text-sm font-medium transition-colors ${
+            view === 'active'
+              ? 'border-white/[0.12] bg-white/[0.07] text-white/85'
+              : 'border-transparent bg-transparent text-white/50'
+          }`}
+        >
+          {t('toggle.active')}
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={view === 'dismissed'}
+          onClick={() => setView('dismissed')}
+          className={`min-h-11 rounded-input border px-4 py-2.5 text-sm font-medium transition-colors ${
+            view === 'dismissed'
+              ? 'border-white/[0.12] bg-white/[0.07] text-white/85'
+              : 'border-transparent bg-transparent text-white/50'
+          }`}
+        >
+          {t('toggle.dismissed')}
+        </button>
+      </div>
 
       <div className="mx-4 flex flex-col gap-3">
         {isPending && (
@@ -89,14 +129,23 @@ export function InsightsTab({ flatId }: Props) {
 
         {!isPending && !isError && (
           <>
-            {isDiscovering && <InsightDiscoveryProgress />}
+            {view === 'active' && isDiscovering && <InsightDiscoveryProgress />}
 
             {insights.length > 0 ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {insights.map(insight => (
-                  <InsightCard key={insight.insightId} insight={insight} />
+                  <InsightCard
+                    key={insight.insightId}
+                    insight={insight}
+                    view={view}
+                    onDismiss={(insightId, rowVersion) => dismissInsight.mutate({ insightId, rowVersion })}
+                    onReactivate={(insightId, rowVersion) => reactivateInsight.mutate({ insightId, rowVersion })}
+                    actionDisabled={view === 'active' ? dismissInsight.isPending : reactivateInsight.isPending}
+                  />
                 ))}
               </div>
+            ) : view === 'dismissed' ? (
+              <p className="text-body-sm text-text-secondary">{t('emptyState.noDismissed')}</p>
             ) : isDiscovering ? null : runStatus?.status === 'Failed' ? (
               <p className="text-body-sm text-text-secondary">{t('emptyState.runFailed')}</p>
             ) : readingHistoryDays < 30 ? (

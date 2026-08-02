@@ -17,6 +17,9 @@ public class Insight
     public Guid? DeviceId { get; set; }
     public required string Data { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public bool IsDismissed { get; set; }
+    public DateTimeOffset? DismissedAt { get; set; }
+    public byte[] RowVersion { get; set; } = [];
     public Flat Flat { get; set; } = null!;
     public InsightRun? Run { get; set; }
     public Device? Device { get; set; }

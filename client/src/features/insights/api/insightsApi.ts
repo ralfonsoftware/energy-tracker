@@ -41,6 +41,7 @@ type InsightBase = {
   insightId: string
   deviceId: string | null
   createdAt: string
+  rowVersion: string
 }
 
 export type InsightDto =
@@ -56,8 +57,15 @@ export type InsightsResponse = {
 
 export type TriggerInsightsResponse = { runId: string }
 
-export const getInsights = (flatId: string) =>
-  apiClient.get<InsightsResponse>(`/flats/${flatId}/insights`)
+export type InsightsStatus = 'active' | 'dismissed'
+
+export type PatchInsightResponse = { insightId: string; isDismissed: boolean; dismissedAt: string | null; rowVersion: string }
+
+export const getInsights = (flatId: string, status: InsightsStatus = 'active') =>
+  apiClient.get<InsightsResponse>(`/flats/${flatId}/insights?status=${status}`)
 
 export const triggerInsights = (flatId: string) =>
   apiClient.post<TriggerInsightsResponse>(`/flats/${flatId}/insights/trigger`)
+
+export const patchInsight = (flatId: string, insightId: string, isDismissed: boolean, rowVersion: string) =>
+  apiClient.patch<PatchInsightResponse>(`/flats/${flatId}/insights/${insightId}`, { isDismissed, rowVersion })

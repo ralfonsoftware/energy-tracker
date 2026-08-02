@@ -11,9 +11,11 @@ public record RunStatusDto(InsightRunStatus Status, DateTimeOffset StartedAt, Da
 
 // Data is a JsonElement (not string) so System.Text.Json embeds the detector's stored
 // JSON as-is in the response body, rather than double-encoding it as an escaped string.
-public record InsightDto(Guid InsightId, InsightType Type, Guid? DeviceId, JsonElement Data, DateTimeOffset CreatedAt);
+public record InsightDto(Guid InsightId, InsightType Type, Guid? DeviceId, JsonElement Data, DateTimeOffset CreatedAt, byte[] RowVersion);
 
 public record InsightsResponse(RunStatusDto? RunStatus, IReadOnlyList<InsightDto> Insights);
+
+public record PatchInsightResponse(Guid InsightId, bool IsDismissed, DateTimeOffset? DismissedAt, byte[] RowVersion);
 
 public record InsightDiscoveryMessage(Guid FlatId, Guid RunId);
 

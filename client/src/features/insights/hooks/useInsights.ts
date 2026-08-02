@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import { getInsights, type InsightsResponse } from '@/features/insights/api/insightsApi'
+import { getInsights, type InsightsResponse, type InsightsStatus } from '@/features/insights/api/insightsApi'
 
-export const useInsights = (flatId: string | undefined) =>
+export const useInsights = (flatId: string | undefined, status: InsightsStatus = 'active') =>
   useQuery({
-    queryKey: ['insights', flatId],
-    queryFn: () => getInsights(flatId as string),
+    queryKey: ['insights', flatId, status],
+    queryFn: () => getInsights(flatId as string, status),
     enabled: !!flatId,
     refetchInterval: (query: { state: { data?: InsightsResponse; status: string } }) => {
       if (query.state.status === 'error') return false

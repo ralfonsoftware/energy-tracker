@@ -14,7 +14,7 @@ public class InsightDeduplicationTests
             .Options);
 
     private static async Task SeedInsightAsync(
-        AppDbContext db, Guid flatId, InsightType type, Guid? deviceId, string data, DateTimeOffset? createdAt = null)
+        AppDbContext db, Guid flatId, InsightType type, Guid? deviceId, string data, DateTimeOffset? createdAt = null, bool isDismissed = false)
     {
         db.Insights.Add(new Insight
         {
@@ -23,7 +23,9 @@ public class InsightDeduplicationTests
             Type = type,
             DeviceId = deviceId,
             Data = data,
-            CreatedAt = createdAt ?? DateTimeOffset.UtcNow
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
+            IsDismissed = isDismissed,
+            DismissedAt = isDismissed ? DateTimeOffset.UtcNow : null
         });
         await db.SaveChangesAsync();
     }
@@ -140,6 +142,41 @@ public class InsightDeduplicationTests
             db, flatId, InsightType.Standby, deviceB, 101m, CancellationToken.None);
 
         result.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task IsNearDuplicateOfMostRecentAsync_MostRecentRowIsDismissed_ReturnsTrueRegardlessOfTolerance()
+    {
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var deviceId = Guid.NewGuid();
+        await SeedInsightAsync(db, flatId, InsightType.Standby, deviceId, """{"estimatedMonthlyCost":100.00}""", isDismissed: true);
+
+        // 1000 vs 100 is far outside the 5% tolerance, but the most recent row is dismissed,
+        // so the identity must stay suppressed regardless of the tolerance comparison.
+        var result = await InsightDeduplication.IsNearDuplicateOfMostRecentAsync(
+            db, flatId, InsightType.Standby, deviceId, 1000m, CancellationToken.None);
+
+        result.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task IsNearDuplicateOfMostRecentAsync_MostRecentRowIsDismissedAndWithinTolerance_ReturnsTrueViaDismissalShortCircuit()
+    {
+        // Distinguishes "suppressed because dismissed" from "suppressed because it would have
+        // deduped anyway" — this value is well within the 5% tolerance, so without the dismissal
+        // short-circuit the ordinary tolerance comparison alone would already return true here.
+        // The short-circuit test above (far outside tolerance) only proves the dismissed branch
+        // matters when tolerance alone would say "no"; this one exists purely for completeness.
+        var db = MakeDb();
+        var flatId = Guid.NewGuid();
+        var deviceId = Guid.NewGuid();
+        await SeedInsightAsync(db, flatId, InsightType.Standby, deviceId, """{"estimatedMonthlyCost":100.00}""", isDismissed: true);
+
+        var result = await InsightDeduplication.IsNearDuplicateOfMostRecentAsync(
+            db, flatId, InsightType.Standby, deviceId, 102m, CancellationToken.None);
+
+        result.ShouldBeTrue();
     }
 
     [Fact]

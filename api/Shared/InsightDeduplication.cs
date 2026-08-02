@@ -37,6 +37,9 @@ public static class InsightDeduplication
         if (mostRecent is null)
             return false;
 
+        if (mostRecent.IsDismissed)
+            return true;
+
         var existingValue = ExtractPrimaryValue(mostRecent.Data, type);
         if (existingValue is null)
             return false;

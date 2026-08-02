@@ -221,8 +221,22 @@ namespace EnergyTracker.Api.Data.Migrations
                     b.Property<Guid?>("DeviceId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTimeOffset?>("DismissedAt")
+                        .HasColumnType("datetimeoffset");
+
                     b.Property<Guid>("FlatId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsDismissed")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<Guid?>("RunId")
                         .HasColumnType("uniqueidentifier");

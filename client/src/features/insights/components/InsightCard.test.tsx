@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { vi, describe, it, expect } from 'vitest'
 import { InsightCard } from '@/features/insights/components/InsightCard'
 import type { InsightDto } from '@/features/insights/api/insightsApi'
@@ -18,6 +19,7 @@ const standby: InsightDto = {
   insightId: 'i-1',
   deviceId: 'd-1',
   createdAt: '2026-07-20T00:00:00Z',
+  rowVersion: 'rv-1',
   type: 'Standby',
   data: {
     deviceName: 'Coffee Machine',
@@ -31,6 +33,7 @@ const replacement: InsightDto = {
   insightId: 'i-2',
   deviceId: 'd-2',
   createdAt: '2026-07-20T00:00:00Z',
+  rowVersion: 'rv-2',
   type: 'Replacement',
   data: {
     deviceName: 'Old Fridge',
@@ -45,6 +48,7 @@ const budget: InsightDto = {
   insightId: 'i-3',
   deviceId: null,
   createdAt: '2026-07-20T00:00:00Z',
+  rowVersion: 'rv-3',
   type: 'Budget',
   data: {
     projectedAnnualCost: 1200,
@@ -57,6 +61,7 @@ const invoiceDeviationAbove: InsightDto = {
   insightId: 'i-4',
   deviceId: null,
   createdAt: '2026-07-20T00:00:00Z',
+  rowVersion: 'rv-4',
   type: 'InvoiceDeviation',
   data: {
     projectedAnnualKwh: 4200,
@@ -69,7 +74,7 @@ const invoiceDeviationAbove: InsightDto = {
 
 describe('InsightCard', () => {
   it('InsightCard_StandbyType_RendersDeviceNameWattsAndCost', () => {
-    render(<InsightCard insight={standby} />)
+    render(<InsightCard insight={standby} view="active" onDismiss={vi.fn()} onReactivate={vi.fn()} actionDisabled={false} />)
 
     expect(screen.getByText('Coffee Machine')).toBeInTheDocument()
     expect(screen.getByText(`card.standby.watts|${JSON.stringify({ watts: 4.2 })}`)).toBeInTheDocument()
@@ -79,7 +84,7 @@ describe('InsightCard', () => {
   })
 
   it('InsightCard_ReplacementType_RendersDeviceNameCostSavingsAndSuggestedClass', () => {
-    render(<InsightCard insight={replacement} />)
+    render(<InsightCard insight={replacement} view="active" onDismiss={vi.fn()} onReactivate={vi.fn()} actionDisabled={false} />)
 
     expect(screen.getByText('Old Fridge')).toBeInTheDocument()
     expect(
@@ -92,7 +97,7 @@ describe('InsightCard', () => {
   })
 
   it('InsightCard_BudgetType_RendersProjectedPlannedAndOverspendWithErrorAccentBorder', () => {
-    const { container } = render(<InsightCard insight={budget} />)
+    const { container } = render(<InsightCard insight={budget} view="active" onDismiss={vi.fn()} onReactivate={vi.fn()} actionDisabled={false} />)
 
     expect(
       screen.getByText(`card.budget.projected|${JSON.stringify({ cost: formatCurrency(1200) })}`)
@@ -107,7 +112,7 @@ describe('InsightCard', () => {
   })
 
   it('InsightCard_InvoiceDeviationTypeAbove_RendersProjectedBaselineAndDelta', () => {
-    render(<InsightCard insight={invoiceDeviationAbove} />)
+    render(<InsightCard insight={invoiceDeviationAbove} view="active" onDismiss={vi.fn()} onReactivate={vi.fn()} actionDisabled={false} />)
 
     expect(
       screen.getByText(`card.invoiceDeviation.projected|${JSON.stringify({ kwh: formatKwh(4200) })}`)
@@ -123,8 +128,38 @@ describe('InsightCard', () => {
       ...invoiceDeviationAbove,
       data: { ...invoiceDeviationAbove.data, direction: 'below' },
     }
-    render(<InsightCard insight={below} />)
+    render(<InsightCard insight={below} view="active" onDismiss={vi.fn()} onReactivate={vi.fn()} actionDisabled={false} />)
 
     expect(screen.getByText('card.invoiceDeviation.below')).toBeInTheDocument()
+  })
+
+  it('InsightCard_ViewActive_RendersDismissButtonAndCallsOnDismissWithInsightIdAndRowVersion', async () => {
+    const user = userEvent.setup()
+    const onDismiss = vi.fn()
+    render(<InsightCard insight={standby} view="active" onDismiss={onDismiss} onReactivate={vi.fn()} actionDisabled={false} />)
+
+    const button = screen.getByRole('button', { name: 'card.dismissLabel' })
+    await user.click(button)
+
+    expect(onDismiss).toHaveBeenCalledWith(standby.insightId, standby.rowVersion)
+    expect(screen.queryByRole('button', { name: 'card.reactivateLabel' })).not.toBeInTheDocument()
+  })
+
+  it('InsightCard_ViewDismissed_RendersReactivateButtonAndCallsOnReactivateWithInsightIdAndRowVersion', async () => {
+    const user = userEvent.setup()
+    const onReactivate = vi.fn()
+    render(<InsightCard insight={standby} view="dismissed" onDismiss={vi.fn()} onReactivate={onReactivate} actionDisabled={false} />)
+
+    const button = screen.getByRole('button', { name: 'card.reactivateLabel' })
+    await user.click(button)
+
+    expect(onReactivate).toHaveBeenCalledWith(standby.insightId, standby.rowVersion)
+    expect(screen.queryByRole('button', { name: 'card.dismissLabel' })).not.toBeInTheDocument()
+  })
+
+  it('InsightCard_ActionDisabledTrue_DisablesTheActionButton', () => {
+    render(<InsightCard insight={standby} view="active" onDismiss={vi.fn()} onReactivate={vi.fn()} actionDisabled={true} />)
+
+    expect(screen.getByRole('button', { name: 'card.dismissLabel' })).toBeDisabled()
   })
 })

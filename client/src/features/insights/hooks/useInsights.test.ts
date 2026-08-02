@@ -37,7 +37,7 @@ describe('useInsights', () => {
     const { result } = renderHook(() => useInsights('flat-1'), { wrapper: createWrapper() })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual(completeResponse)
-    expect(mockGetInsights).toHaveBeenCalledWith('flat-1')
+    expect(mockGetInsights).toHaveBeenCalledWith('flat-1', 'active')
   })
 
   it('useInsights_RunStatusComplete_DoesNotPollAgainAfterFiveSeconds', async () => {

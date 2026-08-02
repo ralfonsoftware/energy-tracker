@@ -2,8 +2,14 @@
   "refreshButton": "Erkenntnisse aktualisieren",
   "loadError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
   "retry": "Erneut versuchen",
+  "actionError": "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
   "progress": {
     "label": "Erkenntnisse werden ermittelt…"
+  },
+  "toggle": {
+    "sectionLabel": "Erkenntnisansicht",
+    "active": "Aktiv",
+    "dismissed": "Verworfen"
   },
   "period": {
     "sevenDays": "7 Tage",
@@ -11,6 +17,8 @@
     "ninetyDays": "90 Tage"
   },
   "card": {
+    "dismissLabel": "Erkenntnis verwerfen",
+    "reactivateLabel": "Erkenntnis reaktivieren",
     "standby": {
       "watts": "Verbraucht {{watts}} W außerhalb der Nutzungszeiten",
       "cost": "Geschätzte monatliche Kosten: {{cost}}"
@@ -35,6 +43,7 @@
   "emptyState": {
     "noFindings": "Keine Auffälligkeiten in diesem Durchlauf. Alles im normalen Bereich.",
     "insufficientData": "Nicht genug Daten für Erkenntnisse. Füge Ablesungen hinzu und importiere Smart-Plug-Daten, um Erkenntniskarten zu erzeugen.",
-    "runFailed": "Ermittlung der Erkenntnisse fehlgeschlagen. Bitte aktualisieren."
+    "runFailed": "Ermittlung der Erkenntnisse fehlgeschlagen. Bitte aktualisieren.",
+    "noDismissed": "Keine verworfenen Erkenntnisse."
   }
 }

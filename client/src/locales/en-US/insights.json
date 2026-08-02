@@ -2,8 +2,14 @@
   "refreshButton": "Refresh insights",
   "loadError": "Something went wrong. Please try again.",
   "retry": "Retry",
+  "actionError": "Something went wrong. Please try again.",
   "progress": {
     "label": "Discovering insights…"
+  },
+  "toggle": {
+    "sectionLabel": "Insight view",
+    "active": "Active",
+    "dismissed": "Dismissed"
   },
   "period": {
     "sevenDays": "7 days",
@@ -11,6 +17,8 @@
     "ninetyDays": "90 days"
   },
   "card": {
+    "dismissLabel": "Dismiss insight",
+    "reactivateLabel": "Reactivate insight",
     "standby": {
       "watts": "Drawing {{watts}} W outside usage hours",
       "cost": "Estimated monthly cost: {{cost}}"
@@ -35,6 +43,7 @@
   "emptyState": {
     "noFindings": "No findings this run. Everything looks within normal range.",
     "insufficientData": "Not enough data for insights. Add readings and import smart plug data to generate insight cards.",
-    "runFailed": "Insight discovery failed. Try refreshing."
+    "runFailed": "Insight discovery failed. Try refreshing.",
+    "noDismissed": "No dismissed insights."
   }
 }

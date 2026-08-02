@@ -1,9 +1,15 @@
-import { Zap, Recycle, AlertTriangle, Receipt, ArrowUp, ArrowDown } from 'lucide-react'
+import { Zap, Recycle, AlertTriangle, Receipt, ArrowUp, ArrowDown, X, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import type { InsightDto } from '@/features/insights/api/insightsApi'
 
-type Props = { insight: InsightDto }
+type Props = {
+  insight: InsightDto
+  view: 'active' | 'dismissed'
+  onDismiss: (insightId: string, rowVersion: string) => void
+  onReactivate: (insightId: string, rowVersion: string) => void
+  actionDisabled: boolean
+}
 
 const formatKwh = (value: number) =>
   new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(value)
@@ -39,7 +45,7 @@ function InsightIcon({ type }: { type: InsightDto['type'] }) {
   }
 }
 
-export function InsightCard({ insight }: Props) {
+export function InsightCard({ insight, view, onDismiss, onReactivate, actionDisabled }: Props) {
   const { t } = useTranslation('insights')
 
   return (
@@ -109,6 +115,27 @@ export function InsightCard({ insight }: Props) {
             </>
           )}
         </div>
+        {view === 'active' ? (
+          <button
+            type="button"
+            onClick={() => onDismiss(insight.insightId, insight.rowVersion)}
+            disabled={actionDisabled}
+            aria-label={t('card.dismissLabel')}
+            className="min-h-11 min-w-11 flex items-center justify-center rounded-full shrink-0 text-white/50 hover:text-white transition-colors disabled:opacity-40"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onReactivate(insight.insightId, insight.rowVersion)}
+            disabled={actionDisabled}
+            aria-label={t('card.reactivateLabel')}
+            className="min-h-11 min-w-11 flex items-center justify-center rounded-full shrink-0 text-white/50 hover:text-white transition-colors disabled:opacity-40"
+          >
+            <RotateCcw className="h-4 w-4" aria-hidden="true" />
+          </button>
+        )}
       </div>
     </div>
   )
