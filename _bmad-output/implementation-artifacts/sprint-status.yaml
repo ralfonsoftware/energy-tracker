@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-08-02 (Story 12.5 done — reading-history cache fix + on-demand paging, code review passed)
+# last_updated: 2026-08-02 (Story 13.2 created — room- and power-point-scoped saves)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-08-02 (Story 12.4 → done)
+last_updated: 2026-08-02 (Story 13.3 created — device-flat association validation & cleanup scripts)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -139,7 +139,7 @@ development_status:
   epic-10-retrospective: done
 
   # Epic 11: Post-Epic-10 Hardening & Technical Debt Resolution
-  epic-11: in-progress
+  epic-11: done
   11-1-centralize-resolvetariff-into-a-shared-utility: done
   11-2-insights-discovery-redelivery-db-level-idempotency-guard: done
   11-3-enforce-unique-plugid-across-power-points: done
@@ -160,9 +160,17 @@ development_status:
 
   # Epic 12: Device Lifecycle & Date-Aware Decomposition Attribution
   # Starts after epic-11-retrospective completes, per Ralf's 2026-08-01 sequencing decision
-  epic-12: in-progress
+  epic-12: done
   12-1-device-existence-window-estimated-consumption-gating: done
   12-2-device-room-assignment-history-date-aware-decomposition-attribution: done
   12-3-decomposition-tab-period-total-consumption-summary: done
   12-4-insight-dismiss-and-reactivate: done
   12-5-reading-history-cache-fix-and-on-demand-paging: done
+  epic-12-retrospective: done
+
+  # Epic 13: Flat Structure Save Integrity — Device- and Room-Scoped Saves
+  # Sourced from production investigation structure-editor-device-not-persisted-investigation.md (2026-08-02)
+  epic-13: in-progress
+  13-1-device-scoped-save-api-and-immediate-save-feedback: ready-for-dev
+  13-2-room-and-power-point-scoped-saves: ready-for-dev
+  13-3-device-flat-association-validation-and-cleanup-scripts: ready-for-dev
