@@ -19,9 +19,10 @@ const formatDateTime = (isoDate: string) =>
 
 export function ReadingHistorySheet({ flatId }: Props) {
   const { t } = useTranslation('readings')
-  const { data, isLoading, isError, refetch } = useReadingHistory(flatId)
+  const { data, isLoading, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useReadingHistory(flatId)
   const { mutate, isPending, isError: isSaveError } = usePatchReading(flatId)
   const [editingReading, setEditingReading] = useState<ReadingResponse | null>(null)
+  const readings = data?.pages.flatMap(page => page.items) ?? []
 
   if (editingReading) {
     return (
@@ -37,7 +38,7 @@ export function ReadingHistorySheet({ flatId }: Props) {
               onSuccess: () => setEditingReading(null),
               onError: () => {
                 refetch().then(result => {
-                  const fresh = result.data?.find(r => r.readingId === editingReading.readingId)
+                  const fresh = result.data?.pages.flatMap(p => p.items).find(r => r.readingId === editingReading.readingId)
                   if (fresh) setEditingReading(fresh)
                 })
               },
@@ -59,7 +60,7 @@ export function ReadingHistorySheet({ flatId }: Props) {
           ))}
         </div>
       )}
-      {isError && (
+      {isError && readings.length === 0 && (
         <div className="mt-4">
           <p role="alert" className="text-body-sm text-accent-error">
             {t('history.loadError')}
@@ -73,12 +74,12 @@ export function ReadingHistorySheet({ flatId }: Props) {
           </button>
         </div>
       )}
-      {!isLoading && !isError && (data ?? []).length === 0 && (
+      {!isLoading && !isError && readings.length === 0 && (
         <p className="mt-4 text-body-sm text-text-tertiary">{t('history.empty')}</p>
       )}
-      {!isLoading && !isError && (data ?? []).length > 0 && (
+      {!isLoading && readings.length > 0 && (
         <ul className="mt-4 flex flex-col divide-y divide-white/10">
-          {(data ?? []).map(reading => (
+          {readings.map(reading => (
             <li key={reading.readingId}>
               <button
                 type="button"
@@ -98,6 +99,16 @@ export function ReadingHistorySheet({ flatId }: Props) {
             </li>
           ))}
         </ul>
+      )}
+      {!isLoading && hasNextPage && (
+        <button
+          type="button"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+          className="mt-2 min-h-11 w-full text-body-sm text-text-secondary underline disabled:opacity-40"
+        >
+          {t('history.loadMore')}
+        </button>
       )}
     </div>
   )

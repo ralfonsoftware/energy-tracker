@@ -147,3 +147,41 @@ So that my Insights view stays focused on things that still need my attention, w
 **Given** backend and frontend test suites,
 **When** run,
 **Then** tests cover: dismissed identity suppresses persistence regardless of tolerance (`InsightDeduplicationTests.cs`); dismiss/reactivate toggle and tenant-isolation 403 (`PatchInsightFunction` tests); active vs dismissed filtering (`GetInsightsFunction` tests); toggle switches view and correct action button renders per state (`InsightsTab`/`InsightCard` tests).
+
+---
+
+## Story 12.5: Reading History Cache Fix & On-Demand Paging
+
+As a user,
+I want the Reading History sheet to always show my most recent readings and to load older ones on demand,
+So that I can trust the list is current and don't have to wait for my entire reading history to load at once.
+
+**Acceptance Criteria:**
+
+**Given** `useSubmitReading`'s mutation succeeds,
+**When** `onSuccess` runs,
+**Then** it invalidates both `['dashboard', flatId]` (existing) and `['readings', flatId]` (new) via `queryClient.invalidateQueries`, so the Reading History sheet reflects newly submitted readings the next time it is visible.
+
+**Given** `GET /api/v1/flats/{flatId}/readings`,
+**When** called with optional `skip` and `take` query params (`skip` default `0`, `take` default `20`, `take` capped at `100`),
+**Then** `GetReadingHistoryFunction` returns `{ items: ReadingResponse[], totalCount: number }` — `items` reverse-chronological by `ReadingDate` (unchanged sort), `totalCount` the Flat's total reading count regardless of paging window; HTTP 200; ≤ 2s response time (unchanged NFR-1 budget).
+
+**Given** `skip` or `take` is present but non-numeric or negative, or `take` exceeds `100`,
+**When** the request is parsed,
+**Then** HTTP 400 Problem Details is returned, matching `GetInsightsFunction.cs`'s `status`-param validation style; no query executes.
+
+**Given** `useReadingHistory` (converted from `useQuery` to `useInfiniteQuery`, key `['readings', flatId]`, page size 20),
+**When** the Reading History sheet first opens,
+**Then** the first page (20 most recent readings) loads and renders exactly as today; a "Load more" button appears below the list when `hasNextPage` is true, minimum 44×44pt tap target per UX-DR11, and is absent once all readings are loaded.
+
+**Given** the "Load more" button is tapped,
+**When** `fetchNextPage()` resolves,
+**Then** the next 20 (or fewer, on the final page) readings append to the bottom of the existing list; the button shows a pending/disabled state via `isFetchingNextPage` while the request is in flight.
+
+**Given** the Reading Edit flow's existing error-recovery path (`refetch().then(result => result.data?.find(...))` in `ReadingHistorySheet.tsx`),
+**When** updated for the new infinite-query shape,
+**Then** it searches `result.data.pages.flatMap(p => p.items)` instead of a flat array; behavior on Patch failure (re-fetch and re-open the edit view with fresh data) is otherwise unchanged.
+
+**Given** backend and frontend test suites,
+**When** run,
+**Then** tests cover: default paging (skip=0, take=20) returns correct first page and `totalCount`; a second page via `skip=20` returns the next slice; invalid/negative `skip`/`take` and `take>100` return 400 (`GetReadingHistoryFunctionTests.cs`); `useSubmitReading`'s `onSuccess` invalidates both `['dashboard', flatId]` and `['readings', flatId]` (`useSubmitReading.test.ts`, extending the existing invalidation assertion); `useReadingHistory` fetches subsequent pages and exposes `hasNextPage`/`fetchNextPage` correctly (`useReadingHistory.test.ts`); the Reading History sheet renders the "Load more" button, appends items on click, and hides the button once exhausted (`ReadingHistorySheet.test.tsx`).

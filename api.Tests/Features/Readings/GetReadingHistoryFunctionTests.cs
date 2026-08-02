@@ -42,10 +42,27 @@ public class GetReadingHistoryFunctionTests
         return (flat, db);
     }
 
-    private static HttpRequest MakeGetRequest()
+    private static HttpRequest MakeGetRequest(string? skip = null, string? take = null)
     {
         var ctx = new DefaultHttpContext();
+        if (skip is not null || take is not null)
+            ctx.Request.QueryString = new QueryString($"?skip={skip}&take={take}");
         return ctx.Request;
+    }
+
+    private static void SeedReadings(AppDbContext db, Flat flat, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            db.MeterReadings.Add(new MeterReading
+            {
+                ReadingId = Guid.NewGuid(),
+                FlatId = flat.FlatId,
+                KwhValue = 100m + i,
+                ReadingDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(i)
+            });
+        }
+        db.SaveChanges();
     }
 
     [Fact]
@@ -63,11 +80,12 @@ public class GetReadingHistoryFunctionTests
         var result = await fn.RunAsync(MakeGetRequest(), flat.FlatId.ToString(), ctx, CancellationToken.None);
 
         var ok = result.ShouldBeOfType<OkObjectResult>();
-        var readings = ok.Value.ShouldBeAssignableTo<List<ReadingResponse>>()!;
-        readings.Count.ShouldBe(3);
-        readings[0].ReadingDate.ShouldBe(new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero));
-        readings[1].ReadingDate.ShouldBe(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
-        readings[2].ReadingDate.ShouldBe(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+        var response = ok.Value.ShouldBeOfType<ReadingHistoryResponse>();
+        response.Items.Count.ShouldBe(3);
+        response.TotalCount.ShouldBe(3);
+        response.Items[0].ReadingDate.ShouldBe(new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero));
+        response.Items[1].ReadingDate.ShouldBe(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+        response.Items[2].ReadingDate.ShouldBe(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
     }
 
     [Fact]
@@ -90,9 +108,9 @@ public class GetReadingHistoryFunctionTests
         var result = await fn.RunAsync(MakeGetRequest(), flat.FlatId.ToString(), ctx, CancellationToken.None);
 
         var ok = result.ShouldBeOfType<OkObjectResult>();
-        var readings = ok.Value.ShouldBeAssignableTo<List<ReadingResponse>>()!;
-        readings.Single().IsCorrected.ShouldBeTrue();
-        readings.Single().OriginalKwhValue.ShouldBe(100m);
+        var response = ok.Value.ShouldBeOfType<ReadingHistoryResponse>();
+        response.Items.Single().IsCorrected.ShouldBeTrue();
+        response.Items.Single().OriginalKwhValue.ShouldBe(100m);
     }
 
     [Fact]
@@ -105,8 +123,9 @@ public class GetReadingHistoryFunctionTests
         var result = await fn.RunAsync(MakeGetRequest(), flat.FlatId.ToString(), ctx, CancellationToken.None);
 
         var ok = result.ShouldBeOfType<OkObjectResult>();
-        var readings = ok.Value.ShouldBeAssignableTo<List<ReadingResponse>>()!;
-        readings.ShouldBeEmpty();
+        var response = ok.Value.ShouldBeOfType<ReadingHistoryResponse>();
+        response.Items.ShouldBeEmpty();
+        response.TotalCount.ShouldBe(0);
     }
 
     [Fact]
@@ -134,5 +153,88 @@ public class GetReadingHistoryFunctionTests
         var badRequest = result.ShouldBeOfType<BadRequestObjectResult>();
         var type = (string)badRequest.Value!.GetType().GetProperty("type")!.GetValue(badRequest.Value)!;
         type.ShouldBe("https://tools.ietf.org/html/rfc7231#section-6.5.1");
+    }
+
+    [Fact]
+    public async Task RunAsync_DefaultPaging_ReturnsFirstTwentyAndTotalCount()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        SeedReadings(db, flat, 25);
+        var fn = new GetReadingHistoryFunction(db);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<ReadingHistoryResponse>();
+        response.Items.Count.ShouldBe(20);
+        response.TotalCount.ShouldBe(25);
+        response.Items[0].ReadingDate.ShouldBe(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(24));
+    }
+
+    [Fact]
+    public async Task RunAsync_SecondPageViaSkip_ReturnsNextSlice()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        SeedReadings(db, flat, 25);
+        var fn = new GetReadingHistoryFunction(db);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(skip: "20"), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<ReadingHistoryResponse>();
+        response.Items.Count.ShouldBe(5);
+        response.TotalCount.ShouldBe(25);
+        response.Items[0].ReadingDate.ShouldBe(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero).AddDays(4));
+        response.Items[4].ReadingDate.ShouldBe(new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero));
+    }
+
+    [Fact]
+    public async Task RunAsync_NegativeSkip_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new GetReadingHistoryFunction(db);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(skip: "-1"), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_NonNumericSkip_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new GetReadingHistoryFunction(db);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(skip: "abc"), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_NegativeTake_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new GetReadingHistoryFunction(db);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(take: "-5"), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task RunAsync_TakeExceedsMax_Returns400()
+    {
+        var (flat, db) = await SeedFlatAsync();
+        var fn = new GetReadingHistoryFunction(db);
+        var ctx = MakeFunctionContext();
+
+        var result = await fn.RunAsync(MakeGetRequest(take: "101"), flat.FlatId.ToString(), ctx, CancellationToken.None);
+
+        result.ShouldBeOfType<BadRequestObjectResult>();
     }
 }

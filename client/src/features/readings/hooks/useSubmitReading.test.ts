@@ -42,6 +42,17 @@ describe('useSubmitReading', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['dashboard', 'flat-1'] })
   })
 
+  it('useSubmitReading_OnSuccess_InvalidatesReadingsQuery', async () => {
+    mockSubmitReading.mockResolvedValue(sampleResponse)
+    const { wrapper, invalidateQueries } = createWrapper()
+    const { result } = renderHook(() => useSubmitReading('flat-1'), { wrapper })
+
+    result.current.mutate({ kwhValue: 120, readingDate: '2026-06-30T08:00:00+02:00' })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['readings', 'flat-1'] })
+  })
+
   it('useSubmitReading_WhenFlatIdUndefined_MutationRejects', async () => {
     const { wrapper } = createWrapper()
     const { result } = renderHook(() => useSubmitReading(undefined), { wrapper })
@@ -66,6 +77,6 @@ describe('useSubmitReading', () => {
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(onSuccessImmediate).toHaveBeenCalled()
-    expect(callOrder).toEqual(['immediate', 'invalidate'])
+    expect(callOrder).toEqual(['immediate', 'invalidate', 'invalidate'])
   })
 })

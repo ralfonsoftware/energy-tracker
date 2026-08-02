@@ -171,6 +171,7 @@ A previously submitted Meter Reading can be edited after submission. Editing a R
 **Consequences (testable):**
 - Editing a Reading's kWh value stores the original value as a visible correction note rather than overwriting it silently.
 - The Flat's Reading history, including corrected entries, is viewable in chronological order.
+- For Flats with long reading histories, the Reading History view loads readings incrementally (most recent first) rather than fetching the entire history at once.
 
 ---
 

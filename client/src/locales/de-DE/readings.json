@@ -14,6 +14,7 @@
     "correctedNote": "Ursprünglicher Wert war {{value}} kWh",
     "editSaveButton": "Speichern",
     "editSaveError": "Konnte nicht gespeichert werden — versuch's noch mal.",
-    "backToList": "Zurück"
+    "backToList": "Zurück",
+    "loadMore": "Mehr laden"
   }
 }

@@ -12,7 +12,15 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@/features/readings/hooks/useReadingHistory', () => ({
-  useReadingHistory: () => ({ data: [], isLoading: false, isError: false, refetch: vi.fn() }),
+  useReadingHistory: () => ({
+    data: { pages: [{ items: [], totalCount: 0 }] },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+    fetchNextPage: vi.fn(),
+    hasNextPage: false,
+    isFetchingNextPage: false,
+  }),
 }))
 
 vi.mock('@/features/readings/hooks/usePatchReading', () => ({

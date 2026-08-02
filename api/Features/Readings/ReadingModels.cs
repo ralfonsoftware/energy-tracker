@@ -11,3 +11,5 @@ public record ReadingResponse(
     bool IsCorrected,
     decimal? OriginalKwhValue,
     byte[] RowVersion);
+
+public record ReadingHistoryResponse(List<ReadingResponse> Items, int TotalCount);

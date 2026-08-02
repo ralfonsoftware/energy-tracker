@@ -36,15 +36,27 @@ const sampleReadings: ReadingResponse[] = [
   },
 ]
 
-function setupReadingHistory(options?: { isLoading?: boolean; isError?: boolean; data?: ReadingResponse[] }) {
-  const refetch = vi.fn().mockResolvedValue({ data: options?.data })
+function setupReadingHistory(options?: {
+  isLoading?: boolean
+  isError?: boolean
+  data?: ReadingResponse[]
+  hasNextPage?: boolean
+  isFetchingNextPage?: boolean
+}) {
+  const items = options?.data ?? []
+  const pagedData = { pages: [{ items, totalCount: items.length }] }
+  const refetch = vi.fn().mockResolvedValue({ data: pagedData })
+  const fetchNextPage = vi.fn()
   mockUseReadingHistory.mockReturnValue({
-    data: options?.data,
+    data: options?.data === undefined ? undefined : pagedData,
     isLoading: options?.isLoading ?? false,
     isError: options?.isError ?? false,
     refetch,
+    fetchNextPage,
+    hasNextPage: options?.hasNextPage ?? false,
+    isFetchingNextPage: options?.isFetchingNextPage ?? false,
   } as unknown as ReturnType<typeof useReadingHistory>)
-  return { refetch }
+  return { refetch, fetchNextPage }
 }
 
 function setupPatchReading(options?: { isPending?: boolean; isError?: boolean }) {
@@ -151,5 +163,54 @@ describe('ReadingHistorySheet', () => {
     })
 
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
+  })
+
+  it('ReadingHistorySheet_HasNextPage_RendersLoadMoreButton', () => {
+    setupReadingHistory({ data: sampleReadings, hasNextPage: true })
+    setupPatchReading()
+
+    render(<ReadingHistorySheet flatId="flat-1" />)
+
+    expect(screen.getByRole('button', { name: 'history.loadMore' })).toBeInTheDocument()
+  })
+
+  it('ReadingHistorySheet_NoNextPage_LoadMoreButtonAbsent', () => {
+    setupReadingHistory({ data: sampleReadings, hasNextPage: false })
+    setupPatchReading()
+
+    render(<ReadingHistorySheet flatId="flat-1" />)
+
+    expect(screen.queryByRole('button', { name: 'history.loadMore' })).not.toBeInTheDocument()
+  })
+
+  it('ReadingHistorySheet_TapLoadMore_CallsFetchNextPage', async () => {
+    const user = userEvent.setup()
+    const { fetchNextPage } = setupReadingHistory({ data: sampleReadings, hasNextPage: true })
+    setupPatchReading()
+
+    render(<ReadingHistorySheet flatId="flat-1" />)
+    await user.click(screen.getByRole('button', { name: 'history.loadMore' }))
+
+    expect(fetchNextPage).toHaveBeenCalled()
+  })
+
+  it('ReadingHistorySheet_ErrorWithAlreadyLoadedData_StillRendersListNotFullErrorScreen', () => {
+    setupReadingHistory({ data: sampleReadings, isError: true })
+    setupPatchReading()
+
+    render(<ReadingHistorySheet flatId="flat-1" />)
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('ReadingHistorySheet_ErrorWithNoData_ShowsFullErrorScreen', () => {
+    setupReadingHistory({ data: [], isError: true })
+    setupPatchReading()
+
+    render(<ReadingHistorySheet flatId="flat-1" />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('history.loadError')
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0)
   })
 })

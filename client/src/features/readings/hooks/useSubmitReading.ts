@@ -10,7 +10,10 @@ export function useSubmitReading(flatId: string | undefined, onSuccessImmediate?
     },
     onSuccess: async () => {
       onSuccessImmediate?.()
-      await queryClient.invalidateQueries({ queryKey: ['dashboard', flatId] })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['dashboard', flatId] }),
+        queryClient.invalidateQueries({ queryKey: ['readings', flatId] }),
+      ])
     },
   })
 }

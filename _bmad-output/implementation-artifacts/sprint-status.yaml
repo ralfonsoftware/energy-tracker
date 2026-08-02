@@ -1,5 +1,5 @@
 # generated: 2026-06-27
-# last_updated: 2026-08-02 (Story 12.4 → done)
+# last_updated: 2026-08-02 (Story 12.5 done — reading-history cache fix + on-demand paging, code review passed)
 # project: energy-tracker
 # project_key: NOKEY
 # tracking_system: file-system
@@ -165,3 +165,4 @@ development_status:
   12-2-device-room-assignment-history-date-aware-decomposition-attribution: done
   12-3-decomposition-tab-period-total-consumption-summary: done
   12-4-insight-dismiss-and-reactivate: done
+  12-5-reading-history-cache-fix-and-on-demand-paging: done
