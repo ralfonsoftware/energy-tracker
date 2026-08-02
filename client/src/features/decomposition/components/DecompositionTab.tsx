@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import i18n from '@/lib/i18n'
 import { useDecomposition } from '@/features/decomposition/hooks/useDecomposition'
 import { resolvePeriodRange, type PeriodOption } from '@/features/decomposition/lib/periods'
 import type { RoomDecomposition } from '@/features/decomposition/api/decompositionApi'
@@ -8,6 +9,7 @@ import { PeriodSelector } from '@/features/decomposition/components/PeriodSelect
 import { ResidualCard } from '@/features/decomposition/components/ResidualCard'
 import { RoomCard } from '@/features/decomposition/components/RoomCard'
 import { DecompositionUnavailable } from '@/features/decomposition/components/DecompositionUnavailable'
+import { KpiTile } from '@/features/dashboard/components/KpiTile'
 
 type Props = { flatId: string | undefined }
 
@@ -16,6 +18,14 @@ type CustomRange = { startDate: string; endDate: string }
 function sortRoomsByKwh(rooms: RoomDecomposition[]): RoomDecomposition[] {
   return [...rooms].sort((a, b) => b.kwh - a.kwh)
 }
+
+const formatNumber = (value: number) =>
+  new Intl.NumberFormat(i18n.language, { maximumFractionDigits: 1 }).format(value)
+
+const formatKwh = (value: number) => `${formatNumber(value)} kWh`
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat(i18n.language, { style: 'currency', currency: 'EUR' }).format(value)
 
 export function DecompositionTab({ flatId }: Props) {
   const { t } = useTranslation('decomposition')
@@ -32,6 +42,8 @@ export function DecompositionTab({ flatId }: Props) {
 
   const { data, isPending, isError, refetch } = useDecomposition(flatId, startDate, endDate)
 
+  const showPeriodTotal = !isCustomRangeIncomplete && !isError && !data?.isUnavailable
+
   return (
     <div className="flex flex-col gap-3">
       <PeriodSelector
@@ -40,6 +52,14 @@ export function DecompositionTab({ flatId }: Props) {
         onChange={setPeriod}
         onCustomRangeChange={setCustomRange}
       />
+
+      {showPeriodTotal && (
+        <KpiTile
+          label={t('periodTotal.label')}
+          headline={data ? formatKwh(data.totalKwh) : undefined}
+          subline={data ? formatCurrency(data.totalCost) : undefined}
+        />
+      )}
 
       {isCustomRangeIncomplete && (
         <p className="text-body-sm text-text-secondary">{t('period.selectRange')}</p>

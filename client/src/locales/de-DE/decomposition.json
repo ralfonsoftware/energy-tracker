@@ -10,6 +10,9 @@
     "customEndLabel": "Enddatum",
     "selectRange": "Wähle ein Start- und Enddatum"
   },
+  "periodTotal": {
+    "label": "Zeitraum gesamt"
+  },
   "residual": {
     "title": "Rest"
   },

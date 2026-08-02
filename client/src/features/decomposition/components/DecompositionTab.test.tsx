@@ -53,7 +53,8 @@ describe('DecompositionTab', () => {
     mockDecomposition({ isPending: true })
     const { container } = render(<DecompositionTab flatId="flat-1" />)
 
-    expect(container.querySelectorAll('.animate-pulse')).toHaveLength(3)
+    // 3 generic skeleton blocks + the Period Total KpiTile's own loading skeleton (AC2)
+    expect(container.querySelectorAll('.animate-pulse')).toHaveLength(4)
   })
 
   it('DecompositionTab_Error_RendersAlertAndRetryCallsRefetch', async () => {
@@ -155,6 +156,33 @@ describe('DecompositionTab', () => {
     render(<DecompositionTab flatId="flat-1" />)
 
     expect(screen.queryByText('interpolatedBanner')).not.toBeInTheDocument()
+  })
+
+  it('DecompositionTab_NormalResponse_RendersPeriodTotalTileWithKwhAndCost', () => {
+    mockDecomposition({ data: makeResponse({ totalKwh: 123.4, totalCost: 45.6 }) })
+
+    render(<DecompositionTab flatId="flat-1" />)
+
+    expect(screen.getByText('periodTotal.label')).toBeInTheDocument()
+    expect(screen.getByText(/123\.4/)).toBeInTheDocument()
+    expect(screen.getByText(/45[.,]6/)).toBeInTheDocument()
+  })
+
+  it('DecompositionTab_Loading_PeriodTotalTileShowsSkeleton', () => {
+    mockDecomposition({ isPending: true })
+
+    render(<DecompositionTab flatId="flat-1" />)
+
+    expect(screen.getByText('periodTotal.label')).toBeInTheDocument()
+    expect(screen.getByRole('status', { name: 'loading' })).toBeInTheDocument()
+  })
+
+  it('DecompositionTab_Unavailable_PeriodTotalTileNotRendered', () => {
+    mockDecomposition({ data: makeResponse({ isUnavailable: true }) })
+
+    render(<DecompositionTab flatId="flat-1" />)
+
+    expect(screen.queryByText('periodTotal.label')).toBeNull()
   })
 
   it('DecompositionTab_SmartStripConfigureHintClicked_NavigatesToStructureWithPowerPointId', async () => {
