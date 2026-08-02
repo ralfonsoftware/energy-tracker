@@ -53,63 +53,69 @@ export function ReadingHistorySheet({ flatId }: Props) {
     <div>
       <div aria-hidden="true" className="mx-auto mb-4 h-1 w-9 rounded-full bg-white/25" />
       <h2 className="text-body text-text-primary">{t('history.title')}</h2>
-      {isLoading && (
-        <div className="mt-4 flex flex-col gap-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-11 animate-pulse rounded-input bg-white/10" />
-          ))}
-        </div>
-      )}
-      {isError && readings.length === 0 && (
-        <div className="mt-4">
-          <p role="alert" className="text-body-sm text-accent-error">
-            {t('history.loadError')}
-          </p>
+      <div
+        tabIndex={0}
+        aria-label={t('history.title')}
+        className="max-h-[65dvh] overflow-y-auto overscroll-contain"
+      >
+        {isLoading && (
+          <div className="mt-4 flex flex-col gap-2">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-11 animate-pulse rounded-input bg-white/10" />
+            ))}
+          </div>
+        )}
+        {isError && readings.length === 0 && (
+          <div className="mt-4">
+            <p role="alert" className="text-body-sm text-accent-error">
+              {t('history.loadError')}
+            </p>
+            <button
+              type="button"
+              onClick={() => refetch()}
+              className="mt-2 min-h-11 min-w-11 text-body-sm text-text-secondary underline"
+            >
+              {t('history.retry')}
+            </button>
+          </div>
+        )}
+        {!isLoading && !isError && readings.length === 0 && (
+          <p className="mt-4 text-body-sm text-text-tertiary">{t('history.empty')}</p>
+        )}
+        {!isLoading && readings.length > 0 && (
+          <ul className="mt-4 flex flex-col divide-y divide-white/10">
+            {readings.map(reading => (
+              <li key={reading.readingId}>
+                <button
+                  type="button"
+                  onClick={() => setEditingReading(reading)}
+                  className="flex min-h-11 w-full flex-col items-start justify-center gap-0.5 py-2 text-left"
+                >
+                  <span className="flex w-full items-center justify-between text-body-sm text-text-primary">
+                    <span>{formatDateTime(reading.readingDate)}</span>
+                    <span>{formatKwh(reading.kwhValue)}</span>
+                  </span>
+                  {reading.isCorrected && reading.originalKwhValue !== null && (
+                    <span className="text-caption text-text-tertiary">
+                      {t('history.correctedNote', { value: formatNumber(reading.originalKwhValue) })}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {!isLoading && hasNextPage && (
           <button
             type="button"
-            onClick={() => refetch()}
-            className="mt-2 min-h-11 min-w-11 text-body-sm text-text-secondary underline"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            className="mt-2 min-h-11 w-full text-body-sm text-text-secondary underline disabled:opacity-40"
           >
-            {t('history.retry')}
+            {t('history.loadMore')}
           </button>
-        </div>
-      )}
-      {!isLoading && !isError && readings.length === 0 && (
-        <p className="mt-4 text-body-sm text-text-tertiary">{t('history.empty')}</p>
-      )}
-      {!isLoading && readings.length > 0 && (
-        <ul className="mt-4 flex flex-col divide-y divide-white/10">
-          {readings.map(reading => (
-            <li key={reading.readingId}>
-              <button
-                type="button"
-                onClick={() => setEditingReading(reading)}
-                className="flex min-h-11 w-full flex-col items-start justify-center gap-0.5 py-2 text-left"
-              >
-                <span className="flex w-full items-center justify-between text-body-sm text-text-primary">
-                  <span>{formatDateTime(reading.readingDate)}</span>
-                  <span>{formatKwh(reading.kwhValue)}</span>
-                </span>
-                {reading.isCorrected && reading.originalKwhValue !== null && (
-                  <span className="text-caption text-text-tertiary">
-                    {t('history.correctedNote', { value: formatNumber(reading.originalKwhValue) })}
-                  </span>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {!isLoading && hasNextPage && (
-        <button
-          type="button"
-          onClick={() => fetchNextPage()}
-          disabled={isFetchingNextPage}
-          className="mt-2 min-h-11 w-full text-body-sm text-text-secondary underline disabled:opacity-40"
-        >
-          {t('history.loadMore')}
-        </button>
-      )}
+        )}
+      </div>
     </div>
   )
 }
