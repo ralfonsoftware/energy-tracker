@@ -15,7 +15,8 @@ public record DeviceResponse(
     string? EuLabelClass,
     decimal? EuAnnualKwh,
     decimal? SelfMeasuredKwh,
-    SelfMeasuredPeriod? SelfMeasuredPeriod);
+    SelfMeasuredPeriod? SelfMeasuredPeriod,
+    byte[] RowVersion);
 
 public record PowerPointResponse(
     Guid PowerPointId,
@@ -48,13 +49,13 @@ public record DeviceInput(
     string? EuLabelClass,
     decimal? EuAnnualKwh,
     decimal? SelfMeasuredKwh,
-    SelfMeasuredPeriod? SelfMeasuredPeriod);
+    SelfMeasuredPeriod? SelfMeasuredPeriod,
+    string? RowVersion = null);
 
 public record PowerPointInput(
     Guid? PowerPointId,
     string Name,
-    string? PlugId,
-    List<DeviceInput> Devices);
+    string? PlugId);
 
 public record RoomInput(
     Guid? RoomId,

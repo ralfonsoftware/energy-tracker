@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Trash2 } from 'lucide-react'
+import { useDeleteDevice } from '@/features/flat-structure/hooks/useDeleteDevice'
 import type { DraftPowerPoint } from './draftModel'
 
 type Props = {
+  flatId: string
   powerPoint: DraftPowerPoint
   onChange: (updated: DraftPowerPoint) => void
   onEditDevice: (deviceKey: string | null) => void
@@ -15,10 +17,29 @@ const inputClass =
 const inputStyle = { borderColor: 'rgba(255,255,255,0.15)' }
 const sectionLabelClass = 'text-[11px] font-semibold tracking-[0.08em] uppercase text-white/45'
 
-export function PowerPointEditor({ powerPoint, onChange, onEditDevice, onDelete }: Props) {
+export function PowerPointEditor({ flatId, powerPoint, onChange, onEditDevice, onDelete }: Props) {
   const { t } = useTranslation('flat-structure')
+  const deleteDevice = useDeleteDevice(flatId)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [confirmDeleteDeviceKey, setConfirmDeleteDeviceKey] = useState<string | null>(null)
+
+  const handleDeleteDevice = (deviceKey: string) => {
+    const device = powerPoint.devices.find(d => d.key === deviceKey)
+    setConfirmDeleteDeviceKey(null)
+    if (!device) return
+    if (!device.deviceId || !device.rowVersion || !powerPoint.powerPointId) {
+      // Never-persisted device (added but not yet saved) — just drop it locally.
+      onChange({ ...powerPoint, devices: powerPoint.devices.filter(d => d.key !== deviceKey) })
+      return
+    }
+    deleteDevice.mutate(
+      { powerPointId: powerPoint.powerPointId, deviceId: device.deviceId, rowVersion: device.rowVersion },
+      {
+        onSuccess: () =>
+          onChange({ ...powerPoint, devices: powerPoint.devices.filter(d => d.key !== deviceKey) }),
+      }
+    )
+  }
 
   return (
     <div
@@ -87,6 +108,12 @@ export function PowerPointEditor({ powerPoint, onChange, onEditDevice, onDelete 
             />
           </div>
 
+          {deleteDevice.isError && (
+            <p role="alert" className="text-xs text-accent-error">
+              {(deleteDevice.error as (Error & { detail?: string }) | null)?.detail ?? t('device.deleteError')}
+            </p>
+          )}
+
           {powerPoint.devices.length > 0 && (
             <ul className="flex flex-col gap-2">
               {powerPoint.devices.map(device =>
@@ -103,15 +130,11 @@ export function PowerPointEditor({ powerPoint, onChange, onEditDevice, onDelete 
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          onChange({
-                            ...powerPoint,
-                            devices: powerPoint.devices.filter(d => d.key !== device.key),
-                          })
-                        }
-                        className="text-xs font-semibold text-accent-error"
+                        onClick={() => handleDeleteDevice(device.key)}
+                        disabled={deleteDevice.isPending}
+                        className="text-xs font-semibold text-accent-error disabled:opacity-40"
                       >
-                        {t('confirm.delete')}
+                        {deleteDevice.isPending ? t('device.saving') : t('confirm.delete')}
                       </button>
                     </div>
                   </li>
@@ -142,18 +165,22 @@ export function PowerPointEditor({ powerPoint, onChange, onEditDevice, onDelete 
             </ul>
           )}
 
-          <button
-            type="button"
-            onClick={() => onEditDevice(null)}
-            className="self-start px-3 py-1.5 text-xs font-medium rounded-full"
-            style={{
-              background: 'rgba(255,255,255,0.10)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              color: 'rgba(255,255,255,0.75)',
-            }}
-          >
-            {t('powerPoint.addDevice')}
-          </button>
+          {powerPoint.powerPointId ? (
+            <button
+              type="button"
+              onClick={() => onEditDevice(null)}
+              className="self-start px-3 py-1.5 text-xs font-medium rounded-full"
+              style={{
+                background: 'rgba(255,255,255,0.10)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                color: 'rgba(255,255,255,0.75)',
+              }}
+            >
+              {t('powerPoint.addDevice')}
+            </button>
+          ) : (
+            <p className="text-xs text-white/40">{t('powerPoint.addDeviceBlocked')}</p>
+          )}
         </>
       )}
     </div>

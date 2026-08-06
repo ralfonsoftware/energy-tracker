@@ -70,6 +70,7 @@ builder.Services.AddScoped<ReconciliationEngine>();
 builder.Services.AddScoped<DecompositionEngine>();
 builder.Services.AddSingleton<KpiCalculator>();
 builder.Services.AddSingleton<UpdateFlatStructureValidator>();
+builder.Services.AddSingleton<DeviceValidator>();
 builder.Services.AddScoped<StandbyDetector>();
 builder.Services.AddScoped<ReplacementDetector>();
 builder.Services.AddScoped<BudgetAlertDetector>();

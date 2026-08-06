@@ -107,21 +107,7 @@ public class UpdateFlatStructureFunctionTests
                     "powerPoints": [
                         {
                             "name": "Wall Socket",
-                            "plugId": "plug-1",
-                            "devices": [
-                                {
-                                    "name": "TV",
-                                    "type": "Entertainment",
-                                    "manufacturer": "Acme",
-                                    "model": "X100",
-                                    "purchaseDate": "2024-01-15T00:00:00+00:00",
-                                    "consumptionApproach": "EuLabel",
-                                    "euLabelClass": "A+++",
-                                    "euAnnualKwh": 120.5,
-                                    "selfMeasuredKwh": null,
-                                    "selfMeasuredPeriod": null
-                                }
-                            ]
+                            "plugId": "plug-1"
                         }
                     ]
                 }
@@ -177,23 +163,21 @@ public class UpdateFlatStructureFunctionTests
         roomResponse.Name.ShouldBe("Living Room");
         var ppResponse = roomResponse.PowerPoints.Single();
         ppResponse.PlugId.ShouldBe("plug-1");
-        var deviceResponse = ppResponse.Devices.Single();
-        deviceResponse.ConsumptionApproach.ShouldBe(ConsumptionApproach.EuLabel);
 
         var dbRoom = await db.Rooms.SingleAsync(r => r.FlatId == flat.FlatId);
         dbRoom.RoomId.ShouldBe(roomResponse.RoomId);
         var dbPowerPoint = await db.PowerPoints.SingleAsync(pp => pp.RoomId == dbRoom.RoomId);
         dbPowerPoint.PlugId.ShouldBe("plug-1");
-        var dbDevice = await db.Devices.SingleAsync(d => d.PowerPointId == dbPowerPoint.PowerPointId);
-        dbDevice.Name.ShouldBe("TV");
     }
 
     [Fact]
-    public async Task RunAsync_ReplacingExistingStructure_RemovesOldRoomsPowerPointsAndDevices()
+    public async Task RunAsync_ReplacingExistingStructure_RemovesOldRoomsAndPowerPointsCascadingTheirDevices()
     {
         var (flat, db) = await SeedFlatAsync();
         var oldRoom = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Old Room", SortOrder = 0 };
         var oldPowerPoint = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = oldRoom.RoomId, Name = "Old Socket" };
+        // A device attached to a removed PowerPoint must still disappear — via EF's PowerPoint->Device
+        // cascade delete, not via any device-specific logic in this Function (which no longer has any).
         var oldDevice = new Device { DeviceId = Guid.NewGuid(), PowerPointId = oldPowerPoint.PowerPointId, Name = "Old Device", ConsumptionApproach = ConsumptionApproach.None };
         db.Rooms.Add(oldRoom);
         db.PowerPoints.Add(oldPowerPoint);
@@ -214,7 +198,59 @@ public class UpdateFlatStructureFunctionTests
 
         (await db.Rooms.CountAsync(r => r.FlatId == flat.FlatId)).ShouldBe(1);
         (await db.PowerPoints.CountAsync()).ShouldBe(1);
-        (await db.Devices.CountAsync()).ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task RunAsync_DeviceAbsentFromPayload_IsNotDeleted()
+    {
+        // The core regression test for this story: UpdateFlatStructureFunction used to treat any
+        // device absent from the payload as deleted (the root cause closed by this story — see
+        // structure-editor-device-not-persisted-investigation.md). A device on a power point that
+        // IS present in the payload — but whose own JSON no longer carries any "devices" field at
+        // all — must now survive untouched, because this Function never reads or writes Devices.
+        var (flat, db) = await SeedFlatAsync();
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room", SortOrder = 0 };
+        var pp = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket" };
+        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = pp.PowerPointId, Name = "Device", ConsumptionApproach = ConsumptionApproach.None };
+        db.Rooms.Add(room);
+        db.PowerPoints.Add(pp);
+        db.Devices.Add(device);
+        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
+        {
+            Id = Guid.NewGuid(),
+            DeviceId = device.DeviceId,
+            PowerPointId = pp.PowerPointId,
+            FlatId = flat.FlatId,
+            From = DateTimeOffset.UtcNow.AddDays(-5),
+            To = null
+        });
+        await db.SaveChangesAsync();
+
+        var payload = $$"""
+            {
+                "rooms": [
+                    {
+                        "roomId": "{{room.RoomId}}",
+                        "name": "Room",
+                        "sortOrder": 0,
+                        "powerPoints": [
+                            { "powerPointId": "{{pp.PowerPointId}}", "name": "Socket", "plugId": null }
+                        ]
+                    }
+                ]
+            }
+            """;
+
+        var fn = MakeFunction(db);
+        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
+
+        var ok = result.ShouldBeOfType<OkObjectResult>();
+        var response = ok.Value.ShouldBeOfType<FlatStructureResponse>();
+        var deviceResponse = response.Rooms.Single().PowerPoints.Single().Devices.Single();
+        deviceResponse.DeviceId.ShouldBe(device.DeviceId);
+
+        (await db.Devices.AnyAsync(d => d.DeviceId == device.DeviceId)).ShouldBeTrue();
+        (await db.DeviceAssignmentPeriods.AnyAsync(p => p.DeviceId == device.DeviceId && p.To == null)).ShouldBeTrue();
     }
 
     [Fact]
@@ -267,47 +303,6 @@ public class UpdateFlatStructureFunctionTests
         objectResult.StatusCode.ShouldBe(422);
         (await db.Rooms.CountAsync()).ShouldBe(0);
         (await db.PowerPoints.CountAsync()).ShouldBe(0);
-    }
-
-    [Fact]
-    public async Task RunAsync_DuplicateDeviceIdWithinSameFlatPayload_Returns422AndPersistsNothing()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room A", SortOrder = 0 };
-        var ppA = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Socket A" };
-        var ppB = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Socket B" };
-        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = ppA.PowerPointId, Name = "TV", ConsumptionApproach = ConsumptionApproach.None };
-        db.Rooms.Add(room);
-        db.PowerPoints.AddRange(ppA, ppB);
-        db.Devices.Add(device);
-        await db.SaveChangesAsync();
-
-        var payload = $$"""
-            {
-                "rooms": [
-                    {
-                        "roomId": "{{room.RoomId}}", "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "powerPointId": "{{ppA.PowerPointId}}", "name": "Socket A", "plugId": null,
-                                "devices": [ { "deviceId": "{{device.DeviceId}}", "name": "TV", "consumptionApproach": "None" } ]
-                            },
-                            {
-                                "powerPointId": "{{ppB.PowerPointId}}", "name": "Socket B", "plugId": null,
-                                "devices": [ { "deviceId": "{{device.DeviceId}}", "name": "TV", "consumptionApproach": "None" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        var objectResult = result.ShouldBeOfType<ObjectResult>();
-        objectResult.StatusCode.ShouldBe(422);
-        (await db.DeviceAssignmentPeriods.CountAsync(p => p.DeviceId == device.DeviceId)).ShouldBe(0);
     }
 
     [Fact]
@@ -365,62 +360,6 @@ public class UpdateFlatStructureFunctionTests
 
         var objectResult = result.ShouldBeOfType<ObjectResult>();
         objectResult.StatusCode.ShouldBe(422);
-    }
-
-    [Fact]
-    public async Task RunAsync_DeviceIdBelongsToAnotherFlat_TreatsAsNewInsteadOfHijackingIt()
-    {
-        var (flatA, db) = await SeedFlatAsync(userId: "user-a");
-        db.Users.Add(new User { UserId = "user-b" });
-        var flatB = new Flat
-        {
-            FlatId = Guid.NewGuid(),
-            UserId = "user-b",
-            Name = "Flat B",
-            AnnualKwhBaseline = 3500m,
-            SpikeThreshold = 2.0m,
-            RowVersion = TestRowVersion
-        };
-        db.Flats.Add(flatB);
-        var roomB = new Room { RoomId = Guid.NewGuid(), FlatId = flatB.FlatId, Name = "Room B", SortOrder = 0 };
-        var ppB = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = roomB.RoomId, Name = "Socket B" };
-        var deviceB = new Device { DeviceId = Guid.NewGuid(), PowerPointId = ppB.PowerPointId, Name = "Flat B's Device", ConsumptionApproach = ConsumptionApproach.None };
-        db.Rooms.Add(roomB);
-        db.PowerPoints.Add(ppB);
-        db.Devices.Add(deviceB);
-        await db.SaveChangesAsync();
-
-        // Payload for flat A references flat B's deviceId — a stale/foreign id that must not be
-        // matched against flat B's row (which is scoped out of flat A's existingDevicesById lookup).
-        var payload = $$"""
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket A", "plugId": null,
-                                "devices": [ { "deviceId": "{{deviceB.DeviceId}}", "name": "New Device", "consumptionApproach": "None" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flatA.FlatId.ToString(), MakeFunctionContext("user-a"), CancellationToken.None);
-
-        var ok = result.ShouldBeOfType<OkObjectResult>();
-        var response = ok.Value.ShouldBeOfType<FlatStructureResponse>();
-        var insertedDevice = response.Rooms.Single().PowerPoints.Single().Devices.Single();
-        insertedDevice.DeviceId.ShouldNotBe(deviceB.DeviceId); // inserted with a fresh id, not flat B's
-
-        // Flat B's original device is completely untouched.
-        var untouchedDeviceB = await db.Devices.SingleAsync(d => d.DeviceId == deviceB.DeviceId);
-        untouchedDeviceB.Name.ShouldBe("Flat B's Device");
-        untouchedDeviceB.PowerPointId.ShouldBe(ppB.PowerPointId);
-        (await db.Devices.CountAsync(d => d.PowerPointId == ppB.PowerPointId)).ShouldBe(1);
     }
 
     [Fact]
@@ -482,136 +421,6 @@ public class UpdateFlatStructureFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_MissingDeviceName_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "", "consumptionApproach": "None" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_EuAnnualKwhExceedsFourDecimalPlaces_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Fridge", "consumptionApproach": "EuLabel", "euLabelClass": "A", "euAnnualKwh": 123.56789 } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_SelfMeasuredKwhExceedsFourDecimalPlaces_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Fridge", "consumptionApproach": "SelfMeasured", "selfMeasuredKwh": 1.56789, "selfMeasuredPeriod": "Daily" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_EuAnnualKwhWithTrailingZerosBeyondFourDecimals_Succeeds()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Fridge", "consumptionApproach": "EuLabel", "euLabelClass": "A", "euAnnualKwh": 123.500000 } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<OkObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_SelfMeasuredKwhWithTrailingZerosBeyondFourDecimals_Succeeds()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Fridge", "consumptionApproach": "SelfMeasured", "selfMeasuredKwh": 1.500000, "selfMeasuredPeriod": "Daily" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<OkObjectResult>();
-    }
-
-    [Fact]
     public async Task RunAsync_MalformedJsonBody_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();
@@ -648,185 +457,12 @@ public class UpdateFlatStructureFunctionTests
     }
 
     [Fact]
-    public async Task RunAsync_NullDevicesInPowerPoint_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            { "rooms": [ { "name": "Room A", "sortOrder": 0, "powerPoints": [ { "name": "Socket", "plugId": null, "devices": null } ] } ] }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
     public async Task RunAsync_PlugIdExceedsMaxLength_Returns400()
     {
         var (flat, db) = await SeedFlatAsync();
         var overLong = new string('x', 201);
         var payload = $$"""
             { "rooms": [ { "name": "Room A", "sortOrder": 0, "powerPoints": [ { "name": "Socket", "plugId": "{{overLong}}", "devices": [] } ] } ] }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_ConsumptionApproachOutOfEnumRange_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Device", "consumptionApproach": 999 } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_EuLabelApproachMissingEuLabelClassAndKwh_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Device", "consumptionApproach": "EuLabel" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_EuLabelApproachWithKwhButNoClass_Returns200()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Device", "consumptionApproach": "EuLabel", "euAnnualKwh": 150 } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        var ok = result.ShouldBeOfType<OkObjectResult>();
-        var response = ok.Value.ShouldBeOfType<FlatStructureResponse>();
-        var deviceResponse = response.Rooms.Single().PowerPoints.Single().Devices.Single();
-        deviceResponse.EuLabelClass.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task RunAsync_EuLabelApproachWithClassButNoKwh_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Device", "consumptionApproach": "EuLabel", "euLabelClass": "A+++" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_SelfMeasuredApproachMissingKwhAndPeriod_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Device", "consumptionApproach": "SelfMeasured" } ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task RunAsync_NegativeEuAnnualKwh_Returns400()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        const string payload = """
-            {
-                "rooms": [
-                    {
-                        "name": "Room A", "sortOrder": 0,
-                        "powerPoints": [
-                            {
-                                "name": "Socket", "plugId": null,
-                                "devices": [ { "name": "Device", "consumptionApproach": "EuLabel", "euLabelClass": "A", "euAnnualKwh": -5 } ]
-                            }
-                        ]
-                    }
-                ]
-            }
             """;
 
         var fn = MakeFunction(db);
@@ -1016,10 +652,8 @@ public class UpdateFlatStructureFunctionTests
         var (flat, db) = await SeedFlatAsync();
         var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Old Name", SortOrder = 0 };
         var pp = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Old Socket" };
-        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = pp.PowerPointId, Name = "Old Device", ConsumptionApproach = ConsumptionApproach.None };
         db.Rooms.Add(room);
         db.PowerPoints.Add(pp);
-        db.Devices.Add(device);
         await db.SaveChangesAsync();
 
         var payload = $$"""
@@ -1033,10 +667,7 @@ public class UpdateFlatStructureFunctionTests
                             {
                                 "powerPointId": "{{pp.PowerPointId}}",
                                 "name": "Renamed Socket",
-                                "plugId": null,
-                                "devices": [
-                                    { "deviceId": "{{device.DeviceId}}", "name": "Renamed Device", "consumptionApproach": "None" }
-                                ]
+                                "plugId": null
                             }
                         ]
                     }
@@ -1055,131 +686,5 @@ public class UpdateFlatStructureFunctionTests
         var dbPp = await db.PowerPoints.SingleAsync();
         dbPp.PowerPointId.ShouldBe(pp.PowerPointId);
         dbPp.Name.ShouldBe("Renamed Socket");
-        var dbDevice = await db.Devices.SingleAsync();
-        dbDevice.DeviceId.ShouldBe(device.DeviceId);
-        dbDevice.Name.ShouldBe("Renamed Device");
-    }
-
-    [Fact]
-    public async Task RunAsync_MatchedDeviceMovedToDifferentPowerPoint_ClosesOldPeriodAndOpensNewOnePreservingDevicePk()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room", SortOrder = 0 };
-        var ppOld = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket A" };
-        var ppNew = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket B" };
-        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = ppOld.PowerPointId, Name = "Device", ConsumptionApproach = ConsumptionApproach.None };
-        db.Rooms.Add(room);
-        db.PowerPoints.AddRange(ppOld, ppNew);
-        db.Devices.Add(device);
-        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
-        {
-            Id = Guid.NewGuid(),
-            DeviceId = device.DeviceId,
-            PowerPointId = ppOld.PowerPointId,
-            FlatId = flat.FlatId,
-            From = DateTimeOffset.UtcNow.AddDays(-10),
-            To = null
-        });
-        await db.SaveChangesAsync();
-
-        var payload = $$"""
-            {
-                "rooms": [
-                    {
-                        "roomId": "{{room.RoomId}}",
-                        "name": "Room",
-                        "sortOrder": 0,
-                        "powerPoints": [
-                            { "powerPointId": "{{ppOld.PowerPointId}}", "name": "Socket A", "plugId": null, "devices": [] },
-                            {
-                                "powerPointId": "{{ppNew.PowerPointId}}",
-                                "name": "Socket B",
-                                "plugId": null,
-                                "devices": [
-                                    { "deviceId": "{{device.DeviceId}}", "name": "Device", "consumptionApproach": "None" }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<OkObjectResult>();
-        var dbDevice = await db.Devices.SingleAsync();
-        dbDevice.DeviceId.ShouldBe(device.DeviceId);
-        dbDevice.PowerPointId.ShouldBe(ppNew.PowerPointId);
-
-        var periods = await db.DeviceAssignmentPeriods.Where(p => p.DeviceId == device.DeviceId).ToListAsync();
-        periods.Count.ShouldBe(2);
-        var closed = periods.Single(p => p.PowerPointId == ppOld.PowerPointId);
-        closed.To.ShouldNotBeNull();
-        var open = periods.Single(p => p.PowerPointId == ppNew.PowerPointId);
-        open.To.ShouldBeNull();
-    }
-
-    [Fact]
-    public async Task RunAsync_BrandNewDevice_GetsFreshlySeededDeviceAssignmentPeriod()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        var fn = MakeFunction(db);
-        var req = MakeRequest(ValidPayload); // ValidPayload's device carries no deviceId -> treated as new
-        var ctx = MakeFunctionContext();
-
-        var result = await fn.RunAsync(req, flat.FlatId.ToString(), ctx, CancellationToken.None);
-
-        result.ShouldBeOfType<OkObjectResult>();
-        var device = await db.Devices.SingleAsync();
-        var periods = await db.DeviceAssignmentPeriods.Where(p => p.DeviceId == device.DeviceId).ToListAsync();
-        var period = periods.ShouldHaveSingleItem();
-        period.To.ShouldBeNull();
-        period.PowerPointId.ShouldBe(device.PowerPointId);
-    }
-
-    [Fact]
-    public async Task RunAsync_DeviceAbsentFromPayload_IsDeletedAndItsAssignmentPeriodsCascadeAway()
-    {
-        var (flat, db) = await SeedFlatAsync();
-        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Room", SortOrder = 0 };
-        var pp = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, FlatId = flat.FlatId, Name = "Socket" };
-        var device = new Device { DeviceId = Guid.NewGuid(), PowerPointId = pp.PowerPointId, Name = "Device", ConsumptionApproach = ConsumptionApproach.None };
-        db.Rooms.Add(room);
-        db.PowerPoints.Add(pp);
-        db.Devices.Add(device);
-        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
-        {
-            Id = Guid.NewGuid(),
-            DeviceId = device.DeviceId,
-            PowerPointId = pp.PowerPointId,
-            FlatId = flat.FlatId,
-            From = DateTimeOffset.UtcNow.AddDays(-5),
-            To = null
-        });
-        await db.SaveChangesAsync();
-
-        var payload = $$"""
-            {
-                "rooms": [
-                    {
-                        "roomId": "{{room.RoomId}}",
-                        "name": "Room",
-                        "sortOrder": 0,
-                        "powerPoints": [
-                            { "powerPointId": "{{pp.PowerPointId}}", "name": "Socket", "plugId": null, "devices": [] }
-                        ]
-                    }
-                ]
-            }
-            """;
-
-        var fn = MakeFunction(db);
-        var result = await fn.RunAsync(MakeRequest(payload), flat.FlatId.ToString(), MakeFunctionContext(), CancellationToken.None);
-
-        result.ShouldBeOfType<OkObjectResult>();
-        (await db.Devices.AnyAsync(d => d.DeviceId == device.DeviceId)).ShouldBeFalse();
-        (await db.DeviceAssignmentPeriods.AnyAsync(p => p.DeviceId == device.DeviceId)).ShouldBeFalse();
     }
 }

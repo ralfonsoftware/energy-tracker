@@ -4,6 +4,7 @@ import { StickyActionBar } from './StickyActionBar'
 import { hasBlankNameInRoom, type DraftRoom } from './draftModel'
 
 type Props = {
+  flatId: string
   room: DraftRoom
   onChange: (updated: DraftRoom) => void
   onBack: () => void
@@ -17,6 +18,7 @@ type Props = {
 }
 
 export function RoomEditor({
+  flatId,
   room,
   onChange,
   onBack,
@@ -59,6 +61,7 @@ export function RoomEditor({
         {room.powerPoints.map(powerPoint => (
           <PowerPointEditor
             key={powerPoint.key}
+            flatId={flatId}
             powerPoint={powerPoint}
             onChange={updated =>
               onChange({

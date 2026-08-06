@@ -30,7 +30,17 @@ vi.mock('@/features/flat-structure/hooks/useUpdateFlatStructure')
 import { useUpdateFlatStructure } from '@/features/flat-structure/hooks/useUpdateFlatStructure'
 const mockUseUpdateFlatStructure = vi.mocked(useUpdateFlatStructure)
 
+vi.mock('@/features/flat-structure/hooks/useSaveDevice')
+import { useSaveDevice } from '@/features/flat-structure/hooks/useSaveDevice'
+const mockUseSaveDevice = vi.mocked(useSaveDevice)
+
+vi.mock('@/features/flat-structure/hooks/useDeleteDevice')
+import { useDeleteDevice } from '@/features/flat-structure/hooks/useDeleteDevice'
+const mockUseDeleteDevice = vi.mocked(useDeleteDevice)
+
 const mockMutate = vi.fn()
+const mockSaveDeviceMutate = vi.fn()
+const mockDeleteDeviceMutate = vi.fn()
 
 function setupFlatStructure(options?: {
   isLoading?: boolean
@@ -129,6 +139,7 @@ function seededResponseWithDevice(): FlatStructureResponse {
                 euAnnualKwh: null,
                 selfMeasuredKwh: null,
                 selfMeasuredPeriod: null,
+                rowVersion: 'AQID',
               },
             ],
           },
@@ -142,12 +153,30 @@ describe('FlatStructureEditor', () => {
   beforeEach(() => {
     mockUseFlatStructure.mockReset()
     mockUseUpdateFlatStructure.mockReset()
+    mockUseSaveDevice.mockReset()
+    mockUseDeleteDevice.mockReset()
     mockNavigate.mockReset()
     mockMutate.mockReset()
+    mockSaveDeviceMutate.mockReset()
+    mockDeleteDeviceMutate.mockReset()
     mockUseUpdateFlatStructure.mockReturnValue({
       mutate: mockMutate,
       isPending: false,
     } as unknown as ReturnType<typeof useUpdateFlatStructure>)
+    mockUseSaveDevice.mockReturnValue({
+      mutate: mockSaveDeviceMutate,
+      isPending: false,
+      isError: false,
+      isSuccess: false,
+      error: null,
+      data: undefined,
+    } as unknown as ReturnType<typeof useSaveDevice>)
+    mockUseDeleteDevice.mockReturnValue({
+      mutate: mockDeleteDeviceMutate,
+      isPending: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof useDeleteDevice>)
   })
 
   it('FlatStructureEditor_DefaultTemplateWithNoRooms_RendersFiveDefaultRoomsAndFooterPrompt', () => {
@@ -234,7 +263,7 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByLabelText('device.namePlaceholder')).toHaveValue('')
   })
 
-  it('FlatStructureEditor_SaveAfterAddingDevice_ExistingDeviceKeepsDeviceIdNewDeviceOmitsIt', async () => {
+  it('FlatStructureEditor_AddDeviceAndSave_CallsDeviceSaveMutationDirectlyNotRoomSaveMutation', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponseWithDevice() })
 
@@ -243,15 +272,11 @@ describe('FlatStructureEditor', () => {
     await user.click(screen.getByRole('button', { name: 'powerPoint.addDevice' }))
     await user.type(screen.getByLabelText('device.namePlaceholder'), 'Toaster')
     await user.click(screen.getByRole('button', { name: 'device.save' }))
-    await user.click(screen.getByRole('button', { name: /editor\.back/ }))
-    await user.click(screen.getByRole('button', { name: 'editor.save: Office' }))
 
-    expect(mockMutate).toHaveBeenCalledTimes(1)
-    const payload = mockMutate.mock.calls[0][0]
-    const devices = payload.rooms[0].powerPoints[0].devices
-    expect(devices.find((d: { name: string }) => d.name === 'Lamp')).toMatchObject({ deviceId: 'device-1' })
-    const toaster = devices.find((d: { name: string }) => d.name === 'Toaster')
-    expect(toaster.deviceId).toBeUndefined()
+    expect(mockSaveDeviceMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId: undefined, name: 'Toaster' })
+    )
+    expect(mockMutate).not.toHaveBeenCalled()
   })
 
   it('FlatStructureEditor_TwoPowerPointsSameNonEmptyPlugId_SaveDisabledWithConflictText', () => {
@@ -369,6 +394,7 @@ describe('FlatStructureEditor', () => {
                     euAnnualKwh: null,
                     selfMeasuredKwh: null,
                     selfMeasuredPeriod: null,
+                    rowVersion: 'AQID',
                   },
                 ],
               },
@@ -393,16 +419,6 @@ describe('FlatStructureEditor', () => {
                 powerPointId: 'pp-1',
                 name: 'Desk Outlet',
                 plugId: 'PLUG-1',
-                devices: [
-                  {
-                    deviceId: 'device-1',
-                    name: 'Lamp',
-                    type: undefined,
-                    manufacturer: undefined,
-                    model: undefined,
-                    consumptionApproach: 'None',
-                  },
-                ],
               },
             ],
           },
@@ -514,8 +530,9 @@ describe('FlatStructureEditor', () => {
     expect(screen.queryByText('powerPoint.deletePrompt')).not.toBeInTheDocument()
   })
 
-  it('FlatStructureEditor_DeleteDeviceArmThenConfirm_RemovesDevice', async () => {
+  it('FlatStructureEditor_DeleteDeviceArmThenConfirm_CallsDeleteDeviceMutationAndRemovesOnSuccess', async () => {
     const user = userEvent.setup()
+    mockDeleteDeviceMutate.mockImplementation((_input, callbacks) => callbacks?.onSuccess?.())
     setupFlatStructure({ data: seededResponseWithDevice() })
 
     renderEditor()
@@ -529,6 +546,10 @@ describe('FlatStructureEditor', () => {
 
     await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
 
+    expect(mockDeleteDeviceMutate).toHaveBeenCalledWith(
+      { powerPointId: 'pp-1', deviceId: 'device-1', rowVersion: 'AQID' },
+      expect.any(Object)
+    )
     expect(screen.queryByText('Lamp')).not.toBeInTheDocument()
   })
 
@@ -609,13 +630,13 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office Renamed',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
           },
         ],
         rowVersion: 'AQID',
@@ -645,13 +666,13 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage Renamed',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
           },
         ],
         rowVersion: 'AQID',
@@ -704,7 +725,7 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
           },
         ],
         rowVersion: 'AQID',
@@ -774,15 +795,15 @@ describe('FlatStructureEditor', () => {
             name: 'Office Renamed',
             sortOrder: 0,
             powerPoints: [
-              { powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] },
-              { powerPointId: undefined, name: 'Fridge Outlet', plugId: undefined, devices: [] },
+              { powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' },
+              { powerPointId: undefined, name: 'Fridge Outlet', plugId: undefined },
             ],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
           },
         ],
         rowVersion: 'AQID',
@@ -819,13 +840,13 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
           },
           { roomId: undefined, name: 'NewB Renamed', sortOrder: 2, powerPoints: [] },
         ],
@@ -892,13 +913,13 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet Updated', plugId: 'PLUG-1', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet Updated', plugId: 'PLUG-1' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2', devices: [] }],
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
           },
         ],
         rowVersion: 'AQID',

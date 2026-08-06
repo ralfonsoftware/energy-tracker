@@ -248,12 +248,18 @@ export function FlatStructureEditor({ flatId }: Props) {
       : undefined
     const backToRoom = () => setView({ type: 'room', roomKey: view.roomKey })
 
+    if (!flatId || !room || !powerPoint || !powerPoint.powerPointId) {
+      backToRoom()
+      return null
+    }
+
     return (
       <DeviceEditor
         device={device}
+        flatId={flatId}
+        powerPointId={powerPoint.powerPointId}
         onCancel={backToRoom}
-        onSave={savedDevice => {
-          if (!room || !powerPoint) return
+        onSaved={savedDevice => {
           const updatedDevices = view.deviceKey
             ? powerPoint.devices.map(d => (d.key === view.deviceKey ? savedDevice : d))
             : [...powerPoint.devices, savedDevice]
@@ -271,9 +277,10 @@ export function FlatStructureEditor({ flatId }: Props) {
 
   if (view.type === 'room') {
     const room = draftRooms.find(r => r.key === view.roomKey)
-    if (!room) return null
+    if (!room || !flatId) return null
     return (
       <RoomEditor
+        flatId={flatId}
         room={room}
         onChange={updated => handleUpdateRoom(room.key, updated)}
         onBack={() => setView({ type: 'list' })}

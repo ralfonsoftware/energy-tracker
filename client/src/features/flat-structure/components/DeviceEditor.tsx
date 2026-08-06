@@ -1,15 +1,20 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import i18n from '@/lib/i18n'
 import { parseLocaleNumber, formatNumberForInput } from '@/lib/localeNumber'
 import { toLocalDateString, parseLocalDate, toLocalMidnightIsoString } from '@/lib/localDate'
 import type { ConsumptionApproach, SelfMeasuredPeriod } from '@/features/flat-structure/api/flatStructureApi'
+import { useSaveDevice, type SaveDeviceInput } from '@/features/flat-structure/hooks/useSaveDevice'
 import { StickyActionBar } from './StickyActionBar'
-import type { DraftDevice } from './draftModel'
+import { toDraftDevice, type DraftDevice } from './draftModel'
+
+const SUCCESS_NAVIGATE_DELAY_MS = 900
 
 type Props = {
   device: DraftDevice | undefined
-  onSave: (device: DraftDevice) => void
+  flatId: string
+  powerPointId: string
+  onSaved: (device: DraftDevice) => void
   onCancel: () => void
 }
 
@@ -36,8 +41,9 @@ const isValidKwhRaw = (raw: string, parsed: number, locale: string): boolean => 
   return true
 }
 
-export function DeviceEditor({ device, onSave, onCancel }: Props) {
+export function DeviceEditor({ device, flatId, powerPointId, onSaved, onCancel }: Props) {
   const { t } = useTranslation('flat-structure')
+  const mutation = useSaveDevice(flatId, powerPointId)
   const [name, setName] = useState(device?.name ?? '')
   const [type, setType] = useState(device?.type ?? '')
   const [manufacturer, setManufacturer] = useState(device?.manufacturer ?? '')
@@ -70,15 +76,24 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
     !inUseSinceRaw || !decommissionedDateRaw || decommissionedDateRaw >= inUseSinceRaw
   const isSaveEnabled = name.trim() !== '' && euValid && selfMeasuredValid && dateRangeValid
 
+  useEffect(() => {
+    if (!mutation.isSuccess || !mutation.data) return
+    const savedDevice = mutation.data
+    const key = device?.key ?? crypto.randomUUID()
+    const timer = setTimeout(() => onSaved(toDraftDevice(savedDevice, key)), SUCCESS_NAVIGATE_DELAY_MS)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mutation.isSuccess, mutation.data])
+
   const handleSave = () => {
     if (!isSaveEnabled) return
-    onSave({
-      key: device?.key ?? crypto.randomUUID(),
+    const input: SaveDeviceInput = {
       deviceId: device?.deviceId,
+      rowVersion: device?.rowVersion,
       name: name.trim(),
-      type,
-      manufacturer,
-      model,
+      type: type.trim() || undefined,
+      manufacturer: manufacturer.trim() || undefined,
+      model: model.trim() || undefined,
       consumptionApproach: approach,
       purchaseDate: device?.purchaseDate,
       inUseSince: inUseSinceRaw ? toLocalMidnightIsoString(inUseSinceRaw) : undefined,
@@ -87,8 +102,11 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
       euAnnualKwh: approach === 'EuLabel' ? parsedEuAnnualKwh : undefined,
       selfMeasuredKwh: approach === 'SelfMeasured' ? parsedSelfMeasuredKwh : undefined,
       selfMeasuredPeriod: approach === 'SelfMeasured' ? selfMeasuredPeriod : undefined,
-    })
+    }
+    mutation.mutate(input)
   }
+
+  const errorDetail = (mutation.error as (Error & { detail?: string }) | null)?.detail
 
   return (
     <div className="flex-1 flex flex-col" style={{ background: '#111827', minHeight: '100vh' }}>
@@ -336,11 +354,22 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
       </div>
 
       <StickyActionBar>
+        {mutation.isError && (
+          <p role="alert" className="text-xs text-accent-error">
+            {errorDetail ?? t('device.saveError')}
+          </p>
+        )}
+        {mutation.isSuccess && (
+          <p role="status" className="text-xs" style={{ color: '#60a5fa' }}>
+            {t('device.saveSuccess')}
+          </p>
+        )}
         <div className="flex gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 h-14 rounded-full text-white/70 text-[17px] font-semibold border"
+            disabled={mutation.isPending || mutation.isSuccess}
+            className="flex-1 h-14 rounded-full text-white/70 text-[17px] font-semibold border disabled:opacity-40"
             style={{ borderColor: 'rgba(255,255,255,0.20)' }}
           >
             {t('device.cancel')}
@@ -348,11 +377,11 @@ export function DeviceEditor({ device, onSave, onCancel }: Props) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={!isSaveEnabled}
+            disabled={!isSaveEnabled || mutation.isPending || mutation.isSuccess}
             className="flex-1 h-14 rounded-full text-white text-[17px] font-semibold border disabled:opacity-40"
             style={{ background: 'rgba(255,255,255,0.12)', borderColor: 'rgba(255,255,255,0.40)' }}
           >
-            {t('device.save')}
+            {mutation.isPending ? t('device.saving') : t('device.save')}
           </button>
         </div>
       </StickyActionBar>

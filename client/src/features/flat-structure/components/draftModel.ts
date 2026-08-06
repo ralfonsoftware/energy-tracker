@@ -1,5 +1,6 @@
 import type {
   ConsumptionApproach,
+  DeviceResponse,
   RoomInput,
   RoomResponse,
   SelfMeasuredPeriod,
@@ -12,6 +13,9 @@ export type DraftDevice = {
   // server-side Device id, round-tripped back on save so the backend can
   // preserve its identity (and DeviceAssignmentPeriod history) across saves.
   deviceId?: string
+  // Concurrency token for the update/delete endpoints; absent for a
+  // never-persisted device (create doesn't need one).
+  rowVersion?: string
   name: string
   type: string
   manufacturer: string
@@ -52,6 +56,26 @@ export type DraftRoom = {
   powerPoints: DraftPowerPoint[]
 }
 
+export function toDraftDevice(device: DeviceResponse, key: string): DraftDevice {
+  return {
+    key,
+    deviceId: device.deviceId,
+    rowVersion: device.rowVersion,
+    name: device.name,
+    type: device.type ?? '',
+    manufacturer: device.manufacturer ?? '',
+    model: device.model ?? '',
+    consumptionApproach: device.consumptionApproach,
+    purchaseDate: device.purchaseDate ?? undefined,
+    inUseSince: device.inUseSince ?? undefined,
+    decommissionedDate: device.decommissionedDate ?? undefined,
+    euLabelClass: device.euLabelClass ?? undefined,
+    euAnnualKwh: device.euAnnualKwh ?? undefined,
+    selfMeasuredKwh: device.selfMeasuredKwh ?? undefined,
+    selfMeasuredPeriod: device.selfMeasuredPeriod ?? undefined,
+  }
+}
+
 export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
   return rooms.map(room => ({
     key: crypto.randomUUID(),
@@ -63,22 +87,7 @@ export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
       name: powerPoint.name,
       plugId: powerPoint.plugId ?? '',
       powerPointId: powerPoint.powerPointId,
-      devices: powerPoint.devices.map(device => ({
-        key: crypto.randomUUID(),
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type ?? '',
-        manufacturer: device.manufacturer ?? '',
-        model: device.model ?? '',
-        consumptionApproach: device.consumptionApproach,
-        purchaseDate: device.purchaseDate ?? undefined,
-        inUseSince: device.inUseSince ?? undefined,
-        decommissionedDate: device.decommissionedDate ?? undefined,
-        euLabelClass: device.euLabelClass ?? undefined,
-        euAnnualKwh: device.euAnnualKwh ?? undefined,
-        selfMeasuredKwh: device.selfMeasuredKwh ?? undefined,
-        selfMeasuredPeriod: device.selfMeasuredPeriod ?? undefined,
-      })),
+      devices: powerPoint.devices.map(device => toDraftDevice(device, crypto.randomUUID())),
     })),
   }))
 }
@@ -102,21 +111,6 @@ export function toRoomInput(room: DraftRoom, name: string): RoomInput {
       powerPointId: powerPoint.powerPointId,
       name: powerPoint.name,
       plugId: powerPoint.plugId.trim() || undefined,
-      devices: powerPoint.devices.map(device => ({
-        deviceId: device.deviceId,
-        name: device.name,
-        type: device.type.trim() || undefined,
-        manufacturer: device.manufacturer.trim() || undefined,
-        model: device.model.trim() || undefined,
-        purchaseDate: device.purchaseDate,
-        inUseSince: device.inUseSince,
-        decommissionedDate: device.decommissionedDate,
-        consumptionApproach: device.consumptionApproach,
-        euLabelClass: device.euLabelClass,
-        euAnnualKwh: device.euAnnualKwh,
-        selfMeasuredKwh: device.selfMeasuredKwh,
-        selfMeasuredPeriod: device.selfMeasuredPeriod,
-      })),
     })),
   }
 }

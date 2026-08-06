@@ -98,18 +98,18 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         var roomIds = request.Rooms.Where(r => r.RoomId.HasValue).Select(r => r.RoomId!.Value).ToList();
         var powerPointIds = request.Rooms.SelectMany(r => r.PowerPoints)
             .Where(pp => pp.PowerPointId.HasValue).Select(pp => pp.PowerPointId!.Value).ToList();
-        var deviceIds = request.Rooms.SelectMany(r => r.PowerPoints).SelectMany(pp => pp.Devices)
-            .Where(d => d.DeviceId.HasValue).Select(d => d.DeviceId!.Value).ToList();
         if (roomIds.Count != roomIds.Distinct().Count()
-            || powerPointIds.Count != powerPointIds.Distinct().Count()
-            || deviceIds.Count != deviceIds.Distinct().Count())
+            || powerPointIds.Count != powerPointIds.Distinct().Count())
             return new ObjectResult(new
             {
                 type = "https://tools.ietf.org/html/rfc4918#section-11.2",
                 title = "Unprocessable Entity", status = 422,
-                detail = "Each roomId, powerPointId, and deviceId may appear at most once in the request."
+                detail = "Each roomId and powerPointId may appear at most once in the request."
             }) { StatusCode = 422 };
 
+        // Devices are never touched by this request (see CreateDeviceFunction/UpdateDeviceFunction/
+        // DeleteDeviceFunction), so this pre-mutation snapshot's PowerPoint.Devices navigation stays
+        // accurate for the response built below.
         var existingRooms = await db.Rooms
             .Include(r => r.PowerPoints)
             .ThenInclude(pp => pp.Devices)
@@ -119,24 +119,14 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
         var existingRoomsById = existingRooms.ToDictionary(r => r.RoomId);
         var existingPowerPointsById = existingRooms.SelectMany(r => r.PowerPoints)
             .ToDictionary(pp => pp.PowerPointId);
-        var existingDevicesById = existingRooms.SelectMany(r => r.PowerPoints).SelectMany(pp => pp.Devices)
-            .ToDictionary(d => d.DeviceId);
-
-        // Loaded up front (all periods, not just open ones) so InMemory-provider cascade delete
-        // can see and remove every period belonging to a Device that gets deleted below.
-        var assignmentPeriods = await db.DeviceAssignmentPeriods.Where(p => p.FlatId == flatGuid).ToListAsync(ct);
-        var openPeriodByDeviceId = assignmentPeriods.Where(p => p.To == null).ToDictionary(p => p.DeviceId);
 
         var matchedRoomIds = new HashSet<Guid>();
         var matchedPowerPointIds = new HashSet<Guid>();
-        var matchedDeviceIds = new HashSet<Guid>();
         var resultRooms = new List<Room>();
-        // Tracks the final PowerPoints/Devices per Room/PowerPoint explicitly, rather than relying on
-        // EF's as-loaded navigation collections — those are a pre-mutation snapshot and would not
-        // reflect entities added/moved above via db.Set<T>().Add(...) rather than collection.Add(...).
+        // Tracks the final PowerPoints per Room explicitly, rather than relying on EF's as-loaded
+        // navigation collection — that's a pre-mutation snapshot and would not reflect PowerPoints
+        // added/moved above via db.PowerPoints.Add(...) rather than room.PowerPoints.Add(...).
         var powerPointsByRoom = new Dictionary<Room, List<PowerPoint>>();
-        var devicesByPowerPoint = new Dictionary<PowerPoint, List<Device>>();
-        var now = DateTimeOffset.UtcNow;
 
         foreach (var roomInput in request.Rooms)
         {
@@ -182,80 +172,6 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                 }
 
                 roomPowerPoints.Add(pp);
-                var ppDevices = new List<Device>();
-                devicesByPowerPoint[pp] = ppDevices;
-
-                foreach (var deviceInput in ppInput.Devices)
-                {
-                    if (deviceInput.DeviceId.HasValue
-                        && existingDevicesById.TryGetValue(deviceInput.DeviceId.Value, out var matchedDevice))
-                    {
-                        var previousPowerPointId = matchedDevice.PowerPointId;
-
-                        matchedDevice.Name = deviceInput.Name.Trim();
-                        matchedDevice.Type = deviceInput.Type;
-                        matchedDevice.Manufacturer = deviceInput.Manufacturer;
-                        matchedDevice.Model = deviceInput.Model;
-                        matchedDevice.PurchaseDate = deviceInput.PurchaseDate;
-                        matchedDevice.InUseSince = deviceInput.InUseSince;
-                        matchedDevice.DecommissionedDate = deviceInput.DecommissionedDate;
-                        matchedDevice.ConsumptionApproach = deviceInput.ConsumptionApproach;
-                        matchedDevice.EuLabelClass = deviceInput.EuLabelClass;
-                        matchedDevice.EuAnnualKwh = deviceInput.EuAnnualKwh;
-                        matchedDevice.SelfMeasuredKwh = deviceInput.SelfMeasuredKwh;
-                        matchedDevice.SelfMeasuredPeriod = deviceInput.SelfMeasuredPeriod;
-                        matchedDevice.PowerPointId = pp.PowerPointId;
-
-                        if (previousPowerPointId != pp.PowerPointId)
-                        {
-                            if (openPeriodByDeviceId.TryGetValue(matchedDevice.DeviceId, out var openPeriod))
-                                openPeriod.To = now;
-
-                            db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
-                            {
-                                DeviceId = matchedDevice.DeviceId,
-                                PowerPointId = pp.PowerPointId,
-                                FlatId = flatGuid,
-                                From = now,
-                                To = null
-                            });
-                        }
-
-                        matchedDeviceIds.Add(matchedDevice.DeviceId);
-                        ppDevices.Add(matchedDevice);
-                    }
-                    else
-                    {
-                        var device = new Device
-                        {
-                            PowerPointId = pp.PowerPointId,
-                            Name = deviceInput.Name.Trim(),
-                            Type = deviceInput.Type,
-                            Manufacturer = deviceInput.Manufacturer,
-                            Model = deviceInput.Model,
-                            PurchaseDate = deviceInput.PurchaseDate,
-                            InUseSince = deviceInput.InUseSince,
-                            DecommissionedDate = deviceInput.DecommissionedDate,
-                            ConsumptionApproach = deviceInput.ConsumptionApproach,
-                            EuLabelClass = deviceInput.EuLabelClass,
-                            EuAnnualKwh = deviceInput.EuAnnualKwh,
-                            SelfMeasuredKwh = deviceInput.SelfMeasuredKwh,
-                            SelfMeasuredPeriod = deviceInput.SelfMeasuredPeriod
-                        };
-                        db.Devices.Add(device);
-
-                        db.DeviceAssignmentPeriods.Add(new DeviceAssignmentPeriod
-                        {
-                            DeviceId = device.DeviceId,
-                            PowerPointId = pp.PowerPointId,
-                            FlatId = flatGuid,
-                            From = device.InUseSince ?? now,
-                            To = null
-                        });
-
-                        ppDevices.Add(device);
-                    }
-                }
             }
 
             resultRooms.Add(room);
@@ -272,16 +188,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
             foreach (var pp in room.PowerPoints.ToList())
             {
                 if (!matchedPowerPointIds.Contains(pp.PowerPointId))
-                {
                     db.PowerPoints.Remove(pp);
-                    continue;
-                }
-
-                foreach (var device in pp.Devices.ToList())
-                {
-                    if (!matchedDeviceIds.Contains(device.DeviceId))
-                        db.Devices.Remove(device);
-                }
             }
         }
 
@@ -322,7 +229,7 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                     pp.PowerPointId,
                     pp.Name,
                     pp.PlugId,
-                    devicesByPowerPoint[pp].Select(d => new DeviceResponse(
+                    pp.Devices.Select(d => new DeviceResponse(
                         d.DeviceId,
                         d.Name,
                         d.Type,
@@ -335,7 +242,8 @@ public class UpdateFlatStructureFunction(AppDbContext db, UpdateFlatStructureVal
                         d.EuLabelClass,
                         d.EuAnnualKwh,
                         d.SelfMeasuredKwh,
-                        d.SelfMeasuredPeriod))
+                        d.SelfMeasuredPeriod,
+                        d.RowVersion))
                     .ToList()))
                 .ToList()))
             .ToList(),

@@ -68,7 +68,8 @@ public class GetFlatStructureFunction(AppDbContext db)
                         d.EuLabelClass,
                         d.EuAnnualKwh,
                         d.SelfMeasuredKwh,
-                        d.SelfMeasuredPeriod))
+                        d.SelfMeasuredPeriod,
+                        d.RowVersion))
                     .ToList()))
                 .ToList()))
             .ToList(),

@@ -28,6 +28,7 @@
     "plugIdLabel": "Smart Plug ID",
     "plugIdPlaceholder": "Not assigned",
     "addDevice": "+ Add Device",
+    "addDeviceBlocked": "Save this power point before adding a device.",
     "editDevice": "Edit device ›",
     "delete": "Delete power point",
     "deletePrompt": "Delete this power point and its devices?"
@@ -64,6 +65,10 @@
       "kwhLabelWeekly": "kWh per week"
     },
     "save": "Save",
+    "saving": "Saving…",
+    "saveError": "Couldn't save this device — please try again.",
+    "saveSuccess": "Device saved.",
+    "deleteError": "Couldn't delete this device — please try again.",
     "cancel": "Cancel",
     "delete": "Delete device",
     "deletePrompt": "Delete this device?"

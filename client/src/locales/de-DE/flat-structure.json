@@ -28,6 +28,7 @@
     "plugIdLabel": "Smart-Plug-ID",
     "plugIdPlaceholder": "Nicht zugewiesen",
     "addDevice": "+ Gerät hinzufügen",
+    "addDeviceBlocked": "Speichere diese Anschlussstelle, bevor du ein Gerät hinzufügst.",
     "editDevice": "Gerät bearbeiten ›",
     "delete": "Anschlussstelle löschen",
     "deletePrompt": "Diese Anschlussstelle und ihre Geräte löschen?"
@@ -64,6 +65,10 @@
       "kwhLabelWeekly": "kWh pro Woche"
     },
     "save": "Speichern",
+    "saving": "Wird gespeichert…",
+    "saveError": "Dieses Gerät konnte nicht gespeichert werden — bitte erneut versuchen.",
+    "saveSuccess": "Gerät gespeichert.",
+    "deleteError": "Dieses Gerät konnte nicht gelöscht werden — bitte erneut versuchen.",
     "cancel": "Abbrechen",
     "delete": "Gerät löschen",
     "deletePrompt": "Dieses Gerät löschen?"
