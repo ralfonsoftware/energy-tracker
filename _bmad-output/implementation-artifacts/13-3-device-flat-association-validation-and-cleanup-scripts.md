@@ -1,6 +1,10 @@
+---
+baseline_commit: c4428db3fd13ad96cdab5b548a0a8e9c491c7078
+---
+
 # Story 13.3: Device–Flat Association Validation & Cleanup Scripts
 
-Status: ready-for-dev
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -20,18 +24,18 @@ so that a future bug, incomplete migration, or manual DB intervention can't leav
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create `scripts/db/` folder and README (AC: #5)
-  - [ ] Create `scripts/db/README.md` documenting: purpose of each script, the exact `sqlcmd` invocation to run them (`sqlcmd -S energytracker-sqlsrv.database.windows.net -d energytracker-db -G -i <file>.sql`, matching this project's connection string host/database name from `.github/workflows/azure-static-web-apps.yml:107` and the Azure AD `-G` auth flag), a note that `-G` requires the operator to already be authenticated via `az login` under an identity with Azure SQL access (exactly as used during this epic's investigation), and an explicit warning that `cleanup-orphaned-devices.sql` is destructive and must only be run after reviewing `validate-device-flat-associations.sql`'s output
-- [ ] Task 2: Write the validation script (AC: #1)
-  - [ ] `scripts/db/validate-device-flat-associations.sql` — a sequence of `SELECT` queries (read-only, no `BEGIN TRAN`/writes), one per anomaly class, each producing a clearly-labeled result set (e.g. via `PRINT` banners between queries, or a leading literal column like `SELECT 'orphan-device-no-powerpoint' AS Check, d.DeviceId, d.Name FROM ...`) covering exactly the seven checks in AC #1. Base the join logic on the queries already proven against this production database during this epic's investigation (chain: `Devices d LEFT JOIN PowerPoints pp ON d.PowerPointId = pp.PowerPointId LEFT JOIN Rooms r ON pp.RoomId = r.RoomId LEFT JOIN Flats f ON r.FlatId = f.FlatId`, plus the `DeviceAssignmentPeriods`-focused checks joining back to `Devices`/`Rooms`)
-  - [ ] Each result set must include enough columns to act on directly (at minimum `DeviceId`, `Name`, and whichever FK is broken) so the operator can paste `DeviceId`s straight into the cleanup script without a second lookup
-- [ ] Task 3: Write the cleanup script (AC: #2, #3)
-  - [ ] `scripts/db/cleanup-orphaned-devices.sql` — starts with a clearly-marked block (e.g. `DECLARE @DeviceIdsToDelete TABLE (DeviceId uniqueidentifier); INSERT INTO @DeviceIdsToDelete VALUES (...);`) the operator fills in by hand from the validation script's output; then `DELETE FROM DeviceAssignmentPeriods WHERE DeviceId IN (SELECT DeviceId FROM @DeviceIdsToDelete)` followed by `DELETE FROM Devices WHERE DeviceId IN (SELECT DeviceId FROM @DeviceIdsToDelete)`, both wrapped in a single `BEGIN TRAN` / `COMMIT` (with the transaction left uncommitted / a `-- COMMIT` comment line the operator uncomments deliberately, so a copy-paste run doesn't silently commit) — the exact "human confirms before commit" mechanics are a judgment call for whichever pattern is clearest; document the chosen mechanic in the script's own header comment
-  - [ ] No `WHERE` clause in the cleanup script may derive its target rows from a live re-query of "broken chain" logic — it must only ever act on the explicit, operator-provided `DeviceId` list, so a cleanup run can never delete a device that wasn't specifically reviewed and listed
-- [ ] Task 4: Run and record verification (AC: #4)
-  - [ ] Run `validate-device-flat-associations.sql` against production via `sqlcmd`
-  - [ ] Record the (expected all-clear) output in this story's Dev Agent Record / Completion Notes List, confirming the baseline matches what was found during this epic's scoping (zero results for every check)
-  - [ ] Do not run `cleanup-orphaned-devices.sql` — there is nothing to clean up
+- [x] Task 1: Create `scripts/db/` folder and README (AC: #5)
+  - [x] Create `scripts/db/README.md` documenting: purpose of each script, the exact `sqlcmd` invocation to run them (`sqlcmd -S energytracker-sqlsrv.database.windows.net -d energytracker-db -G -i <file>.sql`, matching this project's connection string host/database name from `.github/workflows/azure-static-web-apps.yml:107` and the Azure AD `-G` auth flag), a note that `-G` requires the operator to already be authenticated via `az login` under an identity with Azure SQL access (exactly as used during this epic's investigation), and an explicit warning that `cleanup-orphaned-devices.sql` is destructive and must only be run after reviewing `validate-device-flat-associations.sql`'s output
+- [x] Task 2: Write the validation script (AC: #1)
+  - [x] `scripts/db/validate-device-flat-associations.sql` — a sequence of `SELECT` queries (read-only, no `BEGIN TRAN`/writes), one per anomaly class, each producing a clearly-labeled result set (e.g. via `PRINT` banners between queries, or a leading literal column like `SELECT 'orphan-device-no-powerpoint' AS Check, d.DeviceId, d.Name FROM ...`) covering exactly the seven checks in AC #1. Base the join logic on the queries already proven against this production database during this epic's investigation (chain: `Devices d LEFT JOIN PowerPoints pp ON d.PowerPointId = pp.PowerPointId LEFT JOIN Rooms r ON pp.RoomId = r.RoomId LEFT JOIN Flats f ON r.FlatId = f.FlatId`, plus the `DeviceAssignmentPeriods`-focused checks joining back to `Devices`/`Rooms`)
+  - [x] Each result set must include enough columns to act on directly (at minimum `DeviceId`, `Name`, and whichever FK is broken) so the operator can paste `DeviceId`s straight into the cleanup script without a second lookup
+- [x] Task 3: Write the cleanup script (AC: #2, #3)
+  - [x] `scripts/db/cleanup-orphaned-devices.sql` — starts with a clearly-marked block (e.g. `DECLARE @DeviceIdsToDelete TABLE (DeviceId uniqueidentifier); INSERT INTO @DeviceIdsToDelete VALUES (...);`) the operator fills in by hand from the validation script's output; then `DELETE FROM DeviceAssignmentPeriods WHERE DeviceId IN (SELECT DeviceId FROM @DeviceIdsToDelete)` followed by `DELETE FROM Devices WHERE DeviceId IN (SELECT DeviceId FROM @DeviceIdsToDelete)`, both wrapped in a single `BEGIN TRAN` / `COMMIT` (with the transaction left uncommitted / a `-- COMMIT` comment line the operator uncomments deliberately, so a copy-paste run doesn't silently commit) — the exact "human confirms before commit" mechanics are a judgment call for whichever pattern is clearest; document the chosen mechanic in the script's own header comment
+  - [x] No `WHERE` clause in the cleanup script may derive its target rows from a live re-query of "broken chain" logic — it must only ever act on the explicit, operator-provided `DeviceId` list, so a cleanup run can never delete a device that wasn't specifically reviewed and listed
+- [x] Task 4: Run and record verification (AC: #4)
+  - [x] Run `validate-device-flat-associations.sql` against production via `sqlcmd`
+  - [x] Record the (expected all-clear) output in this story's Dev Agent Record / Completion Notes List, confirming the baseline matches what was found during this epic's scoping (zero results for every check)
+  - [x] Do not run `cleanup-orphaned-devices.sql` — there is nothing to clean up
 
 ## Dev Notes
 
@@ -60,10 +64,38 @@ so that a future bug, incomplete migration, or manual DB intervention can't leav
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Sonnet 5 (claude-sonnet-5)
 
 ### Debug Log References
 
+- `sqlcmd -S energytracker-sqlsrv.database.windows.net -d energytracker-db -G -i scripts/db/validate-device-flat-associations.sql` initially failed with a T-SQL syntax error (`Incorrect syntax near the keyword 'From'`/`'To'`) because `DeviceAssignmentPeriod.From`/`.To` are SQL Server reserved keywords — fixed by bracket-quoting (`dap.[From]`, `dap.[To]`) everywhere those columns are referenced.
+- First run against production also failed with an Azure SQL firewall error (client IP not allowlisted); resolved after Ralf added a firewall rule for the operator's IP — not something the dev agent does itself (see Dev Notes' "never let these scripts become reachable by automation" boundary, extended here to "never modify live Azure firewall rules").
+
 ### Completion Notes List
 
+- Implemented as three plain files under the new `scripts/db/` folder: `README.md`, `validate-device-flat-associations.sql`, `cleanup-orphaned-devices.sql`. No `api/`, `client/`, or `infra/` changes, per this story's Project Structure Notes.
+- This story's deliverable is ops tooling (SQL scripts), not application code, so there are no unit/integration tests to author per the project's testing conventions — the story's own AC #4 (running the validation script against production and recording the all-clear) is the verification step, executed below.
+- Confirmed with Ralf before executing anything against the production database, per this project's "dev agents never touch live Azure without explicit go-ahead" convention (previously applied to `infra/deploy.sh`/Bicep, extended here to a read-only prod DB query). Ralf explicitly authorized the dev agent to run the read-only validation script directly.
+- **Production verification (AC #4) — run 2026-08-07:** `validate-device-flat-associations.sql` executed against `energytracker-sqlsrv.database.windows.net` / `energytracker-db` via `sqlcmd -G`. All seven checks returned **zero rows**:
+  - `orphan-device-no-powerpoint`: 0
+  - `orphan-device-no-room`: 0
+  - `orphan-device-no-flat`: 0
+  - `assignment-period-orphan-device`: 0
+  - `device-no-assignment-period`: 0
+  - `device-multiple-open-periods`: 0
+  - `assignment-period-flatid-drift`: 0
+
+  This matches the all-clear baseline found during this epic's scoping (2026-08-02). `cleanup-orphaned-devices.sql` was **not** executed — there is nothing to clean up. It ships ready-to-use for whenever it's next needed, per AC #4.
+
 ### File List
+
+- `scripts/db/README.md` (new)
+- `scripts/db/validate-device-flat-associations.sql` (new)
+- `scripts/db/cleanup-orphaned-devices.sql` (new)
+
+### Change Log
+
+| Date | Change |
+|---|---|
+| 2026-08-07 | Added `scripts/db/` with a read-only Device→Flat association validation script, a manual-review-gated cleanup script, and a README covering usage/safety. Ran validation against production as this story's own verification: zero anomalies across all seven checks (baseline confirmed clean). |
+| 2026-08-07 | Code review completed — zero findings. Reviewer verified table/column names against EF Core entities/migrations, confirmed the cleanup script's redundant-but-harmless `DeviceAssignmentPeriods` delete matches AC #2, and traced Check 7's drift logic against all `api/Features` code to confirm no false-positive risk (no code path reassigns a device across flats). Story marked done. |

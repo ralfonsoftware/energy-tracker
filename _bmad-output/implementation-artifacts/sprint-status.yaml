@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-06-27
-last_updated: 2026-08-07 (Story 13.2 code review complete, patches applied, marked done)
+last_updated: 2026-08-07 (Story 13.3 code review complete, marked done)
 project: energy-tracker
 project_key: NOKEY
 tracking_system: file-system
@@ -173,4 +173,4 @@ development_status:
   epic-13: in-progress
   13-1-device-scoped-save-api-and-immediate-save-feedback: done
   13-2-room-and-power-point-scoped-saves: done
-  13-3-device-flat-association-validation-and-cleanup-scripts: ready-for-dev
+  13-3-device-flat-association-validation-and-cleanup-scripts: done
