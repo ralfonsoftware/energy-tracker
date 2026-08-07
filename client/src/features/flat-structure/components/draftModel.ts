@@ -1,10 +1,9 @@
 import type {
   ConsumptionApproach,
+  CreateRoomInput,
   DeviceResponse,
-  RoomInput,
   RoomResponse,
   SelfMeasuredPeriod,
-  UpdateFlatStructureRequest,
 } from '@/features/flat-structure/api/flatStructureApi'
 
 export type DraftDevice = {
@@ -53,6 +52,9 @@ export type DraftRoom = {
   // Absent = new room, never persisted (always dirty). Present = existing
   // room; dirty only when `name` differs from this last-saved value.
   originalName?: string
+  // Concurrency token for the update/delete endpoints; absent for a
+  // never-persisted room (create doesn't need one).
+  rowVersion?: string
   powerPoints: DraftPowerPoint[]
 }
 
@@ -82,6 +84,7 @@ export function toDraftRooms(rooms: RoomResponse[]): DraftRoom[] {
     roomId: room.roomId,
     name: room.name,
     originalName: room.name.trim(),
+    rowVersion: room.rowVersion,
     powerPoints: room.powerPoints.map(powerPoint => ({
       key: crypto.randomUUID(),
       name: powerPoint.name,
@@ -102,9 +105,8 @@ export function createDefaultDraftRooms(t: (key: string) => string): DraftRoom[]
   ].map(name => ({ key: crypto.randomUUID(), name, powerPoints: [] }))
 }
 
-export function toRoomInput(room: DraftRoom, name: string): RoomInput {
+export function toRoomWritePayload(room: DraftRoom, name: string): CreateRoomInput {
   return {
-    roomId: room.roomId,
     name,
     sortOrder: 0,
     powerPoints: room.powerPoints.map(powerPoint => ({
@@ -115,37 +117,23 @@ export function toRoomInput(room: DraftRoom, name: string): RoomInput {
   }
 }
 
-export function toUpdateRequest(rooms: DraftRoom[], rowVersion: string): UpdateFlatStructureRequest {
-  return {
-    rooms: rooms.map((room, index) => ({ ...toRoomInput(room, room.name), sortOrder: index })),
-    rowVersion,
-  }
-}
-
 // Tracks each room's own last-saved wire-shape snapshot alongside the
 // DraftRoom `key` it corresponds to, so per-room saves/deletes can look a
 // room up by identity instead of by array position — positions drift
 // whenever never-saved rooms are saved/deleted out of insertion order.
 export type KeyedRoomInput = {
   key: string
-  room: RoomInput
+  room: CreateRoomInput
 }
 
 export function toKeyedRooms(rooms: DraftRoom[]): KeyedRoomInput[] {
-  return rooms.map(room => ({ key: room.key, room: toRoomInput(room, room.name) }))
-}
-
-export function toWireRequest(keyedRooms: KeyedRoomInput[], rowVersion: string): UpdateFlatStructureRequest {
-  return {
-    rooms: keyedRooms.map(({ room }, index) => ({ ...room, sortOrder: index })),
-    rowVersion,
-  }
+  return rooms.map(room => ({ key: room.key, room: toRoomWritePayload(room, room.name) }))
 }
 
 export function withRoomAppended(
   base: KeyedRoomInput[],
   key: string,
-  room: RoomInput
+  room: CreateRoomInput
 ): KeyedRoomInput[] {
   return [...base, { key, room }]
 }
@@ -153,7 +141,7 @@ export function withRoomAppended(
 export function withRoomUpdated(
   base: KeyedRoomInput[],
   key: string,
-  room: RoomInput
+  room: CreateRoomInput
 ): KeyedRoomInput[] {
   return base.map(entry => (entry.key === key ? { key, room } : entry))
 }
@@ -182,9 +170,13 @@ export function isRoomDirty(room: DraftRoom, lastSaved: KeyedRoomInput[]): boole
   if (room.originalName === undefined) return true
   const savedEntry = lastSaved.find(entry => entry.key === room.key)
   if (!savedEntry) return true
-  return (
-    JSON.stringify(toRoomInput(room, room.name.trim())) !== JSON.stringify(savedEntry.room)
-  )
+  // sortOrder is excluded: it isn't user-editable in this UI (no drag-to-reorder), and
+  // toRoomWritePayload always emits 0 for it — comparing it would either mask nothing or,
+  // once a room's real server-assigned sortOrder is later stored in `lastSaved`, spuriously
+  // and permanently flag the room dirty.
+  const { sortOrder: _currentSortOrder, ...current } = toRoomWritePayload(room, room.name.trim())
+  const { sortOrder: _savedSortOrder, ...saved } = savedEntry.room
+  return JSON.stringify(current) !== JSON.stringify(saved)
 }
 
 export function hasPlugIdConflictForRoomSave(room: DraftRoom, lastSaved: KeyedRoomInput[]): boolean {

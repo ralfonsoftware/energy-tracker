@@ -22,13 +22,15 @@ public record PowerPointResponse(
     Guid PowerPointId,
     string Name,
     string? PlugId,
-    List<DeviceResponse> Devices);
+    List<DeviceResponse> Devices,
+    byte[] RowVersion);
 
 public record RoomResponse(
     Guid RoomId,
     string Name,
     int SortOrder,
-    List<PowerPointResponse> PowerPoints);
+    List<PowerPointResponse> PowerPoints,
+    byte[] RowVersion);
 
 public record FlatStructureResponse(
     Guid FlatId,
@@ -57,10 +59,13 @@ public record PowerPointInput(
     string Name,
     string? PlugId);
 
-public record RoomInput(
-    Guid? RoomId,
+public record CreateRoomRequest(
     string Name,
     int SortOrder,
     List<PowerPointInput> PowerPoints);
 
-public record UpdateFlatStructureRequest(List<RoomInput> Rooms, byte[] RowVersion);
+public record UpdateRoomRequest(
+    string Name,
+    int SortOrder,
+    List<PowerPointInput> PowerPoints,
+    byte[] RowVersion);

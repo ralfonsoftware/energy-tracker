@@ -1,5 +1,11 @@
 # Deferred Work
 
+## Deferred from: code review of story-13.2 (2026-08-07)
+
+- Deleting a room doesn't resync remaining siblings' `sortOrder`, and a newly-added room's `sortOrder` is computed from its live `draftRooms` array index at save time — if a room is deleted and a new room is saved before its now-shifted siblings are individually resaved, the new room's computed index can collide with an already-persisted sibling's unchanged `SortOrder`, producing a duplicate value with unstable tie-break order on the next reload; ordinary add/delete without this interleaving is unaffected since relative order survives gaps fine. `blocks: none — revisit only if room drag-to-reorder is ever added`. `client/src/features/flat-structure/components/FlatStructureEditor.tsx:105-108,162-187`
+- `catch (DbUpdateException)` around `SaveChangesAsync` in `CreateRoomFunction`/`UpdateRoomFunction` reports every non-concurrency save failure as "This Smart Plug is already assigned to another Power Point," which would mislabel an unrelated DB failure — inherited verbatim from the deleted `UpdateFlatStructureFunction` per this story's own Task 2.4/2.5 instruction to match existing messages verbatim, not introduced by this diff. `api/Features/FlatStructure/CreateRoomFunction.cs:106-114, UpdateRoomFunction.cs:176-184`
+- `PlugId` is never trimmed before duplicate-detection or storage (unlike `Name`, which is trimmed) — `"plug-1"` and `"plug-1 "` are treated as distinct, so two power points with whitespace-only-different plug IDs can both be saved; confirmed identical in the deleted `UpdateFlatStructureFunction`, not a regression. `api/Features/FlatStructure/CreateRoomFunction.cs:97, UpdateRoomFunction.cs:133,143`
+
 ## Deferred from: code review of story-13.1 (2026-08-06)
 
 - `PowerPointEditor.tsx` shares a single `useDeleteDevice(flatId)` mutation instance across every device row in a power point — `isPending`/`isError` apply globally, so deleting one device disables the confirm-delete button for every other device in that power point for the duration of the request, and a failed delete's error banner isn't visibly tied to which device failed. `client/src/features/flat-structure/components/PowerPointEditor.tsx`

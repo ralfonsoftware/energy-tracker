@@ -115,8 +115,8 @@ public class GetFlatStructureFunctionTests
     public async Task RunAsync_FullNestedHierarchy_ReturnsCorrectlyShapedResponse()
     {
         var (flat, db) = await SeedFlatAsync();
-        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Living Room", SortOrder = 1 };
-        var powerPoint = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Wall Socket", PlugId = "plug-1", Room = room };
+        var room = new Room { RoomId = Guid.NewGuid(), FlatId = flat.FlatId, Name = "Living Room", SortOrder = 1, RowVersion = [1, 2, 3] };
+        var powerPoint = new PowerPoint { PowerPointId = Guid.NewGuid(), RoomId = room.RoomId, Name = "Wall Socket", PlugId = "plug-1", Room = room, RowVersion = [4, 5, 6] };
         var device = new Device
         {
             DeviceId = Guid.NewGuid(),
@@ -151,10 +151,12 @@ public class GetFlatStructureFunctionTests
         roomResponse.RoomId.ShouldBe(room.RoomId);
         roomResponse.Name.ShouldBe("Living Room");
         roomResponse.SortOrder.ShouldBe(1);
+        roomResponse.RowVersion.ShouldBe(room.RowVersion);
         roomResponse.PowerPoints.Count.ShouldBe(1);
         var ppResponse = roomResponse.PowerPoints.Single();
         ppResponse.PowerPointId.ShouldBe(powerPoint.PowerPointId);
         ppResponse.PlugId.ShouldBe("plug-1");
+        ppResponse.RowVersion.ShouldBe(powerPoint.RowVersion);
         ppResponse.Devices.Count.ShouldBe(1);
         var deviceResponse = ppResponse.Devices.Single();
         deviceResponse.DeviceId.ShouldBe(device.DeviceId);

@@ -4,7 +4,7 @@ import { vi, describe, it, expect, beforeEach } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { FlatStructureEditor } from './FlatStructureEditor'
-import type { FlatStructureResponse } from '@/features/flat-structure/api/flatStructureApi'
+import type { FlatStructureResponse, RoomResponse } from '@/features/flat-structure/api/flatStructureApi'
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -26,9 +26,13 @@ vi.mock('@/features/flat-structure/hooks/useFlatStructure')
 import { useFlatStructure } from '@/features/flat-structure/hooks/useFlatStructure'
 const mockUseFlatStructure = vi.mocked(useFlatStructure)
 
-vi.mock('@/features/flat-structure/hooks/useUpdateFlatStructure')
-import { useUpdateFlatStructure } from '@/features/flat-structure/hooks/useUpdateFlatStructure'
-const mockUseUpdateFlatStructure = vi.mocked(useUpdateFlatStructure)
+vi.mock('@/features/flat-structure/hooks/useSaveRoom')
+import { useSaveRoom } from '@/features/flat-structure/hooks/useSaveRoom'
+const mockUseSaveRoom = vi.mocked(useSaveRoom)
+
+vi.mock('@/features/flat-structure/hooks/useDeleteRoom')
+import { useDeleteRoom } from '@/features/flat-structure/hooks/useDeleteRoom'
+const mockUseDeleteRoom = vi.mocked(useDeleteRoom)
 
 vi.mock('@/features/flat-structure/hooks/useSaveDevice')
 import { useSaveDevice } from '@/features/flat-structure/hooks/useSaveDevice'
@@ -38,7 +42,8 @@ vi.mock('@/features/flat-structure/hooks/useDeleteDevice')
 import { useDeleteDevice } from '@/features/flat-structure/hooks/useDeleteDevice'
 const mockUseDeleteDevice = vi.mocked(useDeleteDevice)
 
-const mockMutate = vi.fn()
+const mockSaveRoomMutate = vi.fn()
+const mockDeleteRoomMutate = vi.fn()
 const mockSaveDeviceMutate = vi.fn()
 const mockDeleteDeviceMutate = vi.fn()
 
@@ -84,12 +89,14 @@ function seededResponse(overrides?: Partial<FlatStructureResponse>): FlatStructu
         roomId: 'room-1',
         name: 'Office',
         sortOrder: 0,
+        rowVersion: 'AQID',
         powerPoints: [
           {
             powerPointId: 'pp-1',
             name: 'Desk Outlet',
             plugId: 'PLUG-1',
             devices: [],
+            rowVersion: 'AQID',
           },
         ],
       },
@@ -97,12 +104,14 @@ function seededResponse(overrides?: Partial<FlatStructureResponse>): FlatStructu
         roomId: 'room-2',
         name: 'Garage',
         sortOrder: 1,
+        rowVersion: 'AQID',
         powerPoints: [
           {
             powerPointId: 'pp-2',
             name: 'Charger Outlet',
             plugId: 'PLUG-2',
             devices: [],
+            rowVersion: 'AQID',
           },
         ],
       },
@@ -119,11 +128,13 @@ function seededResponseWithDevice(): FlatStructureResponse {
         roomId: 'room-1',
         name: 'Office',
         sortOrder: 0,
+        rowVersion: 'AQID',
         powerPoints: [
           {
             powerPointId: 'pp-1',
             name: 'Desk Outlet',
             plugId: 'PLUG-1',
+            rowVersion: 'AQID',
             devices: [
               {
                 deviceId: 'device-1',
@@ -149,20 +160,34 @@ function seededResponseWithDevice(): FlatStructureResponse {
   })
 }
 
+const officeRoomResponse: RoomResponse = {
+  roomId: 'room-1',
+  name: 'Office Renamed',
+  sortOrder: 0,
+  powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
+  rowVersion: 'new-version',
+}
+
 describe('FlatStructureEditor', () => {
   beforeEach(() => {
     mockUseFlatStructure.mockReset()
-    mockUseUpdateFlatStructure.mockReset()
+    mockUseSaveRoom.mockReset()
+    mockUseDeleteRoom.mockReset()
     mockUseSaveDevice.mockReset()
     mockUseDeleteDevice.mockReset()
     mockNavigate.mockReset()
-    mockMutate.mockReset()
+    mockSaveRoomMutate.mockReset()
+    mockDeleteRoomMutate.mockReset()
     mockSaveDeviceMutate.mockReset()
     mockDeleteDeviceMutate.mockReset()
-    mockUseUpdateFlatStructure.mockReturnValue({
-      mutate: mockMutate,
+    mockUseSaveRoom.mockReturnValue({
+      mutate: mockSaveRoomMutate,
       isPending: false,
-    } as unknown as ReturnType<typeof useUpdateFlatStructure>)
+    } as unknown as ReturnType<typeof useSaveRoom>)
+    mockUseDeleteRoom.mockReturnValue({
+      mutate: mockDeleteRoomMutate,
+      isPending: false,
+    } as unknown as ReturnType<typeof useDeleteRoom>)
     mockUseSaveDevice.mockReturnValue({
       mutate: mockSaveDeviceMutate,
       isPending: false,
@@ -212,7 +237,7 @@ describe('FlatStructureEditor', () => {
     await user.type(input, 'Study')
 
     expect(screen.getByDisplayValue('Study')).toBeInTheDocument()
-    expect(mockMutate).not.toHaveBeenCalled()
+    expect(mockSaveRoomMutate).not.toHaveBeenCalled()
   })
 
   it('FlatStructureEditor_ClickRoomRow_TransitionsToRoomViewAndBackReturnsToList', async () => {
@@ -276,10 +301,10 @@ describe('FlatStructureEditor', () => {
     expect(mockSaveDeviceMutate).toHaveBeenCalledWith(
       expect.objectContaining({ deviceId: undefined, name: 'Toaster' })
     )
-    expect(mockMutate).not.toHaveBeenCalled()
+    expect(mockSaveRoomMutate).not.toHaveBeenCalled()
   })
 
-  it('FlatStructureEditor_TwoPowerPointsSameNonEmptyPlugId_SaveDisabledWithConflictText', () => {
+  it('FlatStructureEditor_TwoPowerPointsSameNonEmptyPlugId_ShowsConflictTextOnBothRows', () => {
     setupFlatStructure({
       data: seededResponse({
         rooms: [
@@ -287,13 +312,15 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
         ],
       }),
@@ -301,11 +328,10 @@ describe('FlatStructureEditor', () => {
 
     renderEditor()
 
-    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(3)
-    expect(screen.getByRole('button', { name: 'editor.save' })).toBeDisabled()
+    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(2)
   })
 
-  it('FlatStructureEditor_ClearingOnePlugId_ReEnablesSave', async () => {
+  it('FlatStructureEditor_ClearingOnePlugId_LeavesOnlyTheOtherRoomsInlineConflict', async () => {
     const user = userEvent.setup()
     setupFlatStructure({
       data: seededResponse({
@@ -314,13 +340,15 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
         ],
       }),
@@ -336,10 +364,9 @@ describe('FlatStructureEditor', () => {
     // still conflicts with Garage's *last-saved* PLUG-1 (Garage's clearing is draft-only,
     // not yet persisted) — this matches hasPlugIdConflictForRoomSave's existing semantics.
     expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(1)
-    expect(screen.getByRole('button', { name: 'editor.save' })).toBeEnabled()
   })
 
-  it('FlatStructureEditor_TwoPowerPointsBothEmptyPlugId_NoConflictSaveStaysEnabled', () => {
+  it('FlatStructureEditor_TwoPowerPointsBothEmptyPlugId_NoConflictShown', () => {
     setupFlatStructure({
       data: seededResponse({
         rooms: [
@@ -347,13 +374,15 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: '', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: '', devices: [], rowVersion: 'AQID' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: null, devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: null, devices: [], rowVersion: 'AQID' }],
           },
         ],
       }),
@@ -362,93 +391,6 @@ describe('FlatStructureEditor', () => {
     renderEditor()
 
     expect(screen.queryByText('editor.plugIdConflict')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'editor.save' })).toBeEnabled()
-  })
-
-  it('FlatStructureEditor_SaveClickedNoConflicts_CallsMutationWithCorrectlyShapedPayload', async () => {
-    const user = userEvent.setup()
-    setupFlatStructure({
-      data: seededResponse({
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [
-              {
-                powerPointId: 'pp-1',
-                name: 'Desk Outlet',
-                plugId: 'PLUG-1',
-                devices: [
-                  {
-                    deviceId: 'device-1',
-                    name: 'Lamp',
-                    type: null,
-                    manufacturer: null,
-                    model: null,
-                    purchaseDate: null,
-                    inUseSince: null,
-                    decommissionedDate: null,
-                    consumptionApproach: 'None',
-                    euLabelClass: null,
-                    euAnnualKwh: null,
-                    selfMeasuredKwh: null,
-                    selfMeasuredPeriod: null,
-                    rowVersion: 'AQID',
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      }),
-    })
-
-    renderEditor()
-    await user.click(screen.getByRole('button', { name: 'editor.save' }))
-
-    expect(mockMutate).toHaveBeenCalledWith(
-      {
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [
-              {
-                powerPointId: 'pp-1',
-                name: 'Desk Outlet',
-                plugId: 'PLUG-1',
-              },
-            ],
-          },
-        ],
-        rowVersion: 'AQID',
-      },
-      expect.any(Object)
-    )
-  })
-
-  it('FlatStructureEditor_SaveSucceeds_ShowsSuccessConfirmation', async () => {
-    const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.({ flatId: 'flat-1', hasDefaultTemplate: false, rooms: [], rowVersion: 'new-version' }))
-    setupFlatStructure({
-      data: seededResponse({
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [],
-          },
-        ],
-      }),
-    })
-
-    renderEditor()
-    await user.click(screen.getByRole('button', { name: 'editor.save' }))
-
-    expect(screen.getByText('editor.saveSuccess')).toBeInTheDocument()
   })
 
   it('FlatStructureEditor_DeleteRoomArmThenConfirm_RemovesOnlyThatRoom', async () => {
@@ -477,29 +419,6 @@ describe('FlatStructureEditor', () => {
 
     expect(screen.getByDisplayValue('Office')).toBeInTheDocument()
     expect(screen.queryByText('room.deletePrompt')).not.toBeInTheDocument()
-  })
-
-  it('FlatStructureEditor_DeleteLastRemainingRoom_DisablesSaveAndShowsError', async () => {
-    const user = userEvent.setup()
-    setupFlatStructure({
-      data: seededResponse({
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [],
-          },
-        ],
-      }),
-    })
-
-    renderEditor()
-    await user.click(screen.getByRole('button', { name: 'room.delete' }))
-    await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
-
-    expect(screen.getByText('editor.noRoomsError')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'editor.save' })).toBeDisabled()
   })
 
   it('FlatStructureEditor_DeletePowerPointArmThenConfirm_RemovesPowerPoint', async () => {
@@ -566,6 +485,32 @@ describe('FlatStructureEditor', () => {
     expect(screen.queryByText('device.deletePrompt')).not.toBeInTheDocument()
   })
 
+  it('FlatStructureEditor_NeverSavedRoomWithPowerPointAddedBeforeFirstSave_CreateSaveIncludesThePowerPoint', async () => {
+    // "Gap found" #1: RoomEditor.tsx's handleAddPowerPoint lets a user add power points to a
+    // never-yet-persisted room (local draft only, no network call) before that room's own first Save.
+    const user = userEvent.setup()
+    setupFlatStructure({ data: seededResponse() })
+
+    renderEditor()
+    await user.click(screen.getByRole('button', { name: 'editor.addRoom' }))
+    await user.click(screen.getAllByRole('button', { name: /room\.powerPointsSummary/ })[2])
+    await user.click(screen.getByRole('button', { name: 'room.addPowerPoint' }))
+    await user.type(screen.getByRole('textbox', { name: 'powerPoint.namePlaceholder' }), 'Wall Socket')
+    await user.click(screen.getByRole('button', { name: /editor\.back/ }))
+    await user.click(screen.getByRole('button', { name: 'editor.save: editor.newRoomName' }))
+
+    expect(mockSaveRoomMutate).toHaveBeenCalledWith(
+      {
+        roomId: undefined,
+        rowVersion: undefined,
+        name: 'editor.newRoomName',
+        sortOrder: 2,
+        powerPoints: [{ powerPointId: undefined, name: 'Wall Socket', plugId: undefined }],
+      },
+      expect.any(Object)
+    )
+  })
+
   it('FlatStructureEditor_NewRoomAdded_SaveButtonEnabledImmediately', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
@@ -612,7 +557,7 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByRole('button', { name: 'editor.save: Office' })).toBeDisabled()
   })
 
-  it('FlatStructureEditor_ClickRoomSaveButton_CallsMutationWithoutPageLevelSpeichernClick', async () => {
+  it('FlatStructureEditor_ClickRoomSaveButton_CallsSaveRoomMutateWithOnlyThatRoomsData', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
 
@@ -622,30 +567,20 @@ describe('FlatStructureEditor', () => {
     await user.type(input, 'Office Renamed')
     await user.click(screen.getByRole('button', { name: 'editor.save: Office Renamed' }))
 
-    expect(mockMutate).toHaveBeenCalledTimes(1)
-    expect(mockMutate).toHaveBeenCalledWith(
+    expect(mockSaveRoomMutate).toHaveBeenCalledTimes(1)
+    expect(mockSaveRoomMutate).toHaveBeenCalledWith(
       {
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office Renamed',
-            sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
-          },
-          {
-            roomId: 'room-2',
-            name: 'Garage',
-            sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
-          },
-        ],
+        roomId: 'room-1',
         rowVersion: 'AQID',
+        name: 'Office Renamed',
+        sortOrder: 0,
+        powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
       },
       expect.any(Object)
     )
   })
 
-  it('FlatStructureEditor_SaveRoomWhileUnrelatedPowerPointNameIsBlank_PayloadOmitsTheBlankPowerPoint', async () => {
+  it('FlatStructureEditor_SaveRoomWhileUnrelatedPowerPointNameIsBlank_PayloadHasNoTraceOfTheBlankPowerPoint', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
 
@@ -659,45 +594,36 @@ describe('FlatStructureEditor', () => {
     await user.type(input, 'Garage Renamed')
     await user.click(screen.getByRole('button', { name: 'editor.save: Garage Renamed' }))
 
-    expect(mockMutate).toHaveBeenCalledWith(
+    expect(mockSaveRoomMutate).toHaveBeenCalledWith(
       {
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
-          },
-          {
-            roomId: 'room-2',
-            name: 'Garage Renamed',
-            sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
-          },
-        ],
+        roomId: 'room-2',
         rowVersion: 'AQID',
+        name: 'Garage Renamed',
+        sortOrder: 1,
+        powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
       },
       expect.any(Object)
     )
   })
 
-  it('FlatStructureEditor_SaveRoomSucceeds_ButtonDisabledAgainAndOriginalNameUpdated', async () => {
+  it('FlatStructureEditor_SaveRoomSucceeds_ShowsSuccessButtonDisabledAgainAndOriginalNameUpdated', async () => {
     const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.({ flatId: 'flat-1', hasDefaultTemplate: false, rooms: [], rowVersion: 'new-version' }))
+    mockSaveRoomMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.(officeRoomResponse))
     setupFlatStructure({ data: seededResponse() })
 
     renderEditor()
     const input = screen.getByDisplayValue('Office')
     await user.clear(input)
-    await user.type(input, 'Study')
-    await user.click(screen.getByRole('button', { name: 'editor.save: Study' }))
+    await user.type(input, 'Office Renamed')
+    await user.click(screen.getByRole('button', { name: 'editor.save: Office Renamed' }))
 
-    expect(screen.getByRole('button', { name: 'editor.save: Study' })).toBeDisabled()
+    expect(screen.getByText('editor.saveSuccess')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'editor.save: Office Renamed' })).toBeDisabled()
   })
 
   it('FlatStructureEditor_SaveRoomFails_RevertsNameAndShowsSaveError', async () => {
     const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onError?.())
+    mockSaveRoomMutate.mockImplementation((_body, callbacks) => callbacks?.onError?.())
     setupFlatStructure({ data: seededResponse() })
 
     renderEditor()
@@ -710,7 +636,7 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByText('editor.saveError')).toBeInTheDocument()
   })
 
-  it('FlatStructureEditor_DeleteRoomConfirm_CallsMutationImmediatelyWithRoomRemoved', async () => {
+  it('FlatStructureEditor_DeleteRoomConfirm_CallsDeleteRoomMutateWithRoomIdAndRowVersion', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
 
@@ -718,23 +644,13 @@ describe('FlatStructureEditor', () => {
     await user.click(screen.getAllByRole('button', { name: 'room.delete' })[0])
     await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
 
-    expect(mockMutate).toHaveBeenCalledWith(
-      {
-        rooms: [
-          {
-            roomId: 'room-2',
-            name: 'Garage',
-            sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
-          },
-        ],
-        rowVersion: 'AQID',
-      },
+    expect(mockDeleteRoomMutate).toHaveBeenCalledWith(
+      { roomId: 'room-1', rowVersion: 'AQID' },
       expect.any(Object)
     )
   })
 
-  it('FlatStructureEditor_DeleteLastRemainingRoom_DoesNotCallMutationShowsNoRoomsError', async () => {
+  it('FlatStructureEditor_DeleteLastRemainingRoom_DoesNotCallMutation', async () => {
     const user = userEvent.setup()
     setupFlatStructure({
       data: seededResponse({
@@ -743,6 +659,7 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
+            rowVersion: 'AQID',
             powerPoints: [],
           },
         ],
@@ -753,16 +670,15 @@ describe('FlatStructureEditor', () => {
     await user.click(screen.getByRole('button', { name: 'room.delete' }))
     await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
 
-    expect(mockMutate).not.toHaveBeenCalled()
-    expect(screen.getByText('editor.noRoomsError')).toBeInTheDocument()
+    expect(mockDeleteRoomMutate).not.toHaveBeenCalled()
   })
 
-  it('FlatStructureEditor_HookIsPendingTrueOnMount_DisablesDeleteAndAddRoomButtonsOnly', () => {
+  it('FlatStructureEditor_DeleteRoomMutationPendingOnMount_DisablesDeleteAndAddRoomButtonsOnly', () => {
     setupFlatStructure({ data: seededResponse() })
-    mockUseUpdateFlatStructure.mockReturnValue({
-      mutate: mockMutate,
+    mockUseDeleteRoom.mockReturnValue({
+      mutate: mockDeleteRoomMutate,
       isPending: true,
-    } as unknown as ReturnType<typeof useUpdateFlatStructure>)
+    } as unknown as ReturnType<typeof useDeleteRoom>)
 
     renderEditor()
 
@@ -787,34 +703,31 @@ describe('FlatStructureEditor', () => {
     await user.type(input, 'Office Renamed')
     await user.click(screen.getByRole('button', { name: 'editor.save: Office Renamed' }))
 
-    expect(mockMutate).toHaveBeenCalledWith(
+    expect(mockSaveRoomMutate).toHaveBeenCalledWith(
       {
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office Renamed',
-            sortOrder: 0,
-            powerPoints: [
-              { powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' },
-              { powerPointId: undefined, name: 'Fridge Outlet', plugId: undefined },
-            ],
-          },
-          {
-            roomId: 'room-2',
-            name: 'Garage',
-            sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
-          },
-        ],
+        roomId: 'room-1',
         rowVersion: 'AQID',
+        name: 'Office Renamed',
+        sortOrder: 0,
+        powerPoints: [
+          { powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' },
+          { powerPointId: undefined, name: 'Fridge Outlet', plugId: undefined },
+        ],
       },
       expect.any(Object)
     )
   })
 
-  it('FlatStructureEditor_RenameAlreadySavedNewRoomWhileEarlierUnsavedRoomStillExists_PersistsTheRename', async () => {
+  it('FlatStructureEditor_CreatedRoomsRoomIdFlowsBackIntoDraft_SecondSaveIsRecognizedAsUpdate', async () => {
     const user = userEvent.setup()
-    mockMutate.mockImplementation((_body, callbacks) => callbacks?.onSuccess?.({ flatId: 'flat-1', hasDefaultTemplate: false, rooms: [], rowVersion: 'new-version' }))
+    const createdResponse: RoomResponse = {
+      roomId: 'new-room-id',
+      name: 'NewB',
+      sortOrder: 3,
+      powerPoints: [],
+      rowVersion: 'new-version',
+    }
+    mockSaveRoomMutate.mockImplementationOnce((_body, callbacks) => callbacks?.onSuccess?.(createdResponse))
     setupFlatStructure({ data: seededResponse() })
 
     renderEditor()
@@ -826,31 +739,26 @@ describe('FlatStructureEditor', () => {
     await user.type(newRoomInputs[1], 'NewB')
     await user.click(screen.getByRole('button', { name: 'editor.save: NewB' }))
 
-    mockMutate.mockClear()
+    expect(mockSaveRoomMutate).toHaveBeenNthCalledWith(
+      1,
+      { roomId: undefined, rowVersion: undefined, name: 'NewB', sortOrder: 3, powerPoints: [] },
+      expect.any(Object)
+    )
+
+    mockSaveRoomMutate.mockClear()
 
     const savedNewBInput = screen.getByDisplayValue('NewB')
     await user.clear(savedNewBInput)
     await user.type(savedNewBInput, 'NewB Renamed')
     await user.click(screen.getByRole('button', { name: 'editor.save: NewB Renamed' }))
 
-    expect(mockMutate).toHaveBeenCalledWith(
+    expect(mockSaveRoomMutate).toHaveBeenCalledWith(
       {
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1' }],
-          },
-          {
-            roomId: 'room-2',
-            name: 'Garage',
-            sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
-          },
-          { roomId: undefined, name: 'NewB Renamed', sortOrder: 2, powerPoints: [] },
-        ],
+        roomId: 'new-room-id',
         rowVersion: 'new-version',
+        name: 'NewB Renamed',
+        sortOrder: 3,
+        powerPoints: [],
       },
       expect.any(Object)
     )
@@ -865,7 +773,7 @@ describe('FlatStructureEditor', () => {
     await user.click(screen.getAllByRole('button', { name: 'room.delete' })[2])
     await user.click(screen.getByRole('button', { name: 'confirm.delete' }))
 
-    expect(mockMutate).not.toHaveBeenCalled()
+    expect(mockDeleteRoomMutate).not.toHaveBeenCalled()
   })
 
   it('FlatStructureEditor_EditPowerPointInRoomDetailNoRename_RoomListSaveButtonBecomesEnabled', async () => {
@@ -895,7 +803,7 @@ describe('FlatStructureEditor', () => {
     expect(screen.getByRole('button', { name: 'editor.save' })).toBeEnabled()
   })
 
-  it('FlatStructureEditor_ClickInRoomSaveButton_PersistsPowerPointEditAndLeavesOtherRoomsUnchanged', async () => {
+  it('FlatStructureEditor_ClickInRoomSaveButton_PersistsPowerPointEditScopedToJustThatRoom', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
 
@@ -906,23 +814,13 @@ describe('FlatStructureEditor', () => {
     await user.type(ppInput, 'Desk Outlet Updated')
     await user.click(screen.getByRole('button', { name: 'editor.save' }))
 
-    expect(mockMutate).toHaveBeenCalledWith(
+    expect(mockSaveRoomMutate).toHaveBeenCalledWith(
       {
-        rooms: [
-          {
-            roomId: 'room-1',
-            name: 'Office',
-            sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet Updated', plugId: 'PLUG-1' }],
-          },
-          {
-            roomId: 'room-2',
-            name: 'Garage',
-            sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-2' }],
-          },
-        ],
+        roomId: 'room-1',
         rowVersion: 'AQID',
+        name: 'Office',
+        sortOrder: 0,
+        powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet Updated', plugId: 'PLUG-1' }],
       },
       expect.any(Object)
     )
@@ -963,7 +861,8 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
         ],
       }),
@@ -1009,7 +908,7 @@ describe('FlatStructureEditor', () => {
     await user.type(garageInput, 'Garage Renamed')
 
     expect(screen.getByRole('button', { name: 'editor.save: Garage Renamed' })).toBeEnabled()
-    expect(mockMutate).toHaveBeenCalledTimes(1)
+    expect(mockSaveRoomMutate).toHaveBeenCalledTimes(1)
   })
 
   it('FlatStructureEditor_SavingOneRoomThenViewingUnrelatedRoomDetail_UnrelatedRoomSaveButtonNotDisabled', async () => {
@@ -1031,18 +930,6 @@ describe('FlatStructureEditor', () => {
     expect(saveButton).toBeEnabled()
   })
 
-  it('FlatStructureEditor_PageLevelBatchSaveInFlight_AllRoomSaveButtonsShowSavingAndDisabled', async () => {
-    const user = userEvent.setup()
-    setupFlatStructure({ data: seededResponse() })
-
-    renderEditor()
-    await user.click(screen.getByRole('button', { name: 'editor.save' }))
-
-    expect(screen.getByRole('button', { name: 'editor.saving: Office' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'editor.saving: Garage' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'editor.saving' })).toBeDisabled()
-  })
-
   it('FlatStructureEditor_RoomBlockedByPlugIdConflict_ShowsInlineConflictReasonNearThatRow', () => {
     setupFlatStructure({
       data: seededResponse({
@@ -1051,13 +938,15 @@ describe('FlatStructureEditor', () => {
             roomId: 'room-1',
             name: 'Office',
             sortOrder: 0,
-            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-1', name: 'Desk Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
           {
             roomId: 'room-2',
             name: 'Garage',
             sortOrder: 1,
-            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [] }],
+            rowVersion: 'AQID',
+            powerPoints: [{ powerPointId: 'pp-2', name: 'Charger Outlet', plugId: 'PLUG-1', devices: [], rowVersion: 'AQID' }],
           },
         ],
       }),
@@ -1068,10 +957,10 @@ describe('FlatStructureEditor', () => {
     const rows = screen.getAllByRole('listitem')
     expect(within(rows[0]).getByText('editor.plugIdConflict')).toBeInTheDocument()
     expect(within(rows[1]).getByText('editor.plugIdConflict')).toBeInTheDocument()
-    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(3)
+    expect(screen.getAllByText('editor.plugIdConflict')).toHaveLength(2)
   })
 
-  it('FlatStructureEditor_RoomBlockedByBlankName_ShowsInlineBlankNameReasonNearThatRow', async () => {
+  it('FlatStructureEditor_RoomBlockedByBlankName_ShowsInlineBlankNameReasonNearThatRowOnly', async () => {
     const user = userEvent.setup()
     setupFlatStructure({ data: seededResponse() })
 
@@ -1082,7 +971,7 @@ describe('FlatStructureEditor', () => {
     const rows = screen.getAllByRole('listitem')
     expect(within(rows[0]).getByText('editor.blankNameError')).toBeInTheDocument()
     expect(within(rows[1]).queryByText('editor.blankNameError')).not.toBeInTheDocument()
-    expect(screen.getAllByText('editor.blankNameError')).toHaveLength(2)
+    expect(screen.getAllByText('editor.blankNameError')).toHaveLength(1)
   })
 
   it('FlatStructureEditor_PowerPointIdQueryParamMatchesExistingPowerPoint_OpensThatRoomDirectly', () => {

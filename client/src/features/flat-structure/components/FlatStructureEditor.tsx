@@ -3,18 +3,15 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Check, Trash2 } from 'lucide-react'
 import { useFlatStructure } from '@/features/flat-structure/hooks/useFlatStructure'
-import { useUpdateFlatStructure } from '@/features/flat-structure/hooks/useUpdateFlatStructure'
+import { useSaveRoom } from '@/features/flat-structure/hooks/useSaveRoom'
+import { useDeleteRoom } from '@/features/flat-structure/hooks/useDeleteRoom'
 import { RoomEditor } from './RoomEditor'
 import { DeviceEditor } from './DeviceEditor'
 import {
   toDraftRooms,
   createDefaultDraftRooms,
-  toUpdateRequest,
-  toRoomInput,
+  toRoomWritePayload,
   toKeyedRooms,
-  toWireRequest,
-  findPlugIdConflict,
-  hasBlankName,
   hasBlankNameInRoom,
   isRoomDirty,
   hasPlugIdConflictForRoomSave,
@@ -40,7 +37,8 @@ export function FlatStructureEditor({ flatId }: Props) {
   const [searchParams] = useSearchParams()
   const powerPointId = searchParams.get('powerPointId')
   const { data, isLoading, isError, refetch } = useFlatStructure(flatId)
-  const { mutate, isPending } = useUpdateFlatStructure(flatId)
+  const saveRoom = useSaveRoom(flatId)
+  const deleteRoomMutation = useDeleteRoom(flatId)
 
   const [draftRooms, setDraftRooms] = useState<DraftRoom[]>([])
   const [lastSaved, setLastSaved] = useState<KeyedRoomInput[]>([])
@@ -51,12 +49,10 @@ export function FlatStructureEditor({ flatId }: Props) {
   const [confirmDeleteRoomKey, setConfirmDeleteRoomKey] = useState<string | null>(null)
   const [savingRoomKeys, setSavingRoomKeys] = useState<Set<string>>(new Set())
   const initializedFlatIdRef = useRef<string | undefined>(undefined)
-  const currentRowVersionRef = useRef<string>('')
 
   useEffect(() => {
     if (!data || initializedFlatIdRef.current === flatId) return
     initializedFlatIdRef.current = flatId
-    currentRowVersionRef.current = data.rowVersion
     let seeded: DraftRoom[]
     if (data.hasDefaultTemplate && data.rooms.length === 0) {
       seeded = createDefaultDraftRooms(t)
@@ -95,52 +91,78 @@ export function FlatStructureEditor({ flatId }: Props) {
     setDraftRooms(prev => prev.map(room => (room.key === roomKey ? updated : room)))
   }
 
-  const refreshRowVersionAfterConflict = () => {
+  const refreshRoomRowVersionAfterConflict = (roomKey: string, roomId: string | undefined) => {
+    if (!roomId) return
     refetch().then(result => {
-      if (result.data) currentRowVersionRef.current = result.data.rowVersion
+      const refreshedRoom = result.data?.rooms.find(r => r.roomId === roomId)
+      if (!refreshedRoom) return
+      setDraftRooms(prev =>
+        prev.map(r => (r.key === roomKey ? { ...r, rowVersion: refreshedRoom.rowVersion } : r))
+      )
     })
   }
 
   const handleSaveRoom = (room: DraftRoom) => {
     const trimmedName = room.name.trim()
-    const roomInput = toRoomInput(room, trimmedName)
-    const newLastSaved =
-      room.originalName === undefined
-        ? withRoomAppended(lastSaved, room.key, roomInput)
-        : withRoomUpdated(lastSaved, room.key, roomInput)
-    const payload = toWireRequest(newLastSaved, currentRowVersionRef.current)
+    const index = draftRooms.findIndex(r => r.key === room.key)
+    const payload = { ...toRoomWritePayload(room, trimmedName), sortOrder: index }
     setSaveError(false)
     setSaveSuccess(false)
     setSavingRoomKeys(prev => new Set(prev).add(room.key))
-    mutate(payload, {
-      onSuccess: response => {
-        currentRowVersionRef.current = response.rowVersion
-        setLastSaved(newLastSaved)
-        setDraftRooms(prev =>
-          prev.map(r => (r.key === room.key ? { ...r, originalName: trimmedName } : r))
-        )
-        setSaveSuccess(true)
-        setSavingRoomKeys(prev => {
-          const next = new Set(prev)
-          next.delete(room.key)
-          return next
-        })
-      },
-      onError: () => {
-        if (room.originalName !== undefined) {
-          setDraftRooms(prev =>
-            prev.map(r => (r.key === room.key ? { ...r, name: room.originalName as string } : r))
+    saveRoom.mutate(
+      { roomId: room.roomId, rowVersion: room.rowVersion, ...payload },
+      {
+        onSuccess: response => {
+          const savedInput = {
+            name: response.name,
+            sortOrder: response.sortOrder,
+            powerPoints: response.powerPoints.map(pp => ({
+              powerPointId: pp.powerPointId,
+              name: pp.name,
+              plugId: pp.plugId ?? undefined,
+            })),
+          }
+          setLastSaved(prev =>
+            room.originalName === undefined
+              ? withRoomAppended(prev, room.key, savedInput)
+              : withRoomUpdated(prev, room.key, savedInput)
           )
-        }
-        setSaveError(true)
-        refreshRowVersionAfterConflict()
-        setSavingRoomKeys(prev => {
-          const next = new Set(prev)
-          next.delete(room.key)
-          return next
-        })
-      },
-    })
+          setDraftRooms(prev =>
+            prev.map(r =>
+              r.key === room.key
+                ? { ...r, originalName: trimmedName, roomId: response.roomId, rowVersion: response.rowVersion }
+                : r
+            )
+          )
+          setSaveSuccess(true)
+          setSavingRoomKeys(prev => {
+            const next = new Set(prev)
+            next.delete(room.key)
+            return next
+          })
+        },
+        onError: (error: unknown) => {
+          const isDeletedElsewhere = (error as { status?: number } | null)?.status === 404
+          if (isDeletedElsewhere) {
+            setDraftRooms(prev => prev.filter(r => r.key !== room.key))
+            setLastSaved(prev => withRoomRemoved(prev, room.key))
+          } else {
+            if (room.originalName !== undefined) {
+              setDraftRooms(prev =>
+                prev.map(r => (r.key === room.key ? { ...r, name: room.originalName as string } : r))
+              )
+            }
+            refreshRoomRowVersionAfterConflict(room.key, room.roomId)
+          }
+          setSaveError(true)
+          setSavingRoomKeys(prev => {
+            const next = new Set(prev)
+            next.delete(room.key)
+            return next
+          })
+        },
+      }
+    )
   }
 
   const handleDeleteRoom = (roomKey: string) => {
@@ -154,44 +176,28 @@ export function FlatStructureEditor({ flatId }: Props) {
     if (draftRooms.length - 1 === 0) return
     if (room.originalName === undefined) return
 
-    const newLastSaved = withRoomRemoved(lastSaved, roomKey)
-    const payload = toWireRequest(newLastSaved, currentRowVersionRef.current)
-    mutate(payload, {
-      onSuccess: response => {
-        currentRowVersionRef.current = response.rowVersion
-        setLastSaved(newLastSaved)
-        setSaveSuccess(true)
-      },
-      onError: () => {
-        setDraftRooms(prev => [...prev.slice(0, index), room, ...prev.slice(index)])
-        setSaveError(true)
-        refreshRowVersionAfterConflict()
-      },
-    })
+    deleteRoomMutation.mutate(
+      { roomId: room.roomId!, rowVersion: room.rowVersion! },
+      {
+        onSuccess: () => {
+          setLastSaved(prev => withRoomRemoved(prev, roomKey))
+          setSaveSuccess(true)
+        },
+        onError: (error: unknown) => {
+          const isAlreadyDeleted = (error as { status?: number } | null)?.status === 404
+          if (isAlreadyDeleted) {
+            setLastSaved(prev => withRoomRemoved(prev, roomKey))
+          } else {
+            setDraftRooms(prev => [...prev.slice(0, index), room, ...prev.slice(index)])
+            refreshRoomRowVersionAfterConflict(roomKey, room.roomId)
+          }
+          setSaveError(true)
+        },
+      }
+    )
   }
 
-  const hasPlugIdConflict = findPlugIdConflict(draftRooms)
-  const hasEmptyName = hasBlankName(draftRooms)
-  const hasNoRooms = draftRooms.length === 0
-
-  const handleSave = () => {
-    if (hasPlugIdConflict || hasEmptyName || hasNoRooms || savingRoomKeys.size > 0) return
-    setSaveError(false)
-    setSaveSuccess(false)
-    setSavingRoomKeys(new Set(draftRooms.map(r => r.key)))
-    mutate(toUpdateRequest(draftRooms, currentRowVersionRef.current), {
-      onSuccess: response => {
-        currentRowVersionRef.current = response.rowVersion
-        setSaveSuccess(true)
-        setSavingRoomKeys(new Set())
-      },
-      onError: () => {
-        setSaveError(true)
-        refreshRowVersionAfterConflict()
-        setSavingRoomKeys(new Set())
-      },
-    })
-  }
+  const isBusy = savingRoomKeys.size > 0 || deleteRoomMutation.isPending
 
   if (isLoading) {
     return (
@@ -312,15 +318,6 @@ export function FlatStructureEditor({ flatId }: Props) {
           >
             ← {t('editor.back')}
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={hasPlugIdConflict || hasEmptyName || hasNoRooms || savingRoomKeys.size > 0}
-            className="px-3 py-1.5 text-xs font-semibold rounded-full disabled:opacity-40"
-            style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.40)', color: 'white' }}
-          >
-            {savingRoomKeys.size > 0 ? t('editor.saving') : t('editor.save')}
-          </button>
         </div>
 
         <h1 className="text-[22px] font-semibold text-white tracking-tight mb-1.5">{t('editor.title')}</h1>
@@ -336,21 +333,6 @@ export function FlatStructureEditor({ flatId }: Props) {
         {saveSuccess && !saveError && (
           <p className="text-xs mb-2" style={{ color: '#60a5fa' }}>
             {t('editor.saveSuccess')}
-          </p>
-        )}
-        {hasPlugIdConflict && (
-          <p role="alert" className="text-xs text-accent-error mb-2">
-            {t('editor.plugIdConflict')}
-          </p>
-        )}
-        {hasEmptyName && (
-          <p role="alert" className="text-xs text-accent-error mb-2">
-            {t('editor.blankNameError')}
-          </p>
-        )}
-        {hasNoRooms && (
-          <p role="alert" className="text-xs text-accent-error mb-2">
-            {t('editor.noRoomsError')}
           </p>
         )}
       </div>
@@ -386,7 +368,7 @@ export function FlatStructureEditor({ flatId }: Props) {
                       <button
                         type="button"
                         onClick={() => setConfirmDeleteRoomKey(null)}
-                        disabled={isPending}
+                        disabled={isBusy}
                         className="px-3 py-1.5 text-xs font-medium rounded-full text-white/70 disabled:opacity-40"
                       >
                         {t('confirm.cancel')}
@@ -394,7 +376,7 @@ export function FlatStructureEditor({ flatId }: Props) {
                       <button
                         type="button"
                         onClick={() => handleDeleteRoom(room.key)}
-                        disabled={isPending}
+                        disabled={isBusy}
                         className="px-3 py-1.5 text-xs font-semibold rounded-full text-accent-error disabled:opacity-40"
                       >
                         {t('confirm.delete')}
@@ -423,7 +405,7 @@ export function FlatStructureEditor({ flatId }: Props) {
                       <button
                         type="button"
                         onClick={() => setConfirmDeleteRoomKey(room.key)}
-                        disabled={isPending}
+                        disabled={isBusy}
                         aria-label={t('room.delete')}
                         title={t('room.delete')}
                         className="min-h-11 min-w-11 flex items-center justify-center rounded-full shrink-0 text-white/50 hover:text-accent-error transition-colors"
@@ -464,7 +446,7 @@ export function FlatStructureEditor({ flatId }: Props) {
         <button
           type="button"
           onClick={handleAddRoom}
-          disabled={isPending}
+          disabled={isBusy}
           className="mt-3 px-3 py-1.5 text-xs font-medium rounded-full disabled:opacity-40"
           style={{
             background: 'rgba(255,255,255,0.10)',

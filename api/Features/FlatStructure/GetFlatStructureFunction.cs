@@ -70,8 +70,10 @@ public class GetFlatStructureFunction(AppDbContext db)
                         d.SelfMeasuredKwh,
                         d.SelfMeasuredPeriod,
                         d.RowVersion))
-                    .ToList()))
-                .ToList()))
+                    .ToList(),
+                    pp.RowVersion))
+                .ToList(),
+                r.RowVersion))
             .ToList(),
             RowVersion: flat.RowVersion);
 

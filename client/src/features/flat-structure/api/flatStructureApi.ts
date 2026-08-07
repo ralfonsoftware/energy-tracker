@@ -25,6 +25,7 @@ export type PowerPointResponse = {
   name: string
   plugId: string | null
   devices: DeviceResponse[]
+  rowVersion: string
 }
 
 export type RoomResponse = {
@@ -32,6 +33,7 @@ export type RoomResponse = {
   name: string
   sortOrder: number
   powerPoints: PowerPointResponse[]
+  rowVersion: string
 }
 
 export type FlatStructureResponse = {
@@ -47,23 +49,25 @@ export type PowerPointInput = {
   plugId?: string
 }
 
-export type RoomInput = {
-  roomId?: string
+export type CreateRoomInput = {
   name: string
   sortOrder: number
   powerPoints: PowerPointInput[]
 }
 
-export type UpdateFlatStructureRequest = {
-  rooms: RoomInput[]
-  rowVersion: string
-}
+export type UpdateRoomInput = CreateRoomInput & { rowVersion: string }
 
 export const getFlatStructure = (flatId: string) =>
   apiClient.get<FlatStructureResponse>(`/flats/${flatId}/structure`)
 
-export const updateFlatStructure = (flatId: string, body: UpdateFlatStructureRequest) =>
-  apiClient.put<FlatStructureResponse>(`/flats/${flatId}/structure`, body)
+export const createRoom = (flatId: string, body: CreateRoomInput) =>
+  apiClient.post<RoomResponse>(`/flats/${flatId}/rooms`, body)
+
+export const updateRoom = (flatId: string, roomId: string, body: UpdateRoomInput) =>
+  apiClient.put<RoomResponse>(`/flats/${flatId}/rooms/${roomId}`, body)
+
+export const deleteRoom = (flatId: string, roomId: string, rowVersion: string) =>
+  apiClient.delete<void>(`/flats/${flatId}/rooms/${roomId}`, { rowVersion })
 
 export type DeviceWriteInput = {
   name: string
