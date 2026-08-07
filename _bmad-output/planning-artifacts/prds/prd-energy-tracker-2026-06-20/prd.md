@@ -2,14 +2,14 @@
 title: "PRD: energy-tracker"
 status: final
 created: 2026-06-20
-updated: 2026-08-01
+updated: 2026-08-07
 ---
 
 # PRD: energy-tracker
 
 ## 0. Document Purpose
 
-This PRD is the single source of requirements truth for the energy-tracker application — written for the developer-owner (PM, architect, and implementer in one person) and any downstream workflow agents consuming it for UX design, architecture, or epic/story generation. It is structured around Glossary-anchored vocabulary (§3), features grouped with globally-numbered FRs nested under each (§4), and tagged assumptions indexed in §9. Source documents — `brief.md`, `SPEC.md`, `smart-plug-formats.md`, and `locale-formats.md` — are referenced for traceability; this PRD does not duplicate their narrative but builds capability requirements from them. The SPEC is the canonical contract; where this PRD and the SPEC differ, the SPEC governs.
+This PRD is the single source of requirements truth for the energy-tracker application — written for the developer-owner (PM, architect, and implementer in one person) and any downstream workflow agents consuming it for UX design, architecture, or epic/story generation. It is structured around Glossary-anchored vocabulary (§3), features grouped with globally-numbered FRs nested under each (§4), and tagged assumptions indexed in §9. Source documents — `brief.md`, `SPEC.md`, `smart-plug-formats.md`, and `locale-formats.md` — are referenced for traceability; this PRD does not duplicate their narrative but builds capability requirements from them. `status: final` marks this PRD as the actively-used source of truth, not a closed document — it has been amended in place across four Releases so far, and every amendment is logged in `.decision-log.md`. The SPEC is the canonical contract for Release 1 and Release 2 scope; where this PRD and the SPEC differ *within that scope*, the SPEC governs. Release 3 (§4.13) and Release 4 (§4.9's device-lifecycle FRs, §4.10's date-aware attribution, §4.11's dismiss/reactivate) were added after `SPEC.md` was last updated — for those, this PRD is authoritative until `SPEC.md` is reconciled.
 
 ---
 
@@ -19,7 +19,7 @@ energy-tracker is a personal energy monitoring web application that replaces a s
 
 On top of that core, the app progressively builds a picture of *where* the energy goes: smart plug file exports from Eve Home and Meross devices are parsed and reconciled against the main meter, a flat structure model maps each plug to a room and device, and EU energy label ratings fill in the gaps for uninstrumented appliances. The result is a consumption decomposition that shrinks the unexplained Residual as more plugs are added — making it possible, over time, to name standby offenders, quantify replacement payback, and know whether the month is tracking toward a surprising invoice before the invoice arrives. Partial plug coverage is the normal starting state, not a failure condition.
 
-Three design principles hold throughout: **cost-first** (every metric surfaces in euros, not just kWh; Tariff is a first-class input) — with one deliberate exception: the KPI dashboard's budget-delta comparison anchors to kWh against the Annual kWh Baseline, since euro figures shift with every Tariff change and would make the delta incomparable across periods (see FR-14) — **residual-aware** (unattributed consumption is explicit and always shown — the app never pretends to full coverage), and **hub-free** (no always-on hardware, no cloud subscription, no direct API integration — file uploads and manual entries are the only ingestion paths). The product is self-hosted on Azure, built for one person's flat today, but architected to accommodate additional flats and — eventually — additional users and a native iOS companion app without redesign.
+Three design principles hold throughout: **cost-first** (every metric surfaces in euros, not just kWh; Tariff is a first-class input) — with one deliberate exception: the KPI dashboard's budget-delta comparison anchors to kWh against the Annual kWh Baseline, since euro figures shift with every Tariff change and would make the delta incomparable across periods (see FR-14) — **residual-aware** (unattributed consumption is explicit and always shown — the app never pretends to full coverage), and **hub-free** (no always-on smart-hub hardware, no smart-hub-vendor cloud subscription, no direct smart-plug-vendor API integration — file uploads and manual entries are the only ingestion paths). The product is self-hosted on Azure, built for one person's flat today, but architected to accommodate additional flats without redesign. Per-user tenant isolation (NFR-2) means the data model would also support additional users, but multi-user support is not a committed roadmap item (see §5 Non-Goals) — nor is the native iOS companion app — its anticipated existence remains a directional constraint on the API surface (§9) rather than a scheduled feature.
 
 ---
 
@@ -35,7 +35,7 @@ Three design principles hold throughout: **cost-first** (every metric surfaces i
 - **Emotional:** Stop being surprised by my annual energy invoice.
 - **Contextual:** Do this from my phone while standing in the basement next to the meter.
 
-### 2.2 Non-Users (v1)
+### 2.2 Non-Users
 
 - Households wanting real-time or near-real-time monitoring (this app uses manual reads and file uploads)
 - Users of smart plug brands other than Eve Home or Meross
@@ -75,6 +75,8 @@ Opens the insights page at month end. Sees the rolling monthly projection agains
 - **Insight** — An automatically generated finding surfaced on the Insights page: a standby offender, a replacement candidate, a budget pressure alert, or an invoice deviation hint.
 - **Onboarding** — The one-time first-use setup flow in which the user enters their Flat name, annual kWh baseline, and initial Tariff before accessing any main feature.
 - **Annual kWh Baseline** — A user-supplied estimate of annual Flat consumption, used to detect budget pressure and invoice deviation. Can be entered as a specific value or chosen from household-size presets.
+- **Planned Annual Spend** — A user-supplied annual budget target in the active Locale's currency, auto-derived at Onboarding from the Annual kWh Baseline and initial Tariff (editable thereafter). Drives the Budget Pressure Alert Insight (FR-37).
+- **Budget kWh Anchor** — A derived kWh figure, frozen at the moment Planned Annual Spend is set or edited, used to detect budget pressure independent of later Tariff changes (FR-37).
 - **Locale** — A combined language-and-region setting (e.g., `de-DE`, `en-US`) that governs all text, number formatting, date formatting, and currency symbol.
 
 ---
@@ -116,15 +118,16 @@ The identity provider is specified via configuration (environment variables or c
 **Functional Requirements:**
 
 #### FR-4: First-use onboarding gate
-A new user (no existing Flat) cannot access any main app feature until Onboarding is complete. Onboarding collects: Flat name, Annual kWh Baseline (specific value or preset), initial Tariff (fixed monthly base fee and price per kWh required; provider name, contract start date, and contract duration optional), and planned annual spend (auto-derived from Annual kWh Baseline × price per kWh + monthly base fee × 12; editable by the user).
+A new user (no existing Flat) cannot access any main app feature until Onboarding is complete. Onboarding collects: Flat name, Annual kWh Baseline (specific value or preset), initial Tariff (fixed monthly base fee and price per kWh required; provider name, contract start date, and contract duration optional), and Planned Annual Spend (auto-derived from Annual kWh Baseline × price per kWh + monthly base fee × 12; editable by the user).
 
 **Consequences (testable):**
 - Navigating to any main route before Onboarding completion redirects to the Onboarding flow.
 - Onboarding completes only when both the Annual kWh Baseline and the required Tariff fields are provided.
-- The planned annual spend field is pre-populated from the entered Tariff and kWh Baseline, with the derivation calculation displayed; the user may override the derived value before completing Onboarding.
+- The Planned Annual Spend field is pre-populated from the entered Tariff and kWh Baseline, with the derivation calculation displayed; the user may override the derived value before completing Onboarding.
+- If the initial Tariff's contract start date is left blank, it defaults to the Onboarding completion date rather than being left unset (see FR-6) — Onboarding never produces a Tariff entry without one, satisfying FR-10's required-field invariant.
 
 #### FR-5: Annual kWh Baseline entry
-The user can enter the Annual kWh Baseline either as a specific numeric value or by selecting one of four household-size presets: 1 person ≈ 1,500 kWh; 2 persons ≈ 2,500 kWh; 3 persons ≈ 3,500 kWh; 4 persons ≈ 4,250 kWh. The selected or entered value is stored as the Flat's Annual kWh Baseline.
+The user can enter the Annual kWh Baseline either as a specific numeric value or by selecting one of four household-size presets: 1 person ≈ 1,500 kWh; 2 persons ≈ 2,500 kWh; 3 persons ≈ 3,500 kWh; 4 persons ≈ 4,250 kWh (rough estimates, not sourced from external data — see [A-11]). The selected or entered value is stored as the Flat's Annual kWh Baseline.
 
 **Consequences (testable):**
 - Each preset selection populates the Annual kWh Baseline field with the corresponding value.
@@ -135,13 +138,14 @@ The initial Tariff is captured during Onboarding with the fixed monthly base fee
 
 **Consequences (testable):**
 - A cost figure calculated immediately after Onboarding uses the Tariff entered during Onboarding.
+- If the contract start date is omitted, it defaults to the Onboarding completion date rather than being left unset — every Tariff entry, including this one, always has a contract start date per FR-10's requirement.
 
 #### FR-7: Onboarding settings editability
-All Onboarding fields — Flat name, Annual kWh Baseline, Tariff, and planned annual spend — are accessible and editable from Settings after initial setup. The planned annual spend is editable from Settings near the Tariff configuration, not in a separate budget section.
+All Onboarding fields — Flat name, Annual kWh Baseline, Tariff, and Planned Annual Spend — are accessible and editable from Settings after initial setup. The Planned Annual Spend is editable from Settings near the Tariff configuration, not in a separate budget section.
 
 **Consequences (testable):**
 - Updating the Annual kWh Baseline from Settings changes the baseline used in Insight calculations immediately.
-- Updating the planned annual spend from Settings takes effect immediately on future budget pressure alert evaluations.
+- Updating the Planned Annual Spend from Settings re-derives its Budget kWh Anchor (see FR-37) using the Tariff active at the moment of the edit, and takes effect on future budget pressure alert evaluations.
 
 ---
 
@@ -158,6 +162,7 @@ The user can submit a Meter Reading (numeric kWh value) for the active Flat. The
 - A submitted Reading is retrievable via the dashboard with its recorded date and time.
 - Server-side processing time (from request received to response dispatched, client network excluded) for a Reading submission is within the performance budget defined in §NFR-1.
 - Entering a kWh value lower than the Flat's last recorded Reading displays the warning but does not block submission.
+- A submitted kWh value with more than 4 decimal places is rejected with a validation error before it reaches storage.
 
 #### FR-9: Retroactive Reading entry
 The user can enter a Meter Reading for a past date. Retroactive Readings are costed at the Tariff that was active on their entered date, not the current Tariff.
@@ -243,12 +248,19 @@ The app displays a trend chart of historical daily consumption for the active Fl
 - The Insights tab's trend chart opens showing a 30-day period by default.
 
 #### FR-17: Spike detection
-The app detects daily consumption spikes that exceed a configurable threshold above the 7-day rolling average. The default threshold is 2× the rolling average. A spike is visually encoded in the trend chart as a distinctly styled bar (amber). Full spike context is accessible from the Insights tab. No separate banner or notification is generated. The threshold is user-configurable per Flat.
+The app detects daily consumption spikes that exceed a configurable threshold above the 7-day rolling average. The default threshold is 2× the rolling average. A spike is visually encoded in the trend chart as a distinctly styled bar (amber). Full spike context is accessible from the Insights tab. No separate banner or notification is generated — this is a deliberate choice to avoid adding an interruption channel to the product's core 60-second reading loop (protecting SM-C2); a user following the Insights-review habit the product is designed around (UJ-3) encounters the spike there. The threshold is user-configurable per Flat.
 
 **Consequences (testable):**
 - A day whose consumption exceeds 2× the 7-day rolling average (at default threshold) is rendered as a distinctly styled (amber) bar in the trend chart.
 - Changing the threshold to a custom value causes spike detection to use that value instead.
 - The trend visualization reflects spike days distinctly from normal days.
+
+#### FR-56: Meter-reset visual indicator
+When a Meter Reading is lower than the immediately preceding Reading — indicating the Main Meter was replaced or reset, not a data-entry error (already handled separately by FR-8's warning at submission time) — the trend chart renders that day with a distinct visual treatment (a hatched/reset-icon bar) instead of as ordinary or spike-styled consumption. This applies to the same trend chart described in FR-16, including its use within the Insights tab.
+
+**Consequences (testable):**
+- A day whose consumption derives from a reading pair where the later reading is lower than the earlier one is rendered with the distinct meter-reset visual treatment, not as a normal or spike bar.
+- The meter-reset treatment takes precedence over the spike-detection styling (FR-17) for the same day.
 
 ---
 
@@ -339,6 +351,7 @@ For periods where both Main Meter Readings and Smart Plug Data exist, the app re
 
 **Consequences (testable):**
 - Total attributed kWh + Residual = Main Meter total for any period with Smart Plug Data (within ±0.1 kWh for clean periods with no interpolated values; within ±1.0 kWh for periods containing any interpolated values, reflecting interpolation uncertainty).
+- Because Smart Plug measurement error can cause attributed kWh to exceed the Main Meter total, the Residual can be negative for a given period; the app does not clamp this — a negative Residual is displayed exactly as computed, signaling a data-quality issue rather than a true negative consumption.
 
 #### FR-28: Import error categorization
 Import failures are logged internally and surfaced to the user as one of three categorized messages: (1) data cannot be read, (2) processing failed — user should retry, (3) service temporarily unavailable — user should retry later. Raw error detail is not exposed to the user.
@@ -404,6 +417,7 @@ The app tracks a Device's Power Point assignment history over time. When a Devic
 - A Device reassigned to a different Power Point on date X, queried over a period spanning both before and after X, shows consumption split between the two Rooms by date.
 - Reassigning a Device requires no manual date entry — the change is recorded automatically at save time.
 - Existing Devices (predating this feature) resolve to their current Power Point for their entire history via a one-time migration backfill — no device silently disappears from Decomposition.
+- Interpolation (FR-26) and date-aware attribution are independent pipeline stages keyed by calendar date: a Smart Plug gap is filled at import time into the plug's daily timeline, before attribution runs; attribution then reads whichever value — measured or interpolated — exists for a given date and assigns it to whichever Room the Device's Power Point belonged to on that same date. An interpolated day that spans a reassignment boundary is attributed entirely to whichever side of the boundary that specific calendar date falls on, exactly like a measured day — no special-casing is needed or performed.
 
 ---
 
@@ -446,7 +460,7 @@ The Decomposition view shows the selected period's total kWh and total cost alon
 
 ### 4.11 Actionable Insights
 
-**Description:** The Insights page automatically surfaces four categories of findings: high-standby offenders (named Devices with draw > 2 W during hours outside a configured usage window), high-consumption replacement candidates (with quantified payback in euros), budget pressure alerts (when rolling projections exceed the user's planned annual spend), and invoice deviation hints (when rolling annual kWh consumption deviates significantly from the Annual kWh Baseline set in Onboarding). Insight discovery runs on a daily schedule at 02:00 UTC and can also be triggered manually. The user sees a progress indicator while discovery is running; prior insights remain visible during a new run. Realizes UJ-3. *(Release 2)*
+**Description:** The Insights page automatically surfaces four categories of findings: high-standby offenders (named Devices with draw > 2 W during hours outside a configured usage window), high-consumption replacement candidates (with quantified payback in euros), budget pressure alerts (when rolling projections exceed the user's Planned Annual Spend), and invoice deviation hints (when rolling annual kWh consumption deviates significantly from the Annual kWh Baseline set in Onboarding). Insight discovery runs on a daily schedule at 02:00 UTC and can also be triggered manually. The user sees a progress indicator while discovery is running; prior insights remain visible during a new run. Realizes UJ-3. *(Release 2)*
 
 **Functional Requirements:**
 
@@ -459,17 +473,22 @@ Based on Smart Plug interval data, the app identifies Devices drawing more than 
 - Devices connected only to Meross plugs do not appear in standby offender Insights; no error is shown — this is an explicit format limitation, not a failure condition.
 
 #### FR-36: Replacement candidate detection
-The app identifies high-consumption Devices where replacement offers a quantifiable payback and surfaces it as an Insight with the Device name, estimated current cost, and estimated savings.
+Among all Devices with an estimated or measured annual kWh figure, the app ranks by estimated annual cost and considers the top 20% (rounded up, minimum 1) as candidates. A candidate becomes a replacement Insight only if its registered EU energy label class is C or worse; the suggested replacement class is one step better than its current class, with estimated savings computed as 15% of the candidate's annual cost. A measured Device (via Smart Plug) needs at least 7 distinct days of data in the trailing 30 days to have an annual figure computed at all; without that, it falls back to its configured EU-label or self-measured estimate per FR-30/FR-31.
 
 **Consequences (testable):**
-- A replacement candidate insight names a specific Device with a quantified savings figure (kWh or €).
+- A Device outside the top 20% by estimated annual cost, or with no EU label class registered, or with a class better than C, does not surface as a replacement candidate.
+- A replacement candidate Insight names a specific Device with a suggested EU label class one step better than its current one and an estimated savings figure equal to 15% of its estimated annual cost.
+- A measured Device with fewer than 7 distinct days of Smart Plug data in the trailing 30 days is evaluated using its EU-label or self-measured estimate instead, not excluded outright.
 
 #### FR-37: Budget pressure alert
-The app computes a rolling monthly projection for the active Flat and generates a budget pressure alert Insight when the projection exceeds the planned annual spend configured during Onboarding (editable from Settings near the Tariff configuration).
+At the moment Planned Annual Spend is set or edited (Onboarding or Settings), the app derives a Budget kWh Anchor — (Planned Annual Spend − annualized monthly base fee) ÷ price per kWh — using the Tariff active at that moment, and stores it. This anchor is frozen: it does not change when the Tariff later changes, only when the user next edits Planned Annual Spend. This mirrors FR-14's kWh-anchoring rationale (§1) — the alert tracks actual consumption pressure, not Tariff-price movement. The app computes a rolling projected annual kWh consumption for the active Flat and generates a budget pressure alert Insight when the projection exceeds the stored Budget kWh Anchor.
 
 **Consequences (testable):**
-- A budget pressure alert appears on the Insights page when the rolling monthly projection × 12 exceeds the user's planned annual spend.
-- Updating the planned annual spend from Settings takes effect immediately on future alert evaluations.
+- Setting Planned Annual Spend to €1,200 with an active Tariff of €0.35/kWh and a €10/month base fee derives a Budget kWh Anchor of (1,200 − 120) ÷ 0.35 ≈ 3,085.7 kWh.
+- A subsequent Tariff price change alone, with no change in consumption, does not alter the stored Budget kWh Anchor and therefore does not trigger a new alert.
+- A budget pressure alert appears on the Insights page when the rolling projected annual kWh exceeds the stored Budget kWh Anchor.
+- If the annualized base fee alone is greater than or equal to Planned Annual Spend, the Budget kWh Anchor is 0, and the alert fires as soon as any consumption is measured.
+- **Not yet implemented as of this PRD revision (2026-08-07):** `BudgetAlertDetector.cs` currently compares projected annual *cost* (€) against Planned Annual Spend (€) directly — the euro-vs-euro comparison this FR replaces, which could false-positive on a Tariff price increase alone. Implementing this redefinition requires a new story to add the budget-kWh-anchor field and its derivation/recomputation logic.
 
 #### FR-38: Scheduled and manual insight discovery
 Insight discovery runs automatically on a daily schedule at 02:00 UTC. The user can also trigger discovery manually from the Insights page. Results are shown as soon as they are discovered.
@@ -568,10 +587,12 @@ Every dropdown/overlay/popover in the app renders fully visible and unclipped wi
 - A dropdown/overlay/popover opened from any trigger position renders fully visible, with no portion clipped by an ancestor element.
 
 #### FR-47: Responsive device card grid
-On tablet and desktop viewports, device cards within a Room Card lay out in a responsive multi-column grid instead of a single full-width column per device.
+Within a Room Card, device cards lay out in a single full-width column below 768px viewport width, a 2-column grid from 768px up to 1023px, and a 3-column grid at 1024px and above.
 
 **Consequences (testable):**
-- On a tablet or desktop viewport, a Room Card with multiple Devices lays out its device cards in a multi-column grid rather than one full-width column per device.
+- At a viewport width below 768px, device cards render in a single full-width column.
+- At a viewport width from 768px to 1023px, device cards render in a 2-column grid.
+- At a viewport width of 1024px or more, device cards render in a 3-column grid.
 
 ---
 
@@ -584,7 +605,7 @@ On tablet and desktop viewports, device cards within a Room Card lay out in a re
 - Direct smart plug API integration (Eve, Meross, Home Assistant, or any other) — file exports only
 - Tariff comparison wizard
 - Multi-tenant hosted version for other households (architecture must support it, UI must not target it)
-- Support for smart plug brands other than Eve Home and Meross in v1/v2
+- Support for smart plug brands other than Eve Home and Meross in the current scope (Release 1-4)
 
 ---
 
@@ -618,12 +639,13 @@ On tablet and desktop viewports, device cards within a Room Card lay out in a re
 
 ### 6.3 Release 3 — UI & Behavior Consistency (In Scope)
 
-*Added post-Epic-7 retro. Cross-cutting interaction/layout fixes across existing Release 1/2 surfaces — no new feature area.*
+*Added post-Epic-7 retro (Epic 8), extended with a requirements-level fix surfaced by Epic 9 hardening work. Cross-cutting interaction/layout fixes and corrections across existing Release 1/2 surfaces — no new feature area.*
 
 - Flat Structure autosave for structural edits (FR-44)
 - Save/cancel action placement and viewport visibility (FR-45)
 - Dropdown/overlay visibility (FR-46)
 - Responsive device card grid on tablet/desktop (FR-47)
+- Meter-reset visual indicator on the trend chart (FR-56)
 
 ### 6.4 Release 4 — Device Lifecycle Attribution (In Scope)
 
@@ -651,13 +673,15 @@ See §5 Non-Goals for the full explicit exclusions list.
 
 **Secondary**
 
-- **SM-5: Invoice predictability** — Rolling monthly projection is within 10% of the eventual annual invoice when calculated against the full year's readings. Validates FR-37.
+- **SM-5: Invoice predictability** — Rolling monthly projection is within 10% of the eventual annual invoice when calculated against the full year's readings. Validates FR-13 (period-accurate costing underlies any annual cost projection).
 - **SM-6: Import gap handling** — An export with mid-period gaps completes without error and surfaces a gap notification. Validates FR-26.
 
 **Counter-metrics (do not optimize)**
 
 - **SM-C1: Insight volume** — Do not optimize for surfacing more Insights. An insight that doesn't name a specific Device or quantify a figure is noise, not signal. Counterbalances SM-4.
 - **SM-C2: Feature depth over usability** — The 60-second reading entry (SM-1) must not be degraded by added UI complexity. Counterbalances any feature additions to the reading flow.
+
+*Note: FR-44–47 and FR-56 (Release 3), and FR-54/FR-55 (Release 4), are process/quality fixes with no dedicated Success Metric, consistent with how hardening epics are excluded from §6's Release table. FR-52's existence-window gating and FR-53's date-aware attribution correctness are not yet covered by SM-3, which validates only the Main-Meter-reconciliation invariant (FR-27/FR-32) — extending SM-3 for temporal correctness is deferred to a future PRD revision once Release 4 has enough field data to define a meaningful target, rather than adding an unvalidated metric now.*
 
 ---
 
@@ -705,20 +729,20 @@ KPI Dashboard load for a Flat with up to 2 years of Readings: Tier 1 (≤ 2 seco
 - **Persistent store:** Azure SQL Basic DTU (~€5/month) — see NFR-4.
 - **Auth:** OIDC / OAuth 2.0; Azure Entra ID as initial provider; provider-agnostic by configuration.
 - **Primary form factor:** Mobile browser. Desktop browser supported as responsive layout.
-- **No native app** in v1/v2 scope (see §5 Non-Goals). A future native Swift iOS companion app (home screen widgets, quick entry shortcut) is part of the product vision — API surface and endpoint design must not assume web-only clients.
+- **No native app** in the current scope (Release 1-4; see §5 Non-Goals). A future native Swift iOS companion app (home screen widgets, quick entry shortcut) is a directional constraint on the product's API surface, not a scheduled feature — endpoint design must not assume web-only clients.
 - **Hosting:** Owner's Azure subscription. Single-tenant per authenticated user (keyed by user ID). No cross-tenant access. No multi-user management UI.
 
 ---
 
 ## 10. Open Questions
 
-*All open questions resolved. Full decision history in `.decision-log.md`.*
+*All open questions from the original PRD (Release 1/2) are resolved, with full decision history in `.decision-log.md`. Release 3 (§6.3) and Release 4 (§6.4) decisions were made after PRD finalization, via retro/architecture/brainstorming/correct-course sessions rather than a dedicated Open Questions cycle — they are narrated inline in §6.3/§6.4's provenance notes and in each FR's description, not tracked as separate decision-log entries.*
 
 **Resolved in UX session (2026-06-20):**
 
-- **Q-3 — Tariff lock enforcement UX:** Price fields on a locked Tariff entry render inline as read-only (greyed, with a lock icon and "Locked — contract active until [month year]"). No dialog or tap-to-reveal. Non-price fields remain editable. *(UX D-13)*
-- **Q-4 — Budget settings placement:** The planned annual spend (for FR-37 budget pressure alerts) is collected during Onboarding in Step 2 alongside the Annual kWh Baseline (auto-derived, editable). In Settings it lives near the Tariff configuration, not in a separate budget section. *(UX D-17)*
-- **Q-6 — Flat deletion confirmation UX:** User must type the exact Flat name to enable the Delete action. Friction matches irreversibility. *(UX D-18)*
+- **Q-3 — Tariff lock enforcement UX:** Price fields on a locked Tariff entry render inline as read-only (greyed, with a lock icon and "Locked — contract active until [month year]"). No dialog or tap-to-reveal. Non-price fields remain editable. *(UX D-22)*
+- **Q-4 — Budget settings placement:** The Planned Annual Spend (for FR-37 budget pressure alerts) is collected during Onboarding in Step 2 alongside the Annual kWh Baseline (auto-derived, editable). In Settings it lives near the Tariff configuration, not in a separate budget section. *(UX D-23)*
+- **Q-6 — Flat deletion confirmation UX:** User must type the exact Flat name to enable the Delete action. Friction matches irreversibility. *(UX D-24)*
 
 **Resolved in architecture session (2026-06-21):**
 
@@ -732,7 +756,7 @@ KPI Dashboard load for a Flat with up to 2 years of Readings: Tier 1 (≤ 2 seco
 
 *Resolved assumptions (A-1: performance tiers; A-7: browser-local Locale superseded by AD-18 server-stored override) are recorded in `.decision-log.md`. All remaining assumptions confirmed:*
 
-- **[A-2]** A single authenticated user manages one or more Flats; no Flat sharing between users in v1/v2. Source: §5, Constraints.
+- **[A-2]** A single authenticated user manages one or more Flats; no Flat sharing between users in the current scope (Release 1-4). Source: §5, Constraints.
 - **[A-3]** "Flat" maps to a single European-style dwelling unit; a user may own or rent multiple. Source: SPEC.
 - **[A-4]** The four-level hierarchy (Flat → Rooms → Power Points → Devices) covers the realistic physical layout. Source: SPEC.
 - **[A-5]** Scheduled insight discovery (02:00 daily) executes in UTC. Source: NFR-3.
@@ -740,3 +764,4 @@ KPI Dashboard load for a Flat with up to 2 years of Readings: Tier 1 (≤ 2 seco
 - **[A-8]** *Resolved.* Eve Home retains raw ~10-minute interval rows at import (`SmartPlugIntervalData`); standby detection operates on this data. Meross is excluded from standby detection — daily aggregates only. Source: architecture AD-2.
 - **[A-9]** *Resolved.* Invoice deviation significance threshold: ±10% of Annual kWh Baseline. Source: architecture, FR-43.
 - **[A-10]** *Resolved.* Reconciliation tolerance for periods containing interpolated values: ±1.0 kWh. Source: architecture, FR-27, FR-32, SM-3.
+- **[A-11]** Household-size kWh presets (FR-5: 1,500 / 2,500 / 3,500 / 4,250 kWh for 1–4 persons) are a rough PM judgment call made during initial Discovery, not sourced from an external dataset or citation. Source: PM judgment, 2026-06-20.

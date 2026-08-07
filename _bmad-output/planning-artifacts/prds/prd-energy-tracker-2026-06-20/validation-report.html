@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PRD Validation: energy-tracker</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e7e5e4;
+    --text: #1c1917;
+    --muted: #78716c;
+
+    --verdict-strong: #16a34a;
+    --verdict-adequate: #65a30d;
+    --verdict-thin: #d97706;
+    --verdict-broken: #dc2626;
+
+    --sev-low: #64748b;
+    --sev-medium: #ca8a04;
+    --sev-high: #ea580c;
+    --sev-critical: #dc2626;
+
+    --grade-exc: #16a34a;
+    --grade-good: #65a30d;
+    --grade-fair: #d97706;
+    --grade-poor: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  .grade {
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    color: white;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+  .grade-excellent { background: var(--grade-exc); }
+  .grade-good { background: var(--grade-good); }
+  .grade-fair { background: var(--grade-fair); }
+  .grade-poor { background: var(--grade-poor); }
+
+  .synthesis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    font-size: 15.5px;
+  }
+  .synthesis p { margin: 0 0 10px; }
+  .synthesis p:last-child { margin-bottom: 0; }
+
+  .dimension-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
+  section.dimension, section.reviewer-section { margin-bottom: 14px; }
+  section.dimension details, section.reviewer-section details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  section summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section summary::-webkit-details-marker { display: none; }
+  section summary::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  section details[open] summary::before { transform: rotate(90deg); }
+  section summary h2 {
+    display: inline;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    flex: 1;
+  }
+  .verdict-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: white;
+  }
+  .verdict-strong { background: var(--verdict-strong); }
+  .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
+  .dim-body { padding: 4px 20px 18px; }
+  .dim-judgment { color: var(--text); font-size: 14.5px; }
+  .dim-judgment p { margin: 0 0 10px; }
+
+  .findings-list { padding: 0 20px 4px; }
+  article.finding {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  article.finding:first-child { border-top: none; }
+  article.finding header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
+  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
+  .finding-fix strong { color: var(--muted); font-weight: 500; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .mechanical {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mechanical ul { margin: 0; padding-left: 20px; }
+  .mechanical li { margin-bottom: 4px; color: var(--text); }
+
+  footer.report-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <header class="report-header">
+      <div class="title">
+        <h1>energy-tracker — PRD Validation Report</h1>
+        <div class="subtitle">_bmad-output/planning-artifacts/prds/prd-energy-tracker-2026-06-20/prd.md</div>
+      </div>
+      <div class="grade grade-fair">Fair</div>
+    </header>
+
+    <div class="synthesis">
+      <p>This is a mature, disciplined PRD: FR/consequence coupling is close to exhaustive (no vague adjectives found anywhere in 55 FRs), trade-offs are named with what was given up, and the single-persona/light-UJ shape matches a solo developer-owner tool built for downstream AI-agent consumption. What the rubric flags as the main risk is not the PRD's own prose but its two traceability companions falling behind: <code>.decision-log.md</code> stopped at 2026-06-21 and never logged the Release 3/4 decisions (FR-44 through FR-55) the PRD narrates inline, and <code>SPEC.md</code> — declared canonical in §0 — still only covers Release 1/2 and is silent on everything shipped since.</p>
+      <p>The adversarial pass materially shifts the picture from "traceability lag" to "the drift has produced real content defects." It surfaces a genuine required/optional contradiction on the one field FR-11/FR-13 call load-bearing (contract start date), a specification bug where FR-37's euro-denominated budget alert reintroduces the exact Tariff-price noise FR-14 was explicitly designed to avoid, and at least two shipped, user-facing behaviors (the Epic 9 meter-reset chart indicator, decimal-precision input rejection) with zero corresponding FR — meaning the PRD's own claim to be the "single source of requirements truth" is measurably false for parts of the shipped product. None of this rises to a broken dimension or a critical finding on its own, but combined with the rubric's traceability findings it argues for a dedicated reconciliation pass before this PRD is trusted as an unread source of truth for a new repo.</p>
+    </div>
+
+    <div class="dimension-summary">
+      <div class="dim-card">
+        <div class="dim-name">Decision-readiness</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Substance over theater</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Strategic coherence</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Done-ness clarity</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Scope honesty</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Downstream usability</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Shape fit</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+    </div>
+
+    <section class="dimension">
+      <details open>
+        <summary>
+          <h2>Decision-readiness</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Trade-offs are stated honestly, not smoothed. §1's KPI budget-delta exception names exactly what's given up and why. FR-11's price-lock-with-override and FR-9's retroactive-Reading-uses-historical-Tariff are decisions, not hedges. §10 Open Questions is genuinely closed out with dated sourcing. The gap is traceability, not the decisions themselves: §10 points readers to <code>.decision-log.md</code> for full history, but the log's last entry (D-30) predates Release 3 (Epic 8/FR-44-47) and Release 4 (Epic 12/FR-52-55) by weeks. Those decisions are narrated inline with provenance notes, but never logged in the artifact the PRD points readers to.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Decision log stops before Release 3/4</h3>
+              <span class="finding-location">§10, §11 vs .decision-log.md</span>
+            </header>
+            <div class="finding-note">§10 says "Full decision history in <code>.decision-log.md</code>," but the log's last entry (D-30) predates every FR-44 through FR-55 decision by weeks; those decisions exist only as inline provenance notes in §6.3/§6.4/feature descriptions. A reader trusting §10's pointer gets an incomplete picture.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Append D-31+ entries for the Release 3 and Release 4 decisions (source: epic-7-retro-2026-07-14.md, sprint-change-proposal-2026-08-01*.md, brainstorming-session-2026-08-01-14-56.md), or rescope §10's claim to the original PRD finalization.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Substance over theater</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>No theater found. One persona (the developer-owner), used consistently, driving all three UJs and every feature's "Realizes UJ-N" tag. The Vision (§1) is specific: a named competitor (a spreadsheet), a named failure mode, a concrete 60-second loop, three design principles each justified by a concrete consequence. NFRs are product-specific thresholds throughout (2s/30s/background tiers, ±0.1/±1.0 kWh reconciliation tolerance, 2W standby threshold, ±10% invoice-deviation threshold) — not boilerplate.</p>
+          </div>
+        </div>
+        <div class="findings-list"></div>
+      </details>
+    </section>
+
+    <section class="dimension">
+      <details open>
+        <summary>
+          <h2>Strategic coherence</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>The thesis is explicit and consistently bet on: cost-first / residual-aware / hub-free, replacing a spreadsheet, decomposition as the layer that explains where cost goes. Release ordering follows the thesis, not ease. Success Metrics validate the thesis rather than measuring activity, and two counter-metrics are named and genuinely load-bearing. The gap: §7 Success Metrics was never extended for Release 3 or Release 4 — Release 4 in particular changes what "decomposition correctness" means (date-aware attribution), but SM-3's definition doesn't account for temporal correctness at all.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Success Metrics untouched by Release 3/4</h3>
+              <span class="finding-location">§7 vs §6.3/§6.4</span>
+            </header>
+            <div class="finding-note">SM-3 validates FR-27/FR-32 only; FR-53's date-aware attribution correctness has no metric coverage, and FR-44-47/FR-55 (UI consistency, insight dismiss) are unmentioned in §7 entirely.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Extend SM-3 to state a temporal-correctness check for FR-53, or add a note in §7 that Release 3/4 items are process/quality fixes not measured by new SMs (matching the framing epics/epic-list.md already uses for hardening epics). Reinforced by the adversarial pass, which independently flagged that 12 of 46 FRs (FR-44–55) have no Success Metric at all.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Done-ness clarity</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>The PRD's best dimension. A targeted search for red-flag phrases ("gracefully," "reasonable," "user-friendly," "intuitive," "seamless," "robust") returns zero hits across the entire document. Every one of the 55 FRs carries a "Consequences (testable)" block with verifiable conditions — numeric tolerances, exact strings, and negative consequences that close loopholes. Non-functional sections carry bounds, not adjectives.</p>
+          </div>
+        </div>
+        <div class="findings-list"></div>
+      </details>
+    </section>
+
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Scope honesty</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>§5 Non-Goals does real work, not just listing the obvious. The Assumptions Index (§11) is honestly curated — it flags which assumptions were later resolved and by what source, and doesn't retroactively rewrite history when a decision reversed an earlier one. Open-items density is appropriately near-zero for a PRD this mature, and that's earned (13 shipped epics), not smoothed-over.</p>
+          </div>
+        </div>
+        <div class="findings-list"></div>
+      </details>
+    </section>
+
+    <section class="dimension">
+      <details open>
+        <summary>
+          <h2>Downstream usability</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Mechanically strong on the basics: all 55 FR numbers are contiguous with no gaps or duplicates despite non-sequential thematic placement, and cross-references resolve to real files on disk. UJs are fully covered. Two genuine drift issues, both artifacts of iteration rather than first-draft gaps: <code>SPEC.md</code> — declared canonical in §0 — has no mention of Release 3 or 4; and "planned annual spend" is used as a first-class term across four FRs but never defined in the §3 Glossary. Later FRs (52-55) also increasingly state requirements in code-identifier form rather than Glossary-anchored prose.</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">SPEC.md governance clause stale for Release 3/4</h3>
+              <span class="finding-location">§0 vs SPEC.md</span>
+            </header>
+            <div class="finding-note">The canonical-contract statement in §0 ("where this PRD and the SPEC differ, the SPEC governs") has no referent for FR-44 through FR-55; SPEC.md was never updated past the original two releases. The adversarial pass independently confirms there is no evidence SPEC.md was ever re-synced alongside any of the six documented post-hoc amendments.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Update SPEC.md's Capabilities list to cover Release 3/4, or scope §0's governance clause explicitly ("SPEC governs for Release 1/2; Release 3/4 items are PRD-only").</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"Planned annual spend" absent from Glossary</h3>
+              <span class="finding-location">§3 vs FR-4, FR-7, FR-37, §10</span>
+            </header>
+            <div class="finding-note">A first-class, multiply-referenced domain concept (auto-derived, editable, drives budget alerts) with no formal definition alongside comparably-weighted terms like Annual kWh Baseline.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a §3 entry analogous to Annual kWh Baseline.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Register drift toward code identifiers in Release 4 FRs</h3>
+              <span class="finding-location">FR-50/51/52/53/55 vs earlier FR prose style</span>
+            </header>
+            <div class="finding-note">Not wrong, but a downstream reader without implementation context (e.g. a UX agent) gets less mileage from these FRs than from FR-1 through FR-43.</div>
+            <div class="finding-fix"><strong>Fix:</strong> None required if this PRD's actual downstream consumers remain architecture/dev-facing; flag if a UX-only audience is ever added.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Shape fit</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Correctly shaped as a single-operator capability spec, and deliberately so — the decision log's own D-2 records the choice to keep UJs "light." Three UJs is proportionate, not padding and not under-formalized. The rigor level matches the PRD's stated purpose as a chain-top document feeding UX, architecture, and epic generation — calibrated to real downstream consumers who are AI agents, not humans skimming for vibes.</p>
+          </div>
+        </div>
+        <div class="findings-list"></div>
+      </details>
+    </section>
+
+    <section class="reviewer-section">
+      <details open>
+        <summary>
+          <h2>Adversarial review</h2>
+          <span class="reviewer-source">review-adversarial-general.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>A cynical pass assuming problems exist, focused on internal inconsistencies, unstated assumptions, and places where the PRD reads as written for an earlier, simpler version of the product than 13 epics of iteration would produce. 15 findings total; the 12 below are distinct from the rubric's own findings (three others independently corroborated rubric findings above and are noted inline there instead of repeated).</p>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Contract start date required/optional contradiction</h3>
+              <span class="finding-location">FR-4, FR-6 vs FR-10, §4.4, FR-11, FR-13</span>
+            </header>
+            <div class="finding-note">FR-4 and FR-6 list the Onboarding Tariff's contract start date as optional. §4.4 and FR-10 state every Tariff entry has a required contract start date, and FR-11/FR-13 depend on it as the sole anchor for cost-period resolution and price locking. The PRD never resolves what happens for FR-11/FR-13 if the Onboarding Tariff is saved without one.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Align FR-4/FR-6 with FR-10's "required" rule, or if genuinely optional at onboarding, add a Consequences clause to FR-11/FR-13 defining fallback behavior when the field is absent.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Budget Pressure Alert reintroduces the Tariff-noise problem FR-14 was designed around</h3>
+              <span class="finding-location">FR-37 vs FR-14</span>
+            </header>
+            <div class="finding-note">FR-14 anchors the Dashboard's budget delta to kWh instead of euros specifically because "euro figures shift with every Tariff change." FR-37 compares a euro-denominated rolling cost projection against a static euro "planned annual spend" — so a mid-year Tariff price increase alone, with flat or falling consumption, can fire a false budget-pressure alert. FR-43 correctly anchors to kWh; FR-37 doesn't, and the inconsistency is never acknowledged.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Anchor FR-37 to a kWh-vs-baseline comparison consistent with FR-14/FR-43, or explicitly state why FR-37 accepts the euro-noise trade-off FR-14 was written to avoid.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Shipped meter-reset chart indicator has no corresponding FR</h3>
+              <span class="finding-location">Epic 9 Story 9.8 vs FR-16/FR-17</span>
+            </header>
+            <div class="finding-note">Epic 9 Story 9.8 ("Meter Reset Visual Indicator") shipped a third trend-chart visual state (a distinct hatched/reset-icon bar wherever a reading drops below the prior one). FR-16/FR-17 still describe only two states (normal vs. spike), so the PRD's own account of the trend chart is stale relative to the product it claims to specify.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add an FR (or amend FR-16/FR-17) documenting the meter-reset visual state and its trigger condition.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Decision-log citations resolve to unrelated entries</h3>
+              <span class="finding-location">§10 (Q-3/Q-4/Q-6) vs .decision-log.md D-13/D-17/D-18</span>
+            </header>
+            <div class="finding-note">§10 annotates Q-3/Q-4/Q-6 with "(UX D-13)," "(UX D-17)," "(UX D-18)" — but the log's actual D-13/D-17/D-18 entries cover unrelated topics (Eve Home timestamp handling, locale-formats.md authority, §1 Vision framing). The real matching entries appear to be D-22/D-23/D-24; two documents evidently reuse "D-N" numbering for unrelated decisions with no disambiguation.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Correct §10's citations to the actual matching decision-log IDs, and disambiguate the numbering scheme if two logs share the "D-N" convention.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Undocumented decimal-precision input validation</h3>
+              <span class="finding-location">Epic 9 Stories 9.7/9.11 vs FR-8, FR-24–31</span>
+            </header>
+            <div class="finding-note">The shipped system rejects kWh submissions with excess decimal precision (per Epic 9's shared validator extension method and its regression test), but no FR anywhere specifies any precision or decimal-place constraint on numeric kWh input — a real, user-facing rejection path with zero requirements-level grounding.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a Consequences clause to FR-8 (or a new FR) specifying the accepted decimal precision for kWh input and the rejection behavior.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Reconciliation invariant asserted as fact, not a handled case</h3>
+              <span class="finding-location">FR-27 vs §1, FR-33</span>
+            </header>
+            <div class="finding-note">"Attributed kWh across all plugs does not exceed the Main Meter total for any period" is stated unconditionally, but measurement error can make smart plugs collectively over-report relative to the meter, producing a mathematically negative Residual. The PRD never states what happens in that case, despite the Residual being one of only three named design principles and "always shown, never suppressed."</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a Consequences clause to FR-27/FR-33 specifying handling of over-reporting (clamp to zero, flag as a measurement-error state, or surface a data-quality warning).</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"status: final" doesn't reflect four rounds of post-finalization amendment</h3>
+              <span class="finding-location">frontmatter vs §6 (Release 3/4, two same-day correct-course insertions)</span>
+            </header>
+            <div class="finding-note">Frontmatter has said "final" since 2026-06-20, yet §6 documents Release 3 "added post-Epic-7 retro," Release 4 "added 2026-08-01 via architecture review + brainstorming session," plus two same-day bmad-correct-course insertions for FR-54 and FR-55 — at least four rounds of scope change with no status field ever reflecting continuous amendment.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Update frontmatter to reflect the document's actual living status, or log each post-finalization change as a formal revision with its own updated timestamp.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No-notification spike detection sits against the product's core emotional promise</h3>
+              <span class="finding-location">FR-17 vs §2.1, §1</span>
+            </header>
+            <div class="finding-note">FR-17 explicitly generates "No separate banner or notification" for a spike — visible only as a chart color change the user must proactively open Insights to see. This sits against the stated emotional JTBD ("Stop being surprised by my annual energy invoice") and the Vision's promise to know about a surprising invoice before it arrives. A silent spike is exactly the kind of event most likely to cause a surprise invoice, with no rationale given for excluding it from the notification-worthy Insight types.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Either add a lightweight, non-intrusive spike notification, or state explicitly in FR-17 why silent chart-only encoding is intentional despite the "no surprise invoice" promise.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Date-aware attribution vs. interpolation interaction is unspecified</h3>
+              <span class="finding-location">FR-52/FR-53 vs FR-26</span>
+            </header>
+            <div class="finding-note">FR-52 gates Decomposition inclusion by InUseSince/DecommissionedDate, and FR-53 splits a reassigned Device's consumption by Room per day — but neither FR states whether this date-gating happens before or after a gap is filled by linear interpolation, nor how an interpolated day spanning a reassignment boundary should be split.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a Consequences clause specifying the ordering (e.g., "interpolated values are attributed to whichever Room/Device is active on that calendar day per FR-52's InUseSince window").</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"Hub-free" principle is literally false of the product as worded</h3>
+              <span class="finding-location">§1</span>
+            </header>
+            <div class="finding-note">§1 defines hub-free as including "no cloud subscription," yet the entire product runs on paid Azure services (NFR-4 even prices Azure SQL at ~€5/month). The principle presumably means "no smart-hub-vendor cloud subscription," but the PRD never disambiguates this from the app's own Azure hosting.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Reword the §1 principle to explicitly exclude the app's own hosting from the claim (e.g., "no smart-hub-vendor cloud subscription").</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Household-size kWh presets are uncited and inconsistently scaled</h3>
+              <span class="finding-location">FR-5</span>
+            </header>
+            <div class="finding-note">Unlike every other numeric constant in the document (all traced to a decision-log entry, SPEC.md, or an architecture/brainstorming session), FR-5's 1,500/2,500/3,500/4,250 kWh presets for 1-4 persons have no citation, and the progression itself is uneven (+1,000, +1,000, then only +750).</div>
+            <div class="finding-fix"><strong>Fix:</strong> Cite a source for the presets, or mark them explicitly as a rough placeholder assumption in §11.</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Multi-user architecture asserted with no FR ever exercising it</h3>
+              <span class="finding-location">§9, NFR-2, §1 vs §2.2, §5</span>
+            </header>
+            <div class="finding-note">§9/NFR-2 describe genuine per-user tenant isolation and §1 promises the architecture will accommodate "additional users" eventually, yet there is no FR anywhere for user registration, invitation, or account provisioning, and §2.2/§5 confirm there's no admin or multi-user UI. After 13 shipped epics of single-owner deployment, this reads as unexercised aspiration carried over from an early draft.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Either add a placeholder FR/Non-Goal explicitly deferring multi-user to a named future release, or drop the "additional users" promise from §1 if no plan exists.</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <div class="mechanical">
+      <h3>Mechanical notes</h3>
+      <ul>
+        <li><strong>Terminology drift: "v1/v2" vs "Release 1-4."</strong> §2.2, §5, §9, and §11's [A-2] still use pre-Release-3/4 "v1/v2" vocabulary; a reader can't tell if these Non-Goals are scoped to the first two releases or everything shipped to date. Independently flagged by both reviewers. Recommend normalizing to "Release 1-4" or "current scope" throughout.</li>
+        <li>Glossary case/term consistency is otherwise clean — capitalized defined terms are used identically across FRs, UJs, and SM definitions.</li>
+        <li>ID continuity confirmed: FR-1 through FR-55 present exactly once each (55 unique IDs, no gaps or duplicates) despite non-sequential addition order.</li>
+        <li>Assumptions Index roundtrip: no inline [ASSUMPTION: ...] tags remain in the PRD body; §11 now functions as a historical resolution record rather than a live roundtrip-checkable index.</li>
+        <li>Epics without FR mapping (Epic 9, Epic 11, Epic 13 — engineering-hardening/bugfix work) are, by design, absent from §6's Release table. Consistent with project precedent, but a reader of the PRD alone has no way to know these shipped epics exist.</li>
+        <li>The SPEC-governs-on-conflict rule (§0) has no maintained tripwire — no mechanism anywhere detects when SPEC.md and the PRD actually diverge, which is how the Release 3/4 staleness above went unnoticed. Corroborated by the adversarial pass.</li>
+      </ul>
+    </div>
+
+    <footer class="report-footer">
+      <div class="meta">
+        <span>Rubric: .claude/skills/bmad-prd/assets/prd-validation-checklist.md</span>
+        <span>Generated: 2026-08-07T00:00:00</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
